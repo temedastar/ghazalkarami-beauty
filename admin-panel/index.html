@@ -604,6 +604,19 @@ const SITE_IMAGE_LABELS = {
   ghazal_photo_url: "عکس پروفایل غزل کرمی",
   donia_photo_url: "عکس پروفایل دنیا سلیمانی",
 };
+// mirrors backend/src/routes/admin.ts SITE_CONTENT_MAX_LENGTHS — short
+// headline-style fields get a tight cap so they can't visually break the
+// hero/marquee layout; paragraph-style bios get more room.
+const SITE_CONTENT_MAX_LENGTHS = {
+  marquee_text: 200,
+  hero_tagline: 80,
+  hero_description: 300,
+  tagline_band: 100,
+  ghazal_bio_1: 600,
+  ghazal_bio_2: 600,
+  ghazal_signature: 100,
+  donia_bio: 600,
+};
 tabs.siteContent = async () => {
   const {content} = await api("/admin/site-content");
   const byKey = Object.fromEntries(content.map(c=>[c.key,c.value]));
@@ -627,9 +640,12 @@ tabs.siteContent = async () => {
 
   html += `<div class="section-title">متن‌ها</div><div class="card">`;
   Object.entries(SITE_CONTENT_LABELS).forEach(([key,label])=>{
+    const max = SITE_CONTENT_MAX_LENGTHS[key] || 500;
+    const len = (byKey[key]||"").length;
     html += `<div class="row" style="align-items:flex-start;">
       <label class="field" style="flex:1;">${label}
-        <textarea rows="2" onchange="updateSiteContent('${key}',this.value)">${esc(byKey[key]||"")}</textarea>
+        <textarea rows="2" maxlength="${max}" oninput="document.getElementById('cnt-${key}').textContent=this.value.length+' / ${max}'" onchange="updateSiteContent('${key}',this.value)">${esc(byKey[key]||"")}</textarea>
+        <div class="muted" id="cnt-${key}" style="font-size:12px;margin-top:2px;">${len} / ${max}</div>
       </label>
     </div>`;
   });
@@ -688,7 +704,8 @@ tabs.services = async () => {
       </div>
       <div class="row">
         <label class="field" style="flex:1;">توضیح سرویس (نمایش‌داده‌شده در بخش «خدمات تخصصی» سایت)
-          <textarea rows="2" onchange="updateService('${s.id}','priceNote',this.value)">${esc(s.priceNote||"")}</textarea>
+          <textarea rows="2" maxlength="400" oninput="document.getElementById('cnt-note-${s.id}').textContent=this.value.length+' / 400'" onchange="updateService('${s.id}','priceNote',this.value)">${esc(s.priceNote||"")}</textarea>
+          <div class="muted" id="cnt-note-${s.id}" style="font-size:12px;margin-top:2px;">${(s.priceNote||"").length} / 400</div>
         </label>
       </div>
       <div class="row">
@@ -791,23 +808,66 @@ window.setClassStatus = async (id, status) => {
 /* =====================================================================
    اطلاعات تماس
    ===================================================================== */
+const SOCIAL_PLATFORM_FA = {INSTAGRAM:"اینستاگرام", TELEGRAM:"تلگرام", WHATSAPP:"واتساپ", BALEH:"بله"};
+
 tabs.contact = async () => {
-  const {contact} = await api("/admin/contact-info");
+  const [{contact}, {links}] = await Promise.all([
+    api("/admin/contact-info"),
+    api("/admin/social-links"),
+  ]);
   let html = `<h1>اطلاعات تماس و شبکه‌های اجتماعی</h1><div class="card">
     <p class="muted" style="margin-bottom:16px;">این اطلاعات به‌صورت خودکار در فوتر و بخش‌های تماس سایت به‌روزرسانی می‌شود.</p>
     <div class="form-grid">
       <label class="field">تلفن ثابت<input type="text" class="wide" value="${esc(contact.phone||'')}" onchange="updateContact('phone',this.value)"></label>
-      <label class="field">واتساپ / موبایل<input type="text" class="wide" value="${esc(contact.whatsapp||'')}" onchange="updateContact('whatsapp',this.value)"></label>
-      <label class="field">آیدی اینستاگرام<input type="text" class="wide" value="${esc(contact.instagram||'')}" onchange="updateContact('instagram',this.value)"></label>
-      <label class="field">آیدی تلگرام<input type="text" class="wide" value="${esc(contact.telegram||'')}" onchange="updateContact('telegram',this.value)"></label>
-      <label class="field">آیدی بله<input type="text" class="wide" value="${esc(contact.baleh||'')}" onchange="updateContact('baleh',this.value)"></label>
+      <label class="field">واتساپ / موبایل (دکمه‌ی تماس سریع)<input type="text" class="wide" value="${esc(contact.whatsapp||'')}" onchange="updateContact('whatsapp',this.value)"></label>
       <label class="field">آدرس سالن<input type="text" class="wide" value="${esc(contact.address||'')}" onchange="updateContact('address',this.value)"></label>
     </div>
   </div>`;
+
+  html += `<div class="section-title">شبکه‌های اجتماعی (می‌توانید چند آیدی برای هر پلتفرم اضافه کنید — مثلاً یکی برای سالن، یکی برای آکادمی)</div>`;
+  Object.entries(SOCIAL_PLATFORM_FA).forEach(([platform, label])=>{
+    const rows = links.filter(l=>l.platform===platform);
+    html += `<div class="card" style="margin-bottom:14px;">
+      <h3 style="margin-bottom:10px;">${label}</h3>`;
+    rows.forEach(l=>{
+      html += `<div class="row" style="gap:10px;margin-bottom:8px;">
+        <input type="text" placeholder="برچسب (مثلاً «سالن» یا «آکادمی»)" value="${esc(l.label)}" onchange="updateSocialLink('${l.id}','label',this.value)" style="flex:1;">
+        <input type="text" placeholder="${platform==='WHATSAPP'?'شماره (مثلاً 09121234567)':'آیدی (بدون @)'}" value="${esc(l.value)}" onchange="updateSocialLink('${l.id}','value',this.value)" style="flex:1;">
+        <button class="btn btn-danger btn-sm" onclick="deleteSocialLink('${l.id}')">حذف</button>
+      </div>`;
+    });
+    if(!rows.length) html += `<p class="muted" style="margin-bottom:8px;">هنوز آیدی‌ای برای ${label} اضافه نشده.</p>`;
+    html += `<div class="row" style="gap:10px;">
+        <input type="text" placeholder="برچسب" id="newLabel-${platform}" style="flex:1;">
+        <input type="text" placeholder="${platform==='WHATSAPP'?'شماره':'آیدی (بدون @)'}" id="newValue-${platform}" style="flex:1;">
+        <button class="btn btn-gold btn-sm" onclick="addSocialLink('${platform}')">افزودن</button>
+      </div>
+    </div>`;
+  });
+
   document.getElementById("mainContent").innerHTML = html;
 };
 window.updateContact = async (field, value) => {
   try{ await api("/admin/contact-info",{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+window.addSocialLink = async (platform) => {
+  const labelEl=document.getElementById(`newLabel-${platform}`), valueEl=document.getElementById(`newValue-${platform}`);
+  const label=labelEl.value.trim(), value=valueEl.value.trim();
+  if(!label||!value){ toast("برچسب و آیدی/شماره را وارد کنید.",true); return; }
+  try{
+    await api("/admin/social-links",{method:"POST",body:JSON.stringify({platform,label,value})});
+    toast("اضافه شد.");
+    tabs.contact();
+  }catch(e){ toast(e.message,true); }
+};
+window.updateSocialLink = async (id, field, value) => {
+  try{ await api(`/admin/social-links/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+window.deleteSocialLink = async (id) => {
+  if(!confirm("این آیدی حذف شود؟"))return;
+  try{ await api(`/admin/social-links/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.contact(); }
   catch(e){ toast(e.message,true); }
 };
 

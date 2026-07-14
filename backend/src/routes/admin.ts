@@ -242,7 +242,7 @@ const servicePatchSchema = z.object({
   priceMin: z.number().int().nullable().optional(),
   priceMax: z.number().int().nullable().optional(),
   priceLabel: z.string().nullable().optional(),
-  priceNote: z.string().nullable().optional(),
+  priceNote: z.string().max(400).nullable().optional(),
   durationMin: z.number().int().nullable().optional(),
   allowOnlineBooking: z.boolean().optional(),
   depositType: z.enum(["FIXED", "PERCENT"]).optional(),
@@ -579,11 +579,28 @@ router.get("/site-content", async (_req, res) => {
   res.json({ content: rows });
 });
 
-const siteContentPatchSchema = z.object({ value: z.string().max(2000) });
+// short headline-style keys get a tight cap so they can't visually break the
+// hero/marquee layout; paragraph-style bios get more room. Unknown keys
+// (shouldn't happen from the admin UI, but PATCH is by arbitrary :key) fall
+// back to a conservative default rather than the old blanket 2000.
+const SITE_CONTENT_MAX_LENGTHS: Record<string, number> = {
+  marquee_text: 200,
+  hero_tagline: 80,
+  hero_description: 300,
+  tagline_band: 100,
+  ghazal_bio_1: 600,
+  ghazal_bio_2: 600,
+  ghazal_signature: 100,
+  donia_bio: 600,
+};
+const DEFAULT_SITE_CONTENT_MAX_LENGTH = 500;
 
 router.patch("/site-content/:key", async (req, res) => {
-  const parsed = siteContentPatchSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  const maxLength = SITE_CONTENT_MAX_LENGTHS[req.params.key] ?? DEFAULT_SITE_CONTENT_MAX_LENGTH;
+  const parsed = z.object({ value: z.string().max(maxLength) }).safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: `متن نباید بیشتر از ${maxLength} کاراکتر باشد.` });
+  }
   const row = await prisma.siteContent.upsert({
     where: { key: req.params.key },
     create: { key: req.params.key, value: parsed.data.value },
@@ -604,12 +621,9 @@ router.get("/contact-info", async (_req, res) => {
 });
 
 const contactInfoPatchSchema = z.object({
-  phone: z.string().nullable().optional(),
-  whatsapp: z.string().nullable().optional(),
-  instagram: z.string().nullable().optional(),
-  telegram: z.string().nullable().optional(),
-  baleh: z.string().nullable().optional(),
-  address: z.string().nullable().optional(),
+  phone: z.string().max(40).nullable().optional(),
+  whatsapp: z.string().max(40).nullable().optional(),
+  address: z.string().max(300).nullable().optional(),
 });
 
 router.patch("/contact-info", async (req, res) => {
@@ -621,6 +635,45 @@ router.patch("/contact-info", async (req, res) => {
     update: parsed.data,
   });
   res.json({ contact: info });
+});
+
+/* ---------- social links (multiple accounts per platform) ---------- */
+
+router.get("/social-links", async (_req, res) => {
+  const links = await prisma.socialLink.findMany({ orderBy: [{ platform: "asc" }, { sortOrder: "asc" }] });
+  res.json({ links });
+});
+
+const socialLinkCreateSchema = z.object({
+  platform: z.enum(["INSTAGRAM", "TELEGRAM", "WHATSAPP", "BALEH"]),
+  label: z.string().min(1).max(60),
+  value: z.string().min(1).max(120),
+  sortOrder: z.number().int().optional(),
+});
+
+router.post("/social-links", async (req, res) => {
+  const parsed = socialLinkCreateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  const link = await prisma.socialLink.create({ data: parsed.data });
+  res.status(201).json({ link });
+});
+
+const socialLinkPatchSchema = z.object({
+  label: z.string().min(1).max(60).optional(),
+  value: z.string().min(1).max(120).optional(),
+  sortOrder: z.number().int().optional(),
+});
+
+router.patch("/social-links/:id", async (req, res) => {
+  const parsed = socialLinkPatchSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  const link = await prisma.socialLink.update({ where: { id: req.params.id }, data: parsed.data });
+  res.json({ link });
+});
+
+router.delete("/social-links/:id", async (req, res) => {
+  await prisma.socialLink.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
 });
 
 /* ---------- class requests ---------- */

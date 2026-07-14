@@ -46,8 +46,11 @@ router.get("/site-content", async (_req, res) => {
 });
 
 router.get("/contact-info", async (_req, res) => {
-  const info = await prisma.contactInfo.findUnique({ where: { id: "singleton" } });
-  res.json({ contact: info });
+  const [info, socialLinks] = await Promise.all([
+    prisma.contactInfo.findUnique({ where: { id: "singleton" } }),
+    prisma.socialLink.findMany({ orderBy: [{ platform: "asc" }, { sortOrder: "asc" }] }),
+  ]);
+  res.json({ contact: info, socialLinks });
 });
 
 export default router;

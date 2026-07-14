@@ -323,12 +323,28 @@ model SiteContent {
 model ContactInfo {
   id        String   @id @default("singleton")
   phone     String?
-  whatsapp  String?
-  instagram String?
-  telegram  String?
-  baleh     String?
+  whatsapp  String? // used for the header "tap to call" shortcut and the wa.me chat link — a single primary number, distinct from the social-icon row below
   address   String?
   updatedAt DateTime @updatedAt
+}
+
+enum SocialPlatform {
+  INSTAGRAM
+  TELEGRAM
+  WHATSAPP
+  BALEH
+}
+
+model SocialLink {
+  // supports multiple accounts per platform (e.g. one Instagram for the salon,
+  // one for the academy) — replaces the old single instagram/telegram/baleh
+  // fields on ContactInfo, which could only ever hold one handle each
+  id        String         @id @default(cuid())
+  platform  SocialPlatform
+  label     String // e.g. "سالن غزل کرمی" یا "آکادمی هیرکات"
+  value     String // هندل بدون @ برای اینستاگرام/تلگرام/بله، یا شماره برای واتساپ
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
 }
 
 model SmsLog {

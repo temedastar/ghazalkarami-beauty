@@ -1287,10 +1287,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
       </div>
       <div class="fc">
         <h4>شبکه‌های اجتماعی</h4>
-        <a href="#" class="f-social" data-contact="instagram"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>اینستاگرام</a>
-        <a href="#" class="f-social" data-contact="telegram"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 2.5 1.8 10.4c-1.1.45-1.1 1.1-.2 1.4l5 1.6 1.9 6.1c.25.7.6.85 1.2.35l3.2-2.9 5 3.7c.85.5 1.45.25 1.7-.7l3.1-15.1c.35-1.3-.45-1.85-1.2-1.3z"/></svg>تلگرام</a>
-        <a href="#" class="f-social" data-contact="whatsapp-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2c-5.5 0-10 4.5-10 10 0 1.77.46 3.44 1.27 4.89L2 22l5.24-1.27A9.96 9.96 0 0 0 12.04 22c5.5 0 10-4.5 10-10s-4.5-10-10-10zm0 18.2c-1.6 0-3.13-.43-4.46-1.24l-.32-.19-3.11.76.77-3.03-.2-.32A8.17 8.17 0 0 1 3.8 12c0-4.55 3.7-8.24 8.24-8.24 4.55 0 8.24 3.7 8.24 8.24 0 4.55-3.7 8.2-8.24 8.2z"/></svg>واتساپ</a>
-        <a href="#" class="f-social" data-contact="baleh"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>بله</a>
+        <div id="socialLinksList"><!-- filled by loadContactInfo(); supports multiple accounts per platform --></div>
       </div>
     </div>
     <div class="fb">© ۱۴۰۵ غزل کرمی — تمامی حقوق محفوظ است</div>
@@ -1468,12 +1465,45 @@ loadSiteContent();
 
 /* editable contact info + social links — same fallback approach: only
    overwrite an element when a real value exists. */
+/* supports multiple accounts per platform (e.g. one Instagram for the salon,
+   one for the academy) — icons are fixed, developer-authored SVG (safe to set
+   via innerHTML); the admin-entered label is always appended as a text node,
+   never parsed as HTML, so it can't inject markup */
+const SOCIAL_ICONS={
+  INSTAGRAM:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>',
+  TELEGRAM:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 2.5 1.8 10.4c-1.1.45-1.1 1.1-.2 1.4l5 1.6 1.9 6.1c.25.7.6.85 1.2.35l3.2-2.9 5 3.7c.85.5 1.45.25 1.7-.7l3.1-15.1c.35-1.3-.45-1.85-1.2-1.3z"/></svg>',
+  WHATSAPP:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2c-5.5 0-10 4.5-10 10 0 1.77.46 3.44 1.27 4.89L2 22l5.24-1.27A9.96 9.96 0 0 0 12.04 22c5.5 0 10-4.5 10-10s-4.5-10-10-10zm0 18.2c-1.6 0-3.13-.43-4.46-1.24l-.32-.19-3.11.76.77-3.03-.2-.32A8.17 8.17 0 0 1 3.8 12c0-4.55 3.7-8.24 8.24-8.24 4.55 0 8.24 3.7 8.24 8.24 0 4.55-3.7 8.2-8.24 8.2z"/></svg>',
+  BALEH:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>',
+};
+const SOCIAL_HREF_BUILDERS={
+  INSTAGRAM:v=>'https://instagram.com/'+v.replace(/^@/,''),
+  TELEGRAM:v=>'https://t.me/'+v.replace(/^@/,''),
+  WHATSAPP:v=>'https://wa.me/'+v.replace(/[^\d+]/g,'').replace(/^0/,'98'),
+  BALEH:v=>'https://bale.ai/'+v.replace(/^@/,''),
+};
+function renderSocialLinks(links){
+  const container=document.getElementById('socialLinksList');
+  if(!container)return;
+  container.innerHTML='';
+  (links||[]).forEach(link=>{
+    const icon=SOCIAL_ICONS[link.platform],hrefBuilder=SOCIAL_HREF_BUILDERS[link.platform];
+    if(!icon||!hrefBuilder)return;
+    const a=document.createElement('a');
+    a.className='f-social';a.target='_blank';a.rel='noopener noreferrer';
+    a.href=hrefBuilder(link.value);
+    a.innerHTML=icon;
+    a.appendChild(document.createTextNode(link.label));
+    container.appendChild(a);
+  });
+}
+
 async function loadContactInfo(){
-  let contact;
+  let contact,socialLinks;
   try{
     const res=await fetch('/api/contact-info');
     const data=await res.json();
     contact=data.contact;
+    socialLinks=data.socialLinks;
   }catch(e){ return; }
   if(!contact)return;
 
@@ -1487,13 +1517,10 @@ async function loadContactInfo(){
   }
   applyContactLink('phone', contact.phone, v=>'tel:'+v.replace(/[^\d+]/g,''));
   applyContactLink('whatsapp', contact.whatsapp, v=>'tel:'+v.replace(/[^\d+]/g,''));
-  applyContactLink('whatsapp-link', contact.whatsapp, v=>'https://wa.me/'+v.replace(/[^\d+]/g,'').replace(/^0/,'98'));
-  applyContactLink('instagram', contact.instagram, v=>'https://instagram.com/'+v.replace(/^@/,''));
-  applyContactLink('telegram', contact.telegram, v=>'https://t.me/'+v.replace(/^@/,''));
-  applyContactLink('baleh', contact.baleh, v=>'https://bale.ai/'+v.replace(/^@/,''));
   document.querySelectorAll('[data-contact="address"]').forEach(el=>{
     if(contact.address)el.textContent=contact.address;
   });
+  renderSocialLinks(socialLinks);
 
   /* keep the Schema.org structured data (used by Google's local-business rich
      results) in sync with the same admin-editable contact info, instead of

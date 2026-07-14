@@ -138,13 +138,22 @@ async function main() {
       id: "singleton",
       phone: "02188776655",
       whatsapp: "09121234567",
-      instagram: "",
-      telegram: "",
-      baleh: "",
       address: "تهران، خیابان ولیعصر، نرسیده به میدان ونک",
     },
     update: {},
   });
+
+  console.log("Seeding social links...");
+  const socialSeeds: { platform: "INSTAGRAM" | "TELEGRAM" | "WHATSAPP" | "BALEH"; label: string; value: string }[] = [
+    { platform: "INSTAGRAM", label: "سالن غزل کرمی", value: "ghazalkarami.salon" },
+    { platform: "TELEGRAM", label: "سالن غزل کرمی", value: "ghazalkarami_salon" },
+    { platform: "WHATSAPP", label: "سالن غزل کرمی", value: "09121234567" },
+    { platform: "BALEH", label: "سالن غزل کرمی", value: "ghazalkarami_salon" },
+  ];
+  for (const s of socialSeeds) {
+    const existing = await prisma.socialLink.findFirst({ where: { platform: s.platform, label: s.label } });
+    if (!existing) await prisma.socialLink.create({ data: s });
+  }
 
   console.log("Seeding editable site text...");
   const siteContent: Record<string, string> = {
