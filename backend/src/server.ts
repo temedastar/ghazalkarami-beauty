@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import compression from "compression";
+import helmet from "helmet";
 import path from "path";
 import { env } from "./lib/env";
 import { errorHandler } from "./middleware/errorHandler";
@@ -19,6 +20,31 @@ import adminRoutes from "./routes/admin";
 const app = express();
 
 app.use(compression());
+app.use(
+  // the frontend is a hand-authored single HTML file with inline <script>,
+  // inline <style>, and inline onclick/onchange/onerror="..." attributes
+  // (design/markup is intentionally kept as-is — see project README) rather
+  // than bundled assets, so script-src/script-src-attr/style-src all need
+  // 'unsafe-inline'; the only third-party resource in use is Google Fonts,
+  // and the favicon is an inline data: URI. CSP is defense-in-depth here —
+  // it does not itself stop injected <script> content (that's handled by
+  // escaping user data with textContent/esc() everywhere it's rendered),
+  // but it still buys real protection: no object-src, no cross-origin
+  // form submission, frame-ancestors clickjacking protection, etc.
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"],
+      },
+    },
+  })
+);
 app.use(
   cors({
     origin: env.frontendBaseUrl,
