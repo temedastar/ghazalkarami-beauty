@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OtpPurpose {
+  REGISTER
+  LOGIN
+  RESET_PASSWORD
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  INITIATED
+  PAID
+  FAILED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ClassRequestStatus {
+  NEW
+  CONTACTED
+  SCHEDULED
+  CLOSED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  phone        String    @unique
+  name         String?
+  passwordHash String?
+  role         Role      @default(CUSTOMER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  bookings      Booking[]
+  reviews       Review[]
+  classRequests ClassRequest[]
+  otpCodes      OtpCode[]
+}
+
+model OtpCode {
+  id        String     @id @default(cuid())
+  phone     String
+  codeHash  String
+  purpose   OtpPurpose
+  attempts  Int        @default(0)
+  consumed  Boolean    @default(false)
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+
+  @@index([phone, purpose])
+}
+
+model ServiceCategory {
+  // matches the frontend's data-type: h / t / c / p / s
+  id                 String   @id @default(cuid())
+  key                String   @unique
+  name               String
+  allowOnlineBooking Boolean  @default(true)
+  fridayAvailable    Boolean  @default(true)
+  sortOrder          Int      @default(0)
+
+  services  Service[]
+  timeSlots TimeSlot[]
+  bookings  Booking[]
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  priceGroup  String?
+  priceMin    Int?
+  priceMax    Int?
+  priceLabel  String?
+  priceNote   String?
+  depositAmount Int    @default(0)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PriceListItem {
+  // rows shown in the public Pricing table — separate from bookable Services,
+  // since the price list has finer granularity (e.g. 4 haircut length tiers)
+  // than the booking widget does (one generic "هیرکات" button)
+  id          String   @id @default(cuid())
+  groupTitle  String
+  name        String
+  description String?
+  priceMin    Int?
+  priceMax    Int?
+  priceLabel  String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WorkingDay {
+  // one row per weekday (0=Sunday .. 6=Saturday), global salon-level toggle
+  id        String  @id @default(cuid())
+  dayOfWeek Int     @unique
+  isOpen    Boolean @default(true)
+  openTime  String? // "10:00"
+  closeTime String? // "19:00"
+  note      String?
+}
+
+model TimeSlot {
+  // the concrete bookable time slots per category per weekday — admin editable
+  id         String  @id @default(cuid())
+  dayOfWeek  Int
+  time       String
+  isActive   Boolean @default(true)
+  sortOrder  Int     @default(0)
+
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  @@unique([categoryId, dayOfWeek, time])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  date          DateTime      @db.Date
+  time          String
+  status        BookingStatus @default(PENDING_PAYMENT)
+  depositAmount Int
+  customerNote  String?
+  holdExpiresAt DateTime?
+  reminderSentAt DateTime?
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  service   Service @relation(fields: [serviceId], references: [id])
+  serviceId String
+
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  payment Payment?
+  slotHold SlotHold?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([categoryId, date, time])
+}
+
+model SlotHold {
+  // exists exactly while a booking (pending-payment or confirmed) occupies a
+  // slot; deleted on cancel/expiry so the slot frees up immediately. The
+  // unique constraint here — not on Booking itself — is what actually
+  // prevents two customers from double-booking the same category/date/time,
+  // since Booking rows must be kept around (cancelled/expired) for history.
+  id         String   @id @default(cuid())
+  categoryId String
+  date       DateTime @db.Date
+  time       String
+
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId String  @unique
+
+  createdAt DateTime @default(now())
+
+  @@unique([categoryId, date, time])
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  authority  String?       @unique
+  refId      String?
+  amount     Int
+  status     PaymentStatus @default(INITIATED)
+  gateway    String        @default("zarinpal")
+  verifiedAt DateTime?
+  createdAt  DateTime      @default(now())
+
+  booking   Booking @relation(fields: [bookingId], references: [id])
+  bookingId String  @unique
+}
+
+model GalleryImage {
+  id        String   @id @default(cuid())
+  url       String
+  category  String // haircut | color | treat
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Review {
+  id        String       @id @default(cuid())
+  name      String
+  rating    Int
+  text      String
+  status    ReviewStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+}
+
+model ClassRequest {
+  id        String              @id @default(cuid())
+  classType String
+  timePref  String
+  status    ClassRequestStatus  @default(NEW)
+  createdAt DateTime            @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+}

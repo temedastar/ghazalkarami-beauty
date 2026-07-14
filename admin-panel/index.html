@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>پنل مدیریت | غزل کرمی</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --must:#DFA02D;--must-d:#A87310;--must-l:#F3C766;--must-t:#FBEECB;
+  --night:#0B1526;--night-2:#12203A;--bone:#FBF7EE;--bone-2:#F1E7CF;
+  --line:#E3D5B2;--ink:#181207;--ink-2:#59481F;--danger:#C0392B;--success:#3A8A5A;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Vazirmatn',sans-serif;background:var(--bone);color:var(--ink);min-height:100vh;}
+a{color:inherit;}
+.hidden{display:none !important;}
+
+/* ---- login screen ---- */
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--night);padding:20px;}
+.login-card{background:var(--night-2);border:1px solid rgba(223,160,45,.25);border-radius:20px;padding:36px;width:100%;max-width:380px;}
+.login-card h1{color:#fff;font-size:20px;margin-bottom:6px;text-align:center;}
+.login-card p{color:rgba(251,247,238,.6);font-size:13px;text-align:center;margin-bottom:24px;}
+.login-card input{width:100%;padding:14px 16px;border-radius:12px;border:1.5px solid rgba(223,160,45,.3);
+  background:rgba(255,255,255,.04);color:#fff;font-family:inherit;font-size:15px;margin-bottom:12px;}
+.login-card input::placeholder{color:rgba(251,247,238,.4);}
+.login-card input:focus{outline:2px solid var(--must);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;
+  border-radius:999px;font-weight:700;font-size:14.5px;border:1.5px solid transparent;cursor:pointer;
+  font-family:inherit;transition:.2s;}
+.btn-gold{background:var(--must);color:var(--night);width:100%;}
+.btn-gold:hover{background:var(--must-l);}
+.btn-line{border-color:var(--must);color:var(--must-d);background:transparent;}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-sm{padding:8px 14px;font-size:13px;}
+.err-msg{color:#ff8a80;font-size:13px;text-align:center;margin-top:10px;min-height:16px;}
+
+/* ---- app shell ---- */
+#app{display:none;min-height:100vh;}
+#app.on{display:flex;}
+.sidebar{width:230px;flex-shrink:0;background:var(--night);color:#fff;min-height:100vh;padding:24px 0;}
+.sidebar h2{padding:0 22px 20px;font-size:16px;color:var(--must-l);border-bottom:1px solid rgba(223,160,45,.18);margin-bottom:10px;}
+.sidebar button{display:flex;align-items:center;gap:10px;width:100%;text-align:right;padding:13px 22px;
+  background:none;border:none;color:rgba(251,247,238,.75);font-family:inherit;font-size:14.5px;cursor:pointer;
+  border-right:3px solid transparent;transition:.2s;}
+.sidebar button:hover{background:rgba(223,160,45,.08);color:#fff;}
+.sidebar button.on{background:rgba(223,160,45,.14);color:var(--must-l);border-right-color:var(--must);font-weight:700;}
+.sidebar .logout{margin-top:20px;color:rgba(251,247,238,.5);}
+main{flex:1;padding:32px 36px;max-width:1100px;}
+main h1{font-size:22px;margin-bottom:22px;}
+.card{background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:22px;margin-bottom:16px;}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+.row + .row{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
+.muted{color:var(--ink-2);font-size:13px;}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;}
+.tag-open{background:rgba(58,138,90,.14);color:var(--success);}
+.tag-closed{background:rgba(192,57,43,.14);color:var(--danger);}
+.tag-pending{background:rgba(223,160,45,.18);color:var(--must-d);}
+input[type=text],input[type=number]{padding:9px 12px;border-radius:9px;border:1.5px solid var(--line);
+  font-family:inherit;font-size:13.5px;width:120px;}
+input[type=text].wide{width:220px;}
+.switch{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:999px;transition:.2s;}
+.slider::before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+input:checked + .slider{background:var(--must);}
+input:checked + .slider::before{transform:translateX(-20px);}
+.grid-imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;}
+.gimg{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;position:relative;background:var(--bone-2);}
+.gimg img{width:100%;height:140px;object-fit:cover;display:block;}
+.gimg .meta{padding:8px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:6px;}
+.gimg select{font-family:inherit;font-size:11px;padding:3px;border-radius:6px;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--night);color:#fff;
+  padding:12px 22px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:200;}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(-6px);}
+.loading{color:var(--ink-2);font-size:13.5px;padding:20px 0;}
+textarea{width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid var(--line);font-family:inherit;font-size:13.5px;resize:vertical;}
+.upload-btn{display:inline-block;padding:9px 16px;border-radius:999px;border:1.5px dashed var(--must);
+  color:var(--must-d);font-size:13px;cursor:pointer;}
+@media(max-width:760px){
+  #app.on{flex-direction:column;}
+  .sidebar{width:100%;display:flex;overflow-x:auto;padding:14px 0;}
+  .sidebar h2,.sidebar .logout{display:none;}
+  .sidebar button{white-space:nowrap;border-right:none;border-bottom:3px solid transparent;}
+  .sidebar button.on{border-bottom-color:var(--must);}
+  main{padding:20px;}
+}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>پنل مدیریت غزل کرمی</h1>
+    <p>ورود مخصوص مدیر سالن</p>
+    <input type="text" id="loginPhone" placeholder="شماره موبایل" autocomplete="username">
+    <input type="password" id="loginPass" placeholder="رمز عبور" autocomplete="current-password">
+    <button class="btn btn-gold" onclick="doLogin()">ورود</button>
+    <div class="err-msg" id="loginErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <nav class="sidebar">
+    <h2>غزل کرمی</h2>
+    <button data-tab="hours" class="on">ساعات کاری</button>
+    <button data-tab="prices">قیمت‌ها</button>
+    <button data-tab="gallery">گالری</button>
+    <button data-tab="reviews">نظرات</button>
+    <button data-tab="bookings">رزروها</button>
+    <button data-tab="classes">درخواست کلاس</button>
+    <button class="logout" onclick="logout()">خروج</button>
+  </nav>
+  <main id="mainContent"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "/api";
+let TOKEN = localStorage.getItem("gk_admin_token") || "";
+
+function toast(msg, isErr){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.style.background=isErr?"var(--danger)":"var(--night)";
+  t.classList.add("on");
+  setTimeout(()=>t.classList.remove("on"),2600);
+}
+
+async function api(path, opts={}){
+  const res = await fetch(API+path, {
+    ...opts,
+    headers:{
+      "Content-Type":"application/json",
+      ...(TOKEN?{Authorization:`Bearer ${TOKEN}`}:{}),
+      ...(opts.headers||{}),
+    },
+  });
+  if(res.status===401){ logout(); throw new Error("نشست منقضی شده."); }
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||"خطایی رخ داد.");
+  return data;
+}
+
+async function doLogin(){
+  const phone=document.getElementById("loginPhone").value.trim();
+  const password=document.getElementById("loginPass").value;
+  const errEl=document.getElementById("loginErr");
+  errEl.textContent="";
+  try{
+    const res=await fetch(API+"/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone,password})});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error||"ورود ناموفق بود.");
+    if(data.user.role!=="ADMIN") throw new Error("این حساب دسترسی مدیریت ندارد.");
+    TOKEN=data.token;
+    localStorage.setItem("gk_admin_token",TOKEN);
+    boot();
+  }catch(e){ errEl.textContent=e.message; }
+}
+function logout(){
+  TOKEN=""; localStorage.removeItem("gk_admin_token");
+  document.getElementById("app").classList.remove("on");
+  document.getElementById("loginScreen").style.display="flex";
+}
+
+const DOW_NAMES=["یکشنبه","دوشنبه","سه‌شنبه","چهارشنبه","پنج‌شنبه","جمعه","شنبه"];
+const tabs={};
+
+/* ---------------- hours ---------------- */
+tabs.hours = async () => {
+  const {days} = await api("/admin/working-days");
+  const {categories} = await api("/admin/categories");
+  let html = `<h1>ساعات کاری</h1><div class="card"><h3 style="margin-bottom:14px;">روزهای فعال سالن</h3>`;
+  days.sort((a,b)=>a.dayOfWeek-b.dayOfWeek).forEach(d=>{
+    html += `<div class="row">
+      <div>
+        <b>${DOW_NAMES[d.dayOfWeek]}</b>
+        <div class="muted">${d.isOpen?(d.openTime||"")+" تا "+(d.closeTime||""):"تعطیل"}</div>
+      </div>
+      <label class="switch"><input type="checkbox" ${d.isOpen?"checked":""} onchange="toggleDay(${d.dayOfWeek}, this.checked)"><span class="slider"></span></label>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="card"><h3 style="margin-bottom:14px;">تنظیمات دسته‌بندی خدمات</h3>`;
+  categories.forEach(c=>{
+    html += `<div class="row">
+      <div><b>${c.name}</b><div class="muted">رزرو آنلاین ${c.allowOnlineBooking?"فعال":"غیرفعال"} — جمعه‌ها ${c.fridayAvailable?"باز":"بسته"}</div></div>
+      <div style="display:flex;gap:18px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;">رزرو آنلاین
+          <label class="switch"><input type="checkbox" ${c.allowOnlineBooking?"checked":""} onchange="toggleCategory('${c.id}','allowOnlineBooking',this.checked)"><span class="slider"></span></label>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;">جمعه‌ها
+          <label class="switch"><input type="checkbox" ${c.fridayAvailable?"checked":""} onchange="toggleCategory('${c.id}','fridayAvailable',this.checked)"><span class="slider"></span></label>
+        </label>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.toggleDay = async (dayOfWeek, isOpen) => {
+  try{ await api(`/admin/working-days/${dayOfWeek}`,{method:"PATCH",body:JSON.stringify({isOpen})}); toast("ذخیره شد."); tabs.hours(); }
+  catch(e){ toast(e.message,true); }
+};
+window.toggleCategory = async (id, field, value) => {
+  try{ await api(`/admin/categories/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+
+/* ---------------- prices ---------------- */
+tabs.prices = async () => {
+  const {items} = await api("/admin/price-list");
+  const groups = {};
+  items.forEach(i=>{ (groups[i.groupTitle] ||= []).push(i); });
+  let html = `<h1>قیمت‌ها</h1>`;
+  Object.entries(groups).forEach(([title,rows])=>{
+    html += `<div class="card"><h3 style="margin-bottom:14px;">${title}</h3>`;
+    rows.sort((a,b)=>a.sortOrder-b.sortOrder).forEach(r=>{
+      html += `<div class="row">
+        <div style="flex:1;min-width:160px;"><b>${r.name}</b><div class="muted">${r.description||""}</div></div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" value="${r.priceMin??""}" placeholder="از" onchange="updatePrice('${r.id}','priceMin',this.value)">
+          <span class="muted">تا</span>
+          <input type="number" value="${r.priceMax??""}" placeholder="تا" onchange="updatePrice('${r.id}','priceMax',this.value)">
+          <input type="text" class="wide" value="${r.priceLabel||""}" placeholder="یا برچسب متنی (مثلاً «با مشاوره»)" onchange="updatePrice('${r.id}','priceLabel',this.value)">
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.updatePrice = async (id, field, value) => {
+  try{
+    const payload = {};
+    payload[field] = field==="priceLabel" ? (value||null) : (value===""?null:Number(value));
+    await api(`/admin/price-list/${id}`,{method:"PATCH",body:JSON.stringify(payload)});
+    toast("قیمت به‌روزرسانی شد.");
+  }catch(e){ toast(e.message,true); }
+};
+
+/* ---------------- gallery ---------------- */
+tabs.gallery = async () => {
+  const {images} = await api("/admin/gallery");
+  let html = `<h1>گالری</h1><div class="card">
+    <label class="upload-btn">افزودن عکس جدید
+      <input type="file" accept="image/*" style="display:none;" onchange="uploadImage(this)">
+    </label>
+    <span class="muted" style="margin-right:10px;">JPG / PNG / WebP — حداکثر ۸ مگابایت</span>
+  </div>`;
+  html += `<div class="grid-imgs">`;
+  images.forEach(img=>{
+    html += `<div class="gimg">
+      <img src="${img.url}" alt="">
+      <div class="meta">
+        <select onchange="updateGalleryField('${img.id}','category',this.value)">
+          <option value="haircut" ${img.category==="haircut"?"selected":""}>هیرکات</option>
+          <option value="color" ${img.category==="color"?"selected":""}>رنگ</option>
+          <option value="treat" ${img.category==="treat"?"selected":""}>صافی/احیا</option>
+        </select>
+        <div style="display:flex;gap:6px;">
+          <label class="switch" style="width:34px;height:19px;"><input type="checkbox" ${img.active?"checked":""} onchange="updateGalleryField('${img.id}','active',this.checked)"><span class="slider"></span></label>
+          <button class="btn btn-danger btn-sm" onclick="deleteImage('${img.id}')">حذف</button>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.uploadImage = async (input) => {
+  const file = input.files[0];
+  if(!file) return;
+  try{
+    const fd = new FormData(); fd.append("file", file);
+    const res = await fetch(API+"/admin/upload",{method:"POST",headers:{Authorization:`Bearer ${TOKEN}`},body:fd});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error||"آپلود ناموفق بود.");
+    await api("/admin/gallery",{method:"POST",body:JSON.stringify({url:data.url,category:"haircut"})});
+    toast("عکس اضافه شد.");
+    tabs.gallery();
+  }catch(e){ toast(e.message,true); }
+};
+window.updateGalleryField = async (id, field, value) => {
+  try{ await api(`/admin/gallery/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+window.deleteImage = async (id) => {
+  if(!confirm("این عکس حذف شود؟")) return;
+  try{ await api(`/admin/gallery/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.gallery(); }
+  catch(e){ toast(e.message,true); }
+};
+
+/* ---------------- reviews ---------------- */
+tabs.reviews = async () => {
+  const {reviews} = await api("/admin/reviews");
+  let html = `<h1>نظرات مشتریان</h1>`;
+  if(!reviews.length) html += `<div class="card muted">هنوز نظری ثبت نشده.</div>`;
+  reviews.forEach(r=>{
+    const statusTag = r.status==="APPROVED"?`<span class="tag tag-open">تاییدشده</span>`
+      : r.status==="REJECTED"?`<span class="tag tag-closed">ردشده</span>`
+      : `<span class="tag tag-pending">در انتظار تایید</span>`;
+    html += `<div class="card">
+      <div class="row" style="border:none;padding:0;">
+        <div>
+          <b>${r.name}</b> ${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)} ${statusTag}
+          <p style="margin-top:8px;">${r.text}</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button class="btn btn-gold btn-sm" onclick="setReviewStatus('${r.id}','APPROVED')">تایید</button>
+          <button class="btn btn-danger btn-sm" onclick="setReviewStatus('${r.id}','REJECTED')">رد</button>
+        </div>
+      </div>
+    </div>`;
+  });
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.setReviewStatus = async (id, status) => {
+  try{ await api(`/admin/reviews/${id}`,{method:"PATCH",body:JSON.stringify({status})}); toast("وضعیت به‌روزرسانی شد."); tabs.reviews(); }
+  catch(e){ toast(e.message,true); }
+};
+
+/* ---------------- bookings ---------------- */
+tabs.bookings = async () => {
+  const {bookings} = await api("/admin/bookings");
+  let html = `<h1>رزروها</h1>`;
+  if(!bookings.length) html += `<div class="card muted">هنوز رزروی ثبت نشده.</div>`;
+  const statusFa = {PENDING_PAYMENT:"در انتظار پرداخت",CONFIRMED:"تاییدشده",CANCELLED:"لغوشده",EXPIRED:"منقضی",COMPLETED:"انجام‌شده"};
+  bookings.forEach(b=>{
+    html += `<div class="card">
+      <div class="row" style="border:none;padding:0;">
+        <div>
+          <b>${b.service.name}</b> — ${b.user.name||b.user.phone} (${b.user.phone})
+          <div class="muted">${b.date.slice(0,10)} ساعت ${b.time} — بیعانه ${Number(b.depositAmount).toLocaleString("fa-IR")} تومان</div>
+        </div>
+        <span class="tag ${b.status==="CONFIRMED"?"tag-open":b.status==="PENDING_PAYMENT"?"tag-pending":"tag-closed"}">${statusFa[b.status]||b.status}</span>
+      </div>
+    </div>`;
+  });
+  document.getElementById("mainContent").innerHTML = html;
+};
+
+/* ---------------- class requests ---------------- */
+tabs.classes = async () => {
+  const {requests} = await api("/admin/class-requests");
+  let html = `<h1>درخواست‌های کلاس آموزشی</h1>`;
+  if(!requests.length) html += `<div class="card muted">هنوز درخواستی ثبت نشده.</div>`;
+  requests.forEach(r=>{
+    html += `<div class="card">
+      <div class="row" style="border:none;padding:0;">
+        <div>
+          <b>${r.classType}</b> — زمان مدنظر: ${r.timePref}
+          <div class="muted">${r.user? (r.user.name||r.user.phone)+" ("+r.user.phone+")" : "کاربر مهمان"}</div>
+        </div>
+        <select onchange="setClassStatus('${r.id}',this.value)">
+          ${["NEW","CONTACTED","SCHEDULED","CLOSED"].map(s=>`<option value="${s}" ${r.status===s?"selected":""}>${({NEW:"جدید",CONTACTED:"تماس گرفته شد",SCHEDULED:"زمان‌بندی شد",CLOSED:"بسته شد"})[s]}</option>`).join("")}
+        </select>
+      </div>
+    </div>`;
+  });
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.setClassStatus = async (id, status) => {
+  try{ await api(`/admin/class-requests/${id}`,{method:"PATCH",body:JSON.stringify({status})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+
+/* ---------------- shell ---------------- */
+document.querySelectorAll(".sidebar button[data-tab]").forEach(btn=>{
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".sidebar button[data-tab]").forEach(b=>b.classList.remove("on"));
+    btn.classList.add("on");
+    document.getElementById("mainContent").innerHTML = `<div class="loading">در حال بارگذاری…</div>`;
+    tabs[btn.dataset.tab]().catch(e=>toast(e.message,true));
+  });
+});
+
+async function boot(){
+  document.getElementById("loginScreen").style.display="none";
+  document.getElementById("app").classList.add("on");
+  document.getElementById("mainContent").innerHTML = `<div class="loading">در حال بارگذاری…</div>`;
+  try{ await tabs.hours(); }catch(e){ toast(e.message,true); }
+}
+
+if(TOKEN) boot();
+</script>
+</body>
+</html>
