@@ -6,3 +6,7 @@ backend/.env
 *.log
 public/uploads/*
 !public/uploads/.gitkeep
+backend/playwright-report/
+backend/test-results/
+backend/tests/.test-pool.json
+backend/tests/.server-test.log

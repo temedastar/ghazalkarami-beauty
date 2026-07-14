@@ -11,9 +11,10 @@ declare global {
 }
 
 function extractToken(req: Request): string | null {
+  // Bearer header only — the frontend never relies on cookies for auth, and a
+  // cookie fallback here would open a CSRF surface for no functional benefit.
   const header = req.headers.authorization;
   if (header?.startsWith("Bearer ")) return header.slice(7);
-  if (req.cookies?.token) return req.cookies.token;
   return null;
 }
 

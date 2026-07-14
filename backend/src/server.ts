@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import cookieParser from "cookie-parser";
+import compression from "compression";
 import path from "path";
 import { env } from "./lib/env";
 import { errorHandler } from "./middleware/errorHandler";
@@ -18,14 +18,13 @@ import adminRoutes from "./routes/admin";
 
 const app = express();
 
+app.use(compression());
 app.use(
   cors({
     origin: env.frontendBaseUrl,
-    credentials: true,
   })
 );
 app.use(express.json());
-app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
 app.use("/api", catalogRoutes);
@@ -37,6 +36,18 @@ app.use("/api/class-requests", classRequestRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// generated (not a static file) so it always reflects FRONTEND_BASE_URL —
+// once the real domain is set in .env this is automatically correct, no
+// separate file to remember to update
+app.get("/sitemap.xml", (_req, res) => {
+  res.type("application/xml").send(
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      `  <url><loc>${env.frontendBaseUrl}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n` +
+      `</urlset>\n`
+  );
+});
 
 // serve the (design-untouched) public frontend + admin dashboard
 const publicDir = path.join(__dirname, "..", "..", "public");
