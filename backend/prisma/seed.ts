@@ -26,13 +26,15 @@ async function main() {
   }
 
   console.log("Seeding service categories...");
+  // "chem" is the shared timeline: protein-therapy, keratin, botox, crabotox,
+  // color/highlight and pixie-bleach all draw from the SAME slot grid, so
+  // booking any one of them (online or entered by Ghazal) blocks the rest.
+  // Haircut and scalp scrub each keep their own independent grid.
   const categories = await Promise.all(
     [
-      { key: "h", name: "هیرکات", allowOnlineBooking: true, fridayAvailable: true, sortOrder: 1 },
-      { key: "t", name: "صافی و احیای مو", allowOnlineBooking: true, fridayAvailable: true, sortOrder: 2 },
-      { key: "c", name: "رنگ و لایت", allowOnlineBooking: false, fridayAvailable: false, sortOrder: 3 },
-      { key: "p", name: "دکلره و رنگ موی پیکسی", allowOnlineBooking: true, fridayAvailable: true, sortOrder: 4 },
-      { key: "s", name: "اسکراب اسکالپ", allowOnlineBooking: true, fridayAvailable: false, sortOrder: 5 },
+      { key: "h", name: "هیرکات", sortOrder: 1 },
+      { key: "chem", name: "پروتئین‌تراپی، کراتینه، بوتاکس، کرابوتاکس، رنگ و لایت، دکلره و رنگ پیکسی (خط زمانی مشترک)", sortOrder: 2 },
+      { key: "s", name: "اسکراب اسکالپ", sortOrder: 3 },
     ].map((c) =>
       prisma.serviceCategory.upsert({ where: { key: c.key }, create: c, update: c })
     )
@@ -41,29 +43,28 @@ async function main() {
 
   console.log("Seeding bookable services...");
   const services = [
-    { key: "haircut", name: "هیرکات", categoryKey: "h", priceMin: 1650000, priceMax: 2800000, depositAmount: 300000, sortOrder: 1 },
-    { key: "protein_therapy", name: "پروتئین‌تراپی", categoryKey: "t", priceMin: 6500000, priceMax: 12000000, depositAmount: 1000000, sortOrder: 2 },
-    { key: "keratin", name: "کراتینه", categoryKey: "t", priceMin: 7500000, priceMax: 14000000, depositAmount: 1000000, sortOrder: 3 },
-    { key: "botox", name: "بوتاکس مو", categoryKey: "t", priceMin: 7500000, priceMax: 14000000, depositAmount: 1000000, sortOrder: 4 },
-    { key: "crabotox", name: "کرابوتاکس", categoryKey: "t", priceMin: 8000000, priceMax: 15000000, depositAmount: 1000000, sortOrder: 5 },
-    { key: "color_highlight", name: "رنگ و لایت", categoryKey: "c", priceLabel: "با مشاوره", depositAmount: 0, sortOrder: 6 },
-    { key: "pixie_bleach", name: "دکلره و رنگ موی پیکسی", categoryKey: "p", priceMin: 7000000, priceMax: 10500000, depositAmount: 700000, sortOrder: 7 },
-    { key: "scalp_scrub", name: "اسکراب اسکالپ", categoryKey: "s", priceMin: 2800000, priceMax: 4000000, depositAmount: 300000, sortOrder: 8 },
+    { key: "haircut", name: "هیرکات", categoryKey: "h", priceMin: 1650000, priceMax: 2800000, durationMin: 45, allowOnlineBooking: true, depositValue: 300000, sortOrder: 1 },
+    { key: "protein_therapy", name: "پروتئین‌تراپی", categoryKey: "chem", priceMin: 6500000, priceMax: 12000000, durationMin: 180, allowOnlineBooking: true, depositValue: 1000000, sortOrder: 2 },
+    { key: "keratin", name: "کراتینه", categoryKey: "chem", priceMin: 7500000, priceMax: 14000000, durationMin: 180, allowOnlineBooking: true, depositValue: 1000000, sortOrder: 3 },
+    { key: "botox", name: "بوتاکس مو", categoryKey: "chem", priceMin: 7500000, priceMax: 14000000, durationMin: 180, allowOnlineBooking: true, depositValue: 1000000, sortOrder: 4 },
+    { key: "crabotox", name: "کرابوتاکس", categoryKey: "chem", priceMin: 8000000, priceMax: 15000000, durationMin: 180, allowOnlineBooking: true, depositValue: 1000000, sortOrder: 5 },
+    { key: "color_highlight", name: "رنگ و لایت", categoryKey: "chem", priceLabel: "با مشاوره", durationMin: 180, allowOnlineBooking: false, depositValue: 0, sortOrder: 6 },
+    { key: "pixie_bleach", name: "دکلره و رنگ موی پیکسی", categoryKey: "chem", priceMin: 7000000, priceMax: 10500000, durationMin: 150, allowOnlineBooking: true, depositValue: 700000, sortOrder: 7 },
+    { key: "scalp_scrub", name: "اسکراب اسکالپ", categoryKey: "s", priceMin: 2800000, priceMax: 4000000, durationMin: 40, allowOnlineBooking: true, depositValue: 300000, sortOrder: 8 },
   ];
   for (const s of services) {
     const { categoryKey, ...data } = s;
     await prisma.service.upsert({
       where: { key: s.key },
-      create: { ...data, categoryId: catByKey[categoryKey].id },
-      update: { ...data, categoryId: catByKey[categoryKey].id },
+      create: { ...data, depositType: "FIXED", categoryId: catByKey[categoryKey].id },
+      update: { ...data, depositType: "FIXED", categoryId: catByKey[categoryKey].id },
     });
   }
 
   console.log("Seeding time slots...");
   const slotPlan: Record<string, { reg: string[]; fri: string[] }> = {
     h: { reg: ["10:00", "11:20", "12:45", "14:30", "15:45", "17:00", "18:30"], fri: ["12:00", "13:30", "15:00", "16:30"] },
-    t: { reg: ["10:00", "12:30", "14:30", "16:30"], fri: ["12:00", "14:30"] },
-    p: { reg: ["11:00", "15:30"], fri: ["12:00", "15:00"] },
+    chem: { reg: ["10:00", "12:30", "14:30", "16:30"], fri: ["12:00", "14:30"] },
     s: { reg: ["10:00", "12:00", "14:00", "16:00"], fri: [] },
   };
   for (const [key, plan] of Object.entries(slotPlan)) {
@@ -77,7 +78,7 @@ async function main() {
         });
       }
     }
-    if (plan.fri.length && category.fridayAvailable) {
+    if (plan.fri.length) {
       for (const [i, time] of plan.fri.entries()) {
         await prisma.timeSlot.upsert({
           where: { categoryId_dayOfWeek_time: { categoryId: category.id, dayOfWeek: FRIDAY, time } },
@@ -121,6 +122,43 @@ async function main() {
     } else {
       await prisma.priceListItem.create({ data: item });
     }
+  }
+
+  console.log("Seeding settings...");
+  await prisma.settings.upsert({
+    where: { id: "singleton" },
+    create: { id: "singleton", reminderHoursBefore: 24, defaultDepositType: "FIXED", defaultDepositValue: 300000 },
+    update: {},
+  });
+
+  console.log("Seeding contact info...");
+  await prisma.contactInfo.upsert({
+    where: { id: "singleton" },
+    create: {
+      id: "singleton",
+      phone: "02188776655",
+      whatsapp: "09121234567",
+      instagram: "",
+      telegram: "",
+      baleh: "",
+      address: "تهران، خیابان ولیعصر، نرسیده به میدان ونک",
+    },
+    update: {},
+  });
+
+  console.log("Seeding editable site text...");
+  const siteContent: Record<string, string> = {
+    marquee_text: "ممنون از اینکه ما را انتخاب کردید",
+    hero_tagline: "اینجا خانه‌ای امن برای زیبایی‌ست",
+    hero_description: "هر سرویس متناسب با بافت، حجم و نیاز موی شما طراحی می‌شود؛ از هیرکات مدرن تا درمان و بازسازی کامل موها با تکنیک‌های روز.",
+    tagline_band: "از دل، برای موهای شما",
+    ghazal_bio_1: "غزل کرمی را می‌توان جایی در میانه‌ی دقت تکنیکی و نگاه هنری پیدا کرد؛ کسی که هر سرویس را نه یک الگوی ثابت برای همه، بلکه طرحی متناسب با فرم چهره، بافت مو و شخصیت هر مشتری می‌بیند.",
+    ghazal_bio_2: "در کنار فعالیت در سالن، غزل به‌عنوان مدرس هیرکات نیز فعالیت می‌کند و همین نگاه را به هنرجویانش منتقل می‌کند.",
+    ghazal_signature: "زیبایی یعنی حسِ امنیت و آرامش",
+    donia_bio: "دنیا سلیمانی با بیش از دو دهه تجربه، از چهره‌های باسابقه‌ی حرفه‌ی رنگ، لایت و احیای مو است. تسلط او بر تکنیک‌های ترکیب رنگ، فرمولاسیون و ترمیم موهای آسیب‌دیده، حاصل سال‌ها کار مداوم و به‌روز نگه‌داشتن دانش این حرفه است.",
+  };
+  for (const [key, value] of Object.entries(siteContent)) {
+    await prisma.siteContent.upsert({ where: { key }, create: { key, value }, update: {} });
   }
 
   const adminPhone = process.env.ADMIN_SEED_PHONE;

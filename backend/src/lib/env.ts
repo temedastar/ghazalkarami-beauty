@@ -22,8 +22,15 @@ export const env = {
 
   kavenegar: {
     apiKey: process.env.KAVENEGAR_API_KEY ?? "",
-    sender: process.env.KAVENEGAR_SENDER ?? "",
-    otpTemplate: process.env.KAVENEGAR_OTP_TEMPLATE ?? "",
+    // each of these must match a pre-approved Pattern/Lookup template name in
+    // the Kavenegar panel — plain free-text SMS isn't allowed for these
+    // transactional messages. See README for what each %token% should be.
+    templates: {
+      otp: process.env.KAVENEGAR_TEMPLATE_OTP ?? "",
+      bookingConfirm: process.env.KAVENEGAR_TEMPLATE_BOOKING_CONFIRM ?? "",
+      reminder: process.env.KAVENEGAR_TEMPLATE_REMINDER ?? "",
+      thankYouReview: process.env.KAVENEGAR_TEMPLATE_THANKYOU_REVIEW ?? "",
+    },
   },
 
   zarinpal: {

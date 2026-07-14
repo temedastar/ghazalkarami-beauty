@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { parseDateOnly, dayOfWeekUTC, isPastDate } from "../lib/dates";
+import { isDateOpen, computeDepositAmount } from "../lib/schedule";
 
 const router = Router();
 
@@ -25,7 +26,7 @@ router.post("/", requireAuth, async (req, res) => {
     include: { category: true },
   });
   if (!service || !service.active) return res.status(404).json({ error: "سرویس یافت نشد." });
-  if (!service.category.allowOnlineBooking) {
+  if (!service.allowOnlineBooking) {
     return res.status(400).json({
       error: "این سرویس فقط با هماهنگی مستقیم قابل رزرو است.",
     });
@@ -34,18 +35,9 @@ router.post("/", requireAuth, async (req, res) => {
   const date = parseDateOnly(parsed.data.date);
   if (!date) return res.status(400).json({ error: "تاریخ نامعتبر است." });
   if (isPastDate(date)) return res.status(400).json({ error: "تاریخ گذشته قابل انتخاب نیست." });
+  if (!(await isDateOpen(date))) return res.status(400).json({ error: "سالن در این روز تعطیل است." });
 
   const dow = dayOfWeekUTC(date);
-  if (dow === 6) return res.status(400).json({ error: "شنبه‌ها سالن تعطیل است." });
-  if (dow === 5 && !service.category.fridayAvailable) {
-    return res.status(400).json({ error: "این سرویس جمعه‌ها قابل رزرو نیست." });
-  }
-
-  const workingDay = await prisma.workingDay.findUnique({ where: { dayOfWeek: dow } });
-  if (workingDay && !workingDay.isOpen) {
-    return res.status(400).json({ error: "سالن در این روز تعطیل است." });
-  }
-
   const timeSlot = await prisma.timeSlot.findFirst({
     where: {
       categoryId: service.categoryId,
@@ -56,9 +48,11 @@ router.post("/", requireAuth, async (req, res) => {
   });
   if (!timeSlot) return res.status(400).json({ error: "ساعت انتخابی معتبر نیست." });
 
+  const depositAmount = await computeDepositAmount(service);
+
   try {
     const booking = await prisma.$transaction(async (tx) => {
-      // release stale holds for this exact slot before checking availability
+      // release a stale hold for this exact slot before checking availability
       const expiredHold = await tx.slotHold.findUnique({
         where: {
           categoryId_date_time: { categoryId: service.categoryId, date, time: parsed.data.time },
@@ -85,7 +79,7 @@ router.post("/", requireAuth, async (req, res) => {
           categoryId: service.categoryId,
           date,
           time: parsed.data.time,
-          depositAmount: service.depositAmount,
+          depositAmount,
           customerNote: parsed.data.note,
           holdExpiresAt: new Date(Date.now() + HOLD_MINUTES * 60 * 1000),
         },

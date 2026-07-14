@@ -38,4 +38,16 @@ router.get("/gallery", async (req, res) => {
   res.json({ images });
 });
 
+router.get("/site-content", async (_req, res) => {
+  const rows = await prisma.siteContent.findMany();
+  const content: Record<string, string> = {};
+  rows.forEach((r) => { content[r.key] = r.value; });
+  res.json({ content });
+});
+
+router.get("/contact-info", async (_req, res) => {
+  const info = await prisma.contactInfo.findUnique({ where: { id: "singleton" } });
+  res.json({ contact: info });
+});
+
 export default router;

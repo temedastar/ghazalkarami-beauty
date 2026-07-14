@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { parseDateOnly, dayOfWeekUTC, isPastDate } from "../lib/dates";
+import { isDateOpen } from "../lib/schedule";
 
 const router = Router();
 
@@ -11,25 +12,13 @@ router.get("/", async (req, res) => {
   const category = await prisma.serviceCategory.findUnique({ where: { key: categoryKey } });
   if (!category) return res.status(404).json({ error: "دسته‌بندی خدمت یافت نشد." });
 
-  if (!category.allowOnlineBooking) {
-    return res.json({ onlineBooking: false, slots: [] });
-  }
-
   const date = parseDateOnly(dateStr);
   if (!date) return res.status(400).json({ error: "تاریخ نامعتبر است." });
-  if (isPastDate(date)) return res.json({ onlineBooking: true, slots: [] });
+  if (isPastDate(date)) return res.json({ dayOpen: false, slots: [] });
+
+  if (!(await isDateOpen(date))) return res.json({ dayOpen: false, slots: [] });
 
   const dow = dayOfWeekUTC(date);
-  if (dow === 6) return res.json({ onlineBooking: true, slots: [] }); // Saturday: always closed
-  if (dow === 5 && !category.fridayAvailable) {
-    return res.json({ onlineBooking: true, slots: [] });
-  }
-
-  const workingDay = await prisma.workingDay.findUnique({ where: { dayOfWeek: dow } });
-  if (workingDay && !workingDay.isOpen) {
-    return res.json({ onlineBooking: true, slots: [] });
-  }
-
   const timeSlots = await prisma.timeSlot.findMany({
     where: { categoryId: category.id, dayOfWeek: dow, isActive: true },
     orderBy: [{ sortOrder: "asc" }, { time: "asc" }],
@@ -56,7 +45,7 @@ router.get("/", async (req, res) => {
   const takenTimes = new Set(holds.map((h) => h.time));
 
   const slots = timeSlots.map((s) => ({ time: s.time, available: !takenTimes.has(s.time) }));
-  res.json({ onlineBooking: true, slots });
+  res.json({ dayOpen: true, slots });
 });
 
 export default router;

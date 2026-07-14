@@ -19,7 +19,7 @@ router.post("/zarinpal/request", requireAuth, async (req, res) => {
     where: { id: parsed.data.bookingId },
     include: { service: true, user: true, payment: true },
   });
-  if (!booking) return res.status(404).json({ error: "رزرو یافت نشد." });
+  if (!booking || !booking.service || !booking.user) return res.status(404).json({ error: "رزرو یافت نشد." });
   if (booking.userId !== req.auth!.userId) return res.status(403).json({ error: "دسترسی غیرمجاز." });
   if (booking.status !== "PENDING_PAYMENT") {
     return res.status(400).json({ error: "این رزرو در وضعیت پرداخت نیست." });
@@ -60,7 +60,7 @@ router.get("/zarinpal/callback", async (req, res) => {
     where: { id: bookingId },
     include: { service: true, user: true, payment: true },
   });
-  if (!booking || !booking.payment) return redirect("/?payment=not_found");
+  if (!booking || !booking.payment || !booking.service || !booking.user) return redirect("/?payment=not_found");
 
   if (status !== "OK") {
     await prisma.$transaction([

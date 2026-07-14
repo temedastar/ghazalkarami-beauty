@@ -147,6 +147,63 @@ router.get("/me", requireAuth, async (req, res) => {
   });
 });
 
+const resetRequestSchema = z.object({ phone: z.string() });
+
+router.post("/password/reset/request", otpLimiter, async (req, res) => {
+  const parsed = resetRequestSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+
+  const phone = normalizePhone(parsed.data.phone);
+  if (!phone) return res.status(400).json({ error: "شماره موبایل معتبر نیست." });
+
+  const user = await prisma.user.findUnique({ where: { phone } });
+  if (!user) return res.status(404).json({ error: "کاربری با این شماره یافت نشد." });
+
+  try {
+    await requestOtp(phone, "RESET_PASSWORD");
+    res.json({ ok: true });
+  } catch (err) {
+    if (err instanceof OtpError) return res.status(429).json({ error: err.message });
+    throw err;
+  }
+});
+
+const resetVerifySchema = z.object({
+  phone: z.string(),
+  code: z.string().length(6),
+  newPassword: z.string().min(6).max(72),
+});
+
+router.post("/password/reset/verify", otpLimiter, async (req, res) => {
+  const parsed = resetVerifySchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+
+  const phone = normalizePhone(parsed.data.phone);
+  if (!phone) return res.status(400).json({ error: "شماره موبایل معتبر نیست." });
+
+  let valid: boolean;
+  try {
+    valid = await verifyOtp(phone, "RESET_PASSWORD", parsed.data.code);
+  } catch (err) {
+    if (err instanceof OtpError) return res.status(400).json({ error: err.message });
+    throw err;
+  }
+  if (!valid) return res.status(400).json({ error: "کد وارد شده صحیح نیست." });
+
+  const user = await prisma.user.findUnique({ where: { phone } });
+  if (!user) return res.status(404).json({ error: "کاربری با این شماره یافت نشد." });
+
+  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+
+  const token = signAuthToken({ userId: user.id, role: user.role });
+  setAuthCookie(res, token);
+  res.json({
+    token,
+    user: { id: user.id, phone: user.phone, name: user.name, role: user.role },
+  });
+});
+
 router.post("/logout", (_req, res) => {
   res.clearCookie(COOKIE_NAME);
   res.json({ ok: true });
