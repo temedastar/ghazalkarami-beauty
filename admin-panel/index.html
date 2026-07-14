@@ -382,7 +382,7 @@ tabs.bookings = async () => {
   html += `<div class="section-title">نوبت‌های آینده</div>`;
   if(!bookings.length) html += `<div class="card muted">نوبت آینده‌ای ثبت نشده.</div>`;
   bookings.forEach(b=>{
-    const who = b.user ? (b.user.name||b.user.phone)+" ("+b.user.phone+")" : "بدون مشتری (قفل دستی)";
+    const who = b.user ? esc((b.user.name||b.user.phone)+" ("+b.user.phone+")") : "بدون مشتری (قفل دستی)";
     const svc = b.service ? b.service.name : (b.blockReason || "بدون سرویس");
     html += `<div class="card">
       <div class="row" style="border:none;padding:0;">
@@ -599,10 +599,33 @@ const SITE_CONTENT_LABELS = {
   ghazal_signature: "جمله‌ی امضای غزل",
   donia_bio: "بیوگرافی دنیا سلیمانی",
 };
+const SITE_IMAGE_LABELS = {
+  logo_url: "لوگو (بالای هدر)",
+  ghazal_photo_url: "عکس پروفایل غزل کرمی",
+  donia_photo_url: "عکس پروفایل دنیا سلیمانی",
+};
 tabs.siteContent = async () => {
   const {content} = await api("/admin/site-content");
-  let html = `<h1>متن‌های سایت</h1><div class="card">`;
   const byKey = Object.fromEntries(content.map(c=>[c.key,c.value]));
+
+  let html = `<h1>متن‌های سایت</h1>`;
+
+  html += `<div class="section-title">تصاویر</div><div class="card">`;
+  Object.entries(SITE_IMAGE_LABELS).forEach(([key,label])=>{
+    const url=byKey[key];
+    html += `<div class="row">
+      <div style="display:flex;align-items:center;gap:14px;">
+        ${url?`<img src="${esc(url)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:10px;border:1.5px solid var(--line);">`:'<div class="muted" style="width:56px;">— بدون عکس —</div>'}
+        <b>${label}</b>
+      </div>
+      <label class="upload-btn">آپلود عکس جدید
+        <input type="file" accept="image/*" style="display:none;" onchange="uploadSiteImage(this,'${key}')">
+      </label>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="section-title">متن‌ها</div><div class="card">`;
   Object.entries(SITE_CONTENT_LABELS).forEach(([key,label])=>{
     html += `<div class="row" style="align-items:flex-start;">
       <label class="field" style="flex:1;">${label}
@@ -616,6 +639,17 @@ tabs.siteContent = async () => {
 window.updateSiteContent = async (key, value) => {
   try{ await api(`/admin/site-content/${key}`,{method:"PATCH",body:JSON.stringify({value})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }
+};
+window.uploadSiteImage = async (input, key) => {
+  const file = input.files[0];
+  if(!file) return;
+  try{
+    const fd = new FormData(); fd.append("file", file);
+    const data = await api("/admin/upload", { method:"POST", body: fd });
+    await api(`/admin/site-content/${key}`,{method:"PATCH",body:JSON.stringify({value:data.url})});
+    toast("عکس به‌روزرسانی شد.");
+    tabs.siteContent();
+  }catch(e){ toast(e.message,true); }
 };
 
 /* =====================================================================
@@ -651,6 +685,11 @@ tabs.services = async () => {
         <label class="field">حداقل قیمت<input type="number" value="${s.priceMin??''}" onchange="updateService('${s.id}','priceMin',this.value===''?null:Number(this.value))"></label>
         <label class="field">حداکثر قیمت<input type="number" value="${s.priceMax??''}" onchange="updateService('${s.id}','priceMax',this.value===''?null:Number(this.value))"></label>
         <label class="field">مدت (دقیقه)<input type="number" value="${s.durationMin??''}" style="width:90px;" onchange="updateService('${s.id}','durationMin',this.value===''?null:Number(this.value))"></label>
+      </div>
+      <div class="row">
+        <label class="field" style="flex:1;">توضیح سرویس (نمایش‌داده‌شده در بخش «خدمات تخصصی» سایت)
+          <textarea rows="2" onchange="updateService('${s.id}','priceNote',this.value)">${esc(s.priceNote||"")}</textarea>
+        </label>
       </div>
       <div class="row">
         <label class="field">نوع بیعانه<select onchange="updateService('${s.id}','depositType',this.value)">
