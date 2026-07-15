@@ -21,21 +21,23 @@ router.post("/", requireAuth, async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
 
-  const service = await prisma.service.findUnique({
-    where: { key: parsed.data.serviceKey },
-    include: { category: true },
-  });
+  const date = parseDateOnly(parsed.data.date);
+  if (!date) return res.status(400).json({ error: "تاریخ نامعتبر است." });
+  if (isPastDate(date)) return res.status(400).json({ error: "تاریخ گذشته قابل انتخاب نیست." });
+
+  // service lookup and the open-day check don't depend on each other — run
+  // them concurrently instead of paying for both round-trips in sequence
+  const [service, dateOpen] = await Promise.all([
+    prisma.service.findUnique({ where: { key: parsed.data.serviceKey }, include: { category: true } }),
+    isDateOpen(date),
+  ]);
   if (!service || !service.active) return res.status(404).json({ error: "سرویس یافت نشد." });
   if (!service.allowOnlineBooking) {
     return res.status(400).json({
       error: "این سرویس فقط با هماهنگی مستقیم قابل رزرو است.",
     });
   }
-
-  const date = parseDateOnly(parsed.data.date);
-  if (!date) return res.status(400).json({ error: "تاریخ نامعتبر است." });
-  if (isPastDate(date)) return res.status(400).json({ error: "تاریخ گذشته قابل انتخاب نیست." });
-  if (!(await isDateOpen(date))) return res.status(400).json({ error: "سالن در این روز تعطیل است." });
+  if (!dateOpen) return res.status(400).json({ error: "سالن در این روز تعطیل است." });
 
   const dow = dayOfWeekUTC(date);
   const timeSlot = await prisma.timeSlot.findFirst({

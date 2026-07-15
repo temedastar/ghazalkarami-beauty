@@ -6,10 +6,14 @@ import type { Service } from "@prisma/client";
  * (vacation, or an extra opened Saturday) always overrides the recurring
  * WorkingDay pattern for that one date. */
 export async function isDateOpen(date: Date): Promise<boolean> {
-  const exception = await prisma.dayException.findUnique({ where: { date } });
-  if (exception) return exception.isOpen;
   const dow = dayOfWeekUTC(date);
-  const workingDay = await prisma.workingDay.findUnique({ where: { dayOfWeek: dow } });
+  // both lookups are independent of each other, so fire them together instead
+  // of paying two sequential round-trips on the hot booking-creation path
+  const [exception, workingDay] = await Promise.all([
+    prisma.dayException.findUnique({ where: { date } }),
+    prisma.workingDay.findUnique({ where: { dayOfWeek: dow } }),
+  ]);
+  if (exception) return exception.isOpen;
   return workingDay?.isOpen ?? false;
 }
 
