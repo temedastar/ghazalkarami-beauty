@@ -51,4 +51,21 @@ export const env = {
       "http://localhost:4000/api/payments/zarinpal/callback"
     ),
   },
+
+  // any S3-compatible object storage works here (Liara Object Storage, Arvan,
+  // MinIO, AWS S3, ...) — when unset, uploads fall back to local disk under
+  // public/uploads for local development only. Production MUST set these,
+  // since local disk on a PaaS app container isn't guaranteed to survive a
+  // plan resize or redeploy.
+  objectStorage: {
+    endpoint: process.env.OBJECT_STORAGE_ENDPOINT ?? "",
+    region: process.env.OBJECT_STORAGE_REGION ?? "us-east-1",
+    accessKeyId: process.env.OBJECT_STORAGE_ACCESS_KEY ?? "",
+    secretAccessKey: process.env.OBJECT_STORAGE_SECRET_KEY ?? "",
+    bucket: process.env.OBJECT_STORAGE_BUCKET ?? "",
+    // base URL used to build public links to uploaded files — defaults to
+    // "<endpoint>/<bucket>" (path-style), override if serving through a CDN
+    // or custom domain in front of the bucket
+    publicUrlBase: process.env.OBJECT_STORAGE_PUBLIC_URL ?? "",
+  },
 };

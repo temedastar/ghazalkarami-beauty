@@ -19,6 +19,20 @@ import adminRoutes from "./routes/admin";
 
 const app = express();
 
+// uploaded images (gallery/logo/profile) are served from object storage,
+// which is a different origin than the app itself — CSP img-src must
+// explicitly allow it or every uploaded photo silently fails to render
+function objectStorageOrigin(): string | null {
+  const url = env.objectStorage.publicUrlBase || env.objectStorage.endpoint;
+  if (!url) return null;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+const uploadsOrigin = objectStorageOrigin();
+
 app.use(compression());
 app.use(
   // the frontend is a hand-authored single HTML file with inline <script>,
@@ -39,7 +53,7 @@ app.use(
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:"],
+        imgSrc: ["'self'", "data:", ...(uploadsOrigin ? [uploadsOrigin] : [])],
         connectSrc: ["'self'"],
       },
     },

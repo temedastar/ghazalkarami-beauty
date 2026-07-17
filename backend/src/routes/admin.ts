@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 import crypto from "crypto";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
@@ -9,22 +10,20 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 import { normalizePhone } from "../lib/phone";
 import { parseDateOnly } from "../lib/dates";
 import { sendThankYouReviewSms } from "../services/kavenegar";
+import { isObjectStorageConfigured, uploadBuffer } from "../lib/objectStorage";
 import { env } from "../lib/env";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
 
-/* ---------- image upload (gallery photos) ---------- */
+/* ---------- image upload (gallery photos, logo, profile photos) ---------- */
 
+// local disk is only a dev fallback for when OBJECT_STORAGE_* isn't
+// configured — a PaaS app container's local disk isn't guaranteed to survive
+// a plan resize or redeploy, so production must use object storage
 const uploadDir = path.join(__dirname, "..", "..", "..", "public", "uploads");
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: uploadDir,
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase();
-      cb(null, `${crypto.randomUUID()}${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = [".jpg", ".jpeg", ".png", ".webp"];
@@ -32,9 +31,31 @@ const upload = multer({
   },
 });
 
-router.post("/upload", upload.single("file"), (req, res) => {
+const IMAGE_CONTENT_TYPES: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+};
+
+router.post("/upload", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "فایل تصویر معتبر ارسال نشد." });
-  res.status(201).json({ url: `/uploads/${req.file.filename}` });
+  const ext = path.extname(req.file.originalname).toLowerCase();
+  const key = `${crypto.randomUUID()}${ext}`;
+
+  if (isObjectStorageConfigured()) {
+    try {
+      const url = await uploadBuffer(req.file.buffer, key, IMAGE_CONTENT_TYPES[ext] ?? "application/octet-stream");
+      return res.status(201).json({ url });
+    } catch (err) {
+      console.error("Object storage upload failed:", err);
+      return res.status(502).json({ error: "آپلود به فضای ذخیره‌سازی ابری ناموفق بود." });
+    }
+  }
+
+  fs.mkdirSync(uploadDir, { recursive: true });
+  fs.writeFileSync(path.join(uploadDir, key), req.file.buffer);
+  res.status(201).json({ url: `/uploads/${key}` });
 });
 
 /* ---------- working days (default weekly pattern) ---------- */
