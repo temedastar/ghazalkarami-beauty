@@ -62,6 +62,12 @@ router.get("/zarinpal/callback", async (req, res) => {
   });
   if (!booking || !booking.payment || !booking.service || !booking.user) return redirect("/?payment=not_found");
 
+  // Authority is the unguessable secret tied to this specific payment
+  // session — without checking it, this public, unauthenticated callback
+  // would let anyone who learns/guesses a bookingId force-cancel someone
+  // else's pending booking just by hitting this URL with Status=NOK.
+  if (booking.payment.authority !== authority) return redirect("/?payment=not_found");
+
   if (status !== "OK") {
     await prisma.$transaction([
       prisma.payment.update({ where: { bookingId: booking.id }, data: { status: "FAILED" } }),

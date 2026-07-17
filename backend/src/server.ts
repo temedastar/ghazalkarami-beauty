@@ -91,7 +91,24 @@ app.get("/sitemap.xml", (_req, res) => {
 
 // serve the (design-untouched) public frontend + admin dashboard
 const publicDir = path.join(__dirname, "..", "..", "public");
-app.use(express.static(publicDir));
+app.use(
+  express.static(publicDir, {
+    setHeaders: (res, filePath) => {
+      // local-disk uploads are dev-only (production uses object storage —
+      // see lib/objectStorage.ts) but filenames are random UUIDs, so it's
+      // still safe to cache them aggressively even here
+      if (filePath.includes(`${path.sep}uploads${path.sep}`)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    },
+  })
+);
+app.use("/admin", (_req, res, next) => {
+  // belt-and-suspenders alongside robots.txt and the <meta robots> tag —
+  // this is the one that actually can't be missed by a crawler
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  next();
+});
 app.use("/admin", express.static(path.join(__dirname, "..", "..", "admin-panel")));
 
 app.use(errorHandler);

@@ -12,11 +12,17 @@ test("cancelling at the payment gateway frees the slot immediately (not after an
   });
   const bookingId = (await booking.json()).booking.id;
 
-  await request.post("/api/payments/zarinpal/request", { headers: auth, data: { bookingId } });
+  const paymentReq = await request.post("/api/payments/zarinpal/request", { headers: auth, data: { bookingId } });
+  const { paymentUrl } = await paymentReq.json();
+  // the callback route rejects an Authority that doesn't match the one
+  // issued for this payment session (see payments.ts) — a real ZarinPal
+  // redirect always carries the same Authority it was given, so pull the
+  // real one out of paymentUrl instead of a made-up value
+  const authority = new URL(paymentUrl).searchParams.get("Authority");
 
   // simulate the customer clicking "cancel" on the ZarinPal page — Status=NOK
   const callback = await request.get(
-    `/api/payments/zarinpal/callback?bookingId=${bookingId}&Authority=TEST&Status=NOK`,
+    `/api/payments/zarinpal/callback?bookingId=${bookingId}&Authority=${authority}&Status=NOK`,
     { maxRedirects: 0 }
   );
   expect(callback.status()).toBe(302);

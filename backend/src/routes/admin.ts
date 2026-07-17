@@ -3,6 +3,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import sharp from "sharp";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
@@ -33,19 +34,52 @@ const upload = multer({
 
 const IMAGE_CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
   ".png": "image/png",
   ".webp": "image/webp",
 };
 
+// the client-supplied filename/extension is trivially spoofable, so the
+// actual stored extension and Content-Type are derived from the file's real
+// magic bytes, not from what the uploader claims it is
+function detectImageExtension(buffer: Buffer): string | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return ".jpg";
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))
+    return ".png";
+  if (buffer.length >= 12 && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP")
+    return ".webp";
+  return null;
+}
+
+// caps dimensions and re-encodes at a reasonable quality so a multi-megabyte
+// phone-camera photo doesn't get served as-is to every site visitor — width
+// is what the public design actually needs (largest image on the page is a
+// full-bleed hero/profile shot), height caps portrait-orientation uploads
+async function optimizeImage(buffer: Buffer, ext: string): Promise<Buffer> {
+  const resized = sharp(buffer)
+    .rotate() // auto-orient from EXIF, then the orientation tag is dropped
+    .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true });
+  if (ext === ".png") return resized.png({ quality: 82, compressionLevel: 9 }).toBuffer();
+  if (ext === ".webp") return resized.webp({ quality: 82 }).toBuffer();
+  return resized.jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+}
+
 router.post("/upload", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "فایل تصویر معتبر ارسال نشد." });
-  const ext = path.extname(req.file.originalname).toLowerCase();
+  const ext = detectImageExtension(req.file.buffer);
+  if (!ext) return res.status(400).json({ error: "فایل تصویر معتبر نیست." });
   const key = `${crypto.randomUUID()}${ext}`;
+
+  let optimized: Buffer;
+  try {
+    optimized = await optimizeImage(req.file.buffer, ext);
+  } catch (err) {
+    console.error("Image optimization failed:", err);
+    return res.status(400).json({ error: "پردازش تصویر ناموفق بود." });
+  }
 
   if (isObjectStorageConfigured()) {
     try {
-      const url = await uploadBuffer(req.file.buffer, key, IMAGE_CONTENT_TYPES[ext] ?? "application/octet-stream");
+      const url = await uploadBuffer(optimized, key, IMAGE_CONTENT_TYPES[ext]);
       return res.status(201).json({ url });
     } catch (err) {
       console.error("Object storage upload failed:", err);
@@ -54,7 +88,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
   }
 
   fs.mkdirSync(uploadDir, { recursive: true });
-  fs.writeFileSync(path.join(uploadDir, key), req.file.buffer);
+  fs.writeFileSync(path.join(uploadDir, key), optimized);
   res.status(201).json({ url: `/uploads/${key}` });
 });
 

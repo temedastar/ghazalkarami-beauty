@@ -41,6 +41,9 @@ export async function uploadBuffer(buffer: Buffer, key: string, contentType: str
       Body: buffer,
       ContentType: contentType,
       ACL: "public-read",
+      // key is a random UUID (see routes/admin.ts) — the object at this URL
+      // never changes, so it's safe to cache aggressively for a full year
+      CacheControl: "public, max-age=31536000, immutable",
     })
   );
   return publicUrlFor(key);

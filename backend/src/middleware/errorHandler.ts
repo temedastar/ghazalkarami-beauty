@@ -7,7 +7,8 @@ export function errorHandler(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _next: NextFunction
 ) {
+  // full error (including internal messages/stack) goes to server logs only —
+  // never to the client, which could otherwise leak schema/implementation details
   console.error(err);
-  const message = err instanceof Error ? err.message : "خطای غیرمنتظره‌ای رخ داد.";
-  res.status(500).json({ error: "خطای سرور. لطفاً دوباره تلاش کنید.", detail: message });
+  res.status(500).json({ error: "خطای سرور. لطفاً دوباره تلاش کنید." });
 }
