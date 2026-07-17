@@ -5,6 +5,7 @@ import helmet from "helmet";
 import path from "path";
 import { env } from "./lib/env";
 import { errorHandler } from "./middleware/errorHandler";
+import { renderIndexHtml } from "./lib/renderIndex";
 import { startExpireHoldsJob } from "./jobs/expireHolds";
 import { startReminderJob } from "./jobs/sendReminders";
 
@@ -87,6 +88,20 @@ app.get("/sitemap.xml", (_req, res) => {
       `  <url><loc>${env.frontendBaseUrl}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n` +
       `</urlset>\n`
   );
+});
+
+// server-rendered (not static) so og:image/og:url/og:site_name and the
+// JSON-LD telephone/address/image are already correct in the very first
+// response — link-preview bots (Telegram, WhatsApp, Instagram, ...) fetch
+// raw HTML and never run the client-side JS that used to be the only thing
+// filling these in
+app.get("/", async (_req, res, next) => {
+  try {
+    const html = await renderIndexHtml();
+    res.type("html").send(html);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // serve the (design-untouched) public frontend + admin dashboard
