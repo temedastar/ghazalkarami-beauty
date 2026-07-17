@@ -36,7 +36,11 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&family=Gulzar&family=Italiana&display=swap" rel="stylesheet">
+<!-- loaded non-render-blocking: Google Fonts connectivity can be slow or
+     unreliable for visitors in Iran, and this way a slow/blocked font
+     request never holds up the rest of the page from rendering -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&family=Gulzar&family=Italiana&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&family=Gulzar&family=Italiana&display=swap"></noscript>
 <style>
 :root{
   --must:#DFA02D;
@@ -895,10 +899,10 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
   <div class="wrap ag">
     <div class="rv ghazal-photo-wrap">
       <div class="arch-rim"><div class="arch">
-        <img class="blur-up" id="ghazalPhotoImg" src="images/ghazal.jpg" alt="غزل کرمی" onerror="this.style.display='none';" onload="this.classList.add('loaded');">
+        <img class="blur-up" id="ghazalPhotoImg" src="images/ghazal.jpg" alt="غزل کرمی" loading="lazy" onerror="this.style.display='none';" onload="this.classList.add('loaded');">
         <div class="ph">قاب عکس غزل کرمی<br>(به‌زودی)</div>
       </div></div>
-      <img class="ghazal-cutout" src="images/ghazal-cutout.png" alt="" onerror="this.remove();">
+      <img class="ghazal-cutout" src="images/ghazal-cutout.png" alt="" loading="lazy" onerror="this.remove();">
     </div>
     <div class="ag-t rv">
       <span class="kicker">درباره غزل کرمی</span>
@@ -929,10 +933,10 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
   <div class="wrap dg">
     <div class="rv donia-photo-wrap">
       <div class="arch-rim"><div class="arch">
-        <img class="blur-up" id="doniaPhotoImg" src="images/donia.jpg" alt="دنیا سلیمانی" onerror="this.style.display='none';" onload="this.classList.add('loaded');">
+        <img class="blur-up" id="doniaPhotoImg" src="images/donia.jpg" alt="دنیا سلیمانی" loading="lazy" onerror="this.style.display='none';" onload="this.classList.add('loaded');">
         <div class="ph">قاب عکس دنیا سلیمانی<br>(به‌زودی)</div>
       </div></div>
-      <img class="donia-cutout" src="images/donia-cutout.png" alt="" onerror="this.remove();">
+      <img class="donia-cutout" src="images/donia-cutout.png" alt="" loading="lazy" onerror="this.remove();">
     </div>
     <div class="rv">
       <span class="kicker">درباره دنیا سلیمانی</span>
@@ -1149,7 +1153,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
   </div>
   <div class="wrap ig2">
     <div class="rv"><div class="arch-rim"><div class="arch">
-      <img src="images/instructor.jpg" alt="" onerror="this.style.display='none';">
+      <img src="images/instructor.jpg" alt="" loading="lazy" onerror="this.style.display='none';">
       <div class="ph">قاب ویدئوی تدریس<br>(به‌زودی)</div>
     </div></div></div>
     <div class="it2 rv">
@@ -1958,6 +1962,7 @@ function gBuild(){
     sl.className='gslide'+(i===0?' on':'');
     const img=document.createElement('img');
     img.className='blur-up loaded';
+    img.loading='lazy';
     img.src=item.src;img.alt='نمونه کار '+(i+1);
     sl.appendChild(img);
     gs.appendChild(sl);
