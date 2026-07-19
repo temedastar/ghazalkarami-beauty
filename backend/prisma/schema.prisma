@@ -1,0 +1,359 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OtpPurpose {
+  REGISTER
+  LOGIN
+  RESET_PASSWORD
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+  COMPLETED
+  NO_SHOW
+}
+
+enum BookingSource {
+  ONLINE
+  ADMIN_MANUAL
+  ADMIN_BLOCK
+}
+
+enum DepositType {
+  FIXED
+  PERCENT
+}
+
+enum PaymentStatus {
+  INITIATED
+  PAID
+  FAILED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ClassRequestStatus {
+  NEW
+  CONTACTED
+  SCHEDULED
+  CLOSED
+}
+
+enum SmsType {
+  OTP
+  BOOKING_CONFIRM
+  REMINDER
+  THANK_YOU_REVIEW
+}
+
+enum SmsStatus {
+  SUCCESS
+  FAILED
+  DEV
+}
+
+model User {
+  id           String    @id @default(cuid())
+  phone        String    @unique
+  name         String?
+  passwordHash String?
+  role         Role      @default(CUSTOMER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  bookings      Booking[]
+  reviews       Review[]
+  classRequests ClassRequest[]
+  otpCodes      OtpCode[]
+}
+
+model OtpCode {
+  id        String     @id @default(cuid())
+  phone     String
+  codeHash  String
+  purpose   OtpPurpose
+  attempts  Int        @default(0)
+  consumed  Boolean    @default(false)
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+
+  @@index([phone, purpose])
+}
+
+model ServiceCategory {
+  // a "line" of shared bookable time slots. Services in the same category
+  // are mutually exclusive at booking time — reserving a slot for one blocks
+  // it for all others in the category (used for the protein/keratin/botox/
+  // crabotox/color/pixie-bleach shared timeline; haircut and scalp scrub each
+  // get their own independent category).
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  sortOrder Int      @default(0)
+
+  services  Service[]
+  timeSlots TimeSlot[]
+  bookings  Booking[]
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  priceGroup  String?
+  priceMin    Int?
+  priceMax    Int?
+  priceLabel  String?
+  priceNote   String?
+  durationMin Int?
+
+  allowOnlineBooking Boolean     @default(true) // false = "coordinate via Instagram DM" (e.g. رنگ و لایت)
+  depositType        DepositType @default(FIXED)
+  depositValue        Int         @default(0) // FIXED: toman amount — PERCENT: 0-100
+
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PriceListItem {
+  // rows shown in the public Pricing table — separate from bookable Services,
+  // since the price list has finer granularity (e.g. 4 haircut length tiers)
+  // than the booking widget does (one generic "هیرکات" button)
+  id          String   @id @default(cuid())
+  groupTitle  String
+  name        String
+  description String?
+  priceMin    Int?
+  priceMax    Int?
+  priceLabel  String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WorkingDay {
+  // default recurring weekly pattern (0=Sunday .. 6=Saturday). Overridden per
+  // specific date by DayException below (for "some weeks Saturday is open too"
+  // or multi-day closures).
+  id        String  @id @default(cuid())
+  dayOfWeek Int     @unique
+  isOpen    Boolean @default(true)
+  openTime  String? // "10:00" — informational + used to prefill the slot generator
+  closeTime String? // "19:00"
+  note      String?
+}
+
+model DayException {
+  // a specific calendar date that overrides the weekly WorkingDay pattern —
+  // either force-opening a normally-closed day (e.g. an extra Saturday) or
+  // force-closing a normally-open day (vacation/sick leave). A multi-day
+  // closure is just one row per date in the range.
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  isOpen    Boolean
+  openTime  String?
+  closeTime String?
+  reason    String?
+  createdAt DateTime @default(now())
+}
+
+model TimeSlot {
+  // the concrete bookable time slots per category per weekday — admin editable,
+  // either one-by-one or via the bulk generator (start/end/duration/gap).
+  id        String  @id @default(cuid())
+  dayOfWeek Int
+  time      String
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  @@unique([categoryId, dayOfWeek, time])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  date          DateTime      @db.Date
+  time          String
+  status        BookingStatus @default(PENDING_PAYMENT)
+  source        BookingSource @default(ONLINE)
+  depositAmount Int           @default(0)
+  customerNote  String?
+  blockReason   String? // set when source=ADMIN_BLOCK and there's no real service/customer
+  holdExpiresAt DateTime?
+  reminderSentAt DateTime?
+
+  // nullable: ADMIN_BLOCK entries (Ghazal closing a slot with no assigned
+  // customer/service) don't need either of these
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  serviceId String?
+
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  payment Payment?
+  slotHold SlotHold?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([categoryId, date, time])
+}
+
+model SlotHold {
+  // exists exactly while a booking (pending-payment or confirmed/manual/blocked)
+  // occupies a slot; deleted on cancel/expiry so the slot frees up immediately.
+  // The unique constraint here — not on Booking itself — is what actually
+  // prevents double-booking the same category/date/time, since Booking rows
+  // must be kept around (cancelled/expired) for history. Because every service
+  // in a shared-line category points to the SAME categoryId, locking a slot for
+  // any one of them (online or admin-entered) automatically blocks the rest.
+  id         String   @id @default(cuid())
+  categoryId String
+  date       DateTime @db.Date
+  time       String
+
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId String  @unique
+
+  createdAt DateTime @default(now())
+
+  @@unique([categoryId, date, time])
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  authority  String?       @unique
+  refId      String?
+  amount     Int
+  status     PaymentStatus @default(INITIATED)
+  gateway    String        @default("zarinpal")
+  verifiedAt DateTime?
+  createdAt  DateTime      @default(now())
+
+  booking   Booking @relation(fields: [bookingId], references: [id])
+  bookingId String  @unique
+}
+
+model GalleryImage {
+  id        String   @id @default(cuid())
+  url       String
+  category  String // haircut | color | treat
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Review {
+  id        String       @id @default(cuid())
+  name      String
+  rating    Int
+  text      String
+  status    ReviewStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+}
+
+model ClassRequest {
+  id        String              @id @default(cuid())
+  classType String
+  timePref  String
+  status    ClassRequestStatus  @default(NEW)
+  createdAt DateTime            @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+}
+
+model Settings {
+  id                  String      @id @default("singleton")
+  reminderHoursBefore Int         @default(24)
+  defaultDepositType  DepositType @default(FIXED)
+  defaultDepositValue Int         @default(0)
+  updatedAt           DateTime    @updatedAt
+}
+
+model SiteContent {
+  // small set of admin-editable text blocks (bios, marquee text, hero copy) —
+  // the public page fetches these and drops them into elements tagged with a
+  // matching data-content-key, so wording can change without touching markup/CSS
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model ContactInfo {
+  id        String   @id @default("singleton")
+  phone     String?
+  whatsapp  String? // used for the header "tap to call" shortcut and the wa.me chat link — a single primary number, distinct from the social-icon row below
+  address   String?
+  updatedAt DateTime @updatedAt
+}
+
+enum SocialPlatform {
+  INSTAGRAM
+  TELEGRAM
+  WHATSAPP
+  BALEH
+}
+
+model SocialLink {
+  // supports multiple accounts per platform (e.g. one Instagram for the salon,
+  // one for the academy) — replaces the old single instagram/telegram/baleh
+  // fields on ContactInfo, which could only ever hold one handle each
+  id        String         @id @default(cuid())
+  platform  SocialPlatform
+  label     String // e.g. "سالن غزل کرمی" یا "آکادمی هیرکات"
+  value     String // هندل بدون @ برای اینستاگرام/تلگرام/بله، یا شماره برای واتساپ
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+}
+
+model SmsLog {
+  id        String    @id @default(cuid())
+  phone     String
+  type      SmsType
+  status    SmsStatus
+  errorMessage String?
+  createdAt DateTime  @default(now())
+
+  @@index([createdAt])
+}

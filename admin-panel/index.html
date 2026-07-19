@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>پنل مدیریت | غزل کرمی</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --must:#DFA02D;--must-d:#A87310;--must-l:#F3C766;--must-t:#FBEECB;
+  --night:#0B1526;--night-2:#12203A;--bone:#FBF7EE;--bone-2:#F1E7CF;
+  --line:#E3D5B2;--ink:#181207;--ink-2:#59481F;--danger:#C0392B;--success:#3A8A5A;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Vazirmatn',sans-serif;background:var(--bone);color:var(--ink);min-height:100vh;}
+a{color:inherit;}
+.hidden{display:none !important;}
+
+/* ---- login screen ---- */
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--night);padding:20px;}
+.login-card{background:var(--night-2);border:1px solid rgba(223,160,45,.25);border-radius:20px;padding:36px;width:100%;max-width:380px;}
+.login-card h1{color:#fff;font-size:20px;margin-bottom:6px;text-align:center;}
+.login-card p{color:rgba(251,247,238,.6);font-size:13px;text-align:center;margin-bottom:24px;}
+.login-card input{width:100%;padding:14px 16px;border-radius:12px;border:1.5px solid rgba(223,160,45,.3);
+  background:rgba(255,255,255,.04);color:#fff;font-family:inherit;font-size:15px;margin-bottom:12px;}
+.login-card input::placeholder{color:rgba(251,247,238,.4);}
+.login-card input:focus{outline:2px solid var(--must);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;
+  border-radius:999px;font-weight:700;font-size:14.5px;border:1.5px solid transparent;cursor:pointer;
+  font-family:inherit;transition:.2s;}
+.btn-gold{background:var(--must);color:var(--night);width:100%;}
+.btn-gold:hover{background:var(--must-l);}
+.btn-line{border-color:var(--must);color:var(--must-d);background:transparent;}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-ghost{background:var(--bone-2);color:var(--ink-2);}
+.btn-sm{padding:8px 14px;font-size:13px;width:auto;}
+.btn[disabled]{opacity:.5;cursor:not-allowed;}
+.err-msg{color:#ff8a80;font-size:13px;text-align:center;margin-top:10px;min-height:16px;}
+
+/* ---- app shell ---- */
+#app{display:none;min-height:100vh;}
+#app.on{display:flex;}
+.sidebar{width:240px;flex-shrink:0;background:var(--night);color:#fff;min-height:100vh;padding:20px 0;overflow-y:auto;}
+.sidebar h2{padding:0 22px 16px;font-size:16px;color:var(--must-l);border-bottom:1px solid rgba(223,160,45,.18);margin-bottom:6px;}
+.sidebar .group-label{padding:14px 22px 6px;font-size:11px;color:rgba(251,247,238,.4);letter-spacing:.05em;}
+.sidebar button{display:flex;align-items:center;gap:10px;width:100%;text-align:right;padding:11px 22px;
+  background:none;border:none;color:rgba(251,247,238,.75);font-family:inherit;font-size:13.5px;cursor:pointer;
+  border-right:3px solid transparent;transition:.2s;}
+.sidebar button:hover{background:rgba(223,160,45,.08);color:#fff;}
+.sidebar button.on{background:rgba(223,160,45,.14);color:var(--must-l);border-right-color:var(--must);font-weight:700;}
+.sidebar .logout{margin-top:16px;color:rgba(251,247,238,.5);}
+main{flex:1;padding:32px 36px;max-width:1180px;}
+main h1{font-size:22px;margin-bottom:22px;}
+main h3{font-size:15px;margin-bottom:14px;}
+.card{background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:22px;margin-bottom:16px;}
+.card + .card-title{margin-top:24px;}
+.section-title{font-size:13px;color:var(--must-d);font-weight:700;margin:26px 0 12px;letter-spacing:.02em;}
+.section-title:first-child{margin-top:0;}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+.row + .row{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
+.muted{color:var(--ink-2);font-size:13px;}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;}
+.tag-open{background:rgba(58,138,90,.14);color:var(--success);}
+.tag-closed{background:rgba(192,57,43,.14);color:var(--danger);}
+.tag-pending{background:rgba(223,160,45,.18);color:var(--must-d);}
+.tag-muted{background:var(--bone-2);color:var(--ink-2);}
+input[type=text],input[type=number],input[type=date],input[type=time],input[type=tel],select{
+  padding:9px 12px;border-radius:9px;border:1.5px solid var(--line);
+  font-family:inherit;font-size:13.5px;width:130px;background:#fff;color:var(--ink);}
+input[type=text].wide,input[type=tel].wide{width:220px;}
+label.field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--ink-2);}
+.form-grid{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;}
+.switch{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:999px;transition:.2s;}
+.slider::before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+input:checked + .slider{background:var(--must);}
+input:checked + .slider::before{transform:translateX(-20px);}
+.grid-imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;}
+.gimg{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;position:relative;background:var(--bone-2);}
+.gimg img{width:100%;height:140px;object-fit:cover;display:block;}
+.gimg .meta{padding:8px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:6px;}
+.gimg select{font-family:inherit;font-size:11px;padding:3px;border-radius:6px;width:auto;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--night);color:#fff;
+  padding:12px 22px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:200;max-width:90vw;text-align:center;}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(-6px);}
+.loading{color:var(--ink-2);font-size:13.5px;padding:20px 0;}
+textarea{width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid var(--line);font-family:inherit;font-size:13.5px;resize:vertical;}
+.upload-btn{display:inline-block;padding:9px 16px;border-radius:999px;border:1.5px dashed var(--must);
+  color:var(--must-d);font-size:13px;cursor:pointer;}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+.chip{padding:8px 15px;border-radius:999px;border:1.5px solid var(--line);background:#fff;color:var(--ink-2);
+  font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;}
+.chip.on{background:var(--must);color:var(--night);border-color:var(--must);}
+table.simple{width:100%;border-collapse:collapse;font-size:13px;}
+table.simple th{text-align:right;color:var(--ink-2);font-weight:700;font-size:12px;padding:8px 6px;border-bottom:1.5px solid var(--line);}
+table.simple td{padding:8px 6px;border-bottom:1px solid var(--line);}
+.slot-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1.5px solid var(--line);font-size:12px;margin:3px;}
+.slot-pill.off{opacity:.4;text-decoration:line-through;}
+.slot-pill button{background:none;border:none;cursor:pointer;color:var(--danger);font-size:13px;padding:0;line-height:1;}
+@media(max-width:760px){
+  #app.on{flex-direction:column;}
+  .sidebar{width:100%;display:flex;overflow-x:auto;padding:14px 0;min-height:auto;}
+  .sidebar h2,.sidebar .logout,.sidebar .group-label{display:none;}
+  .sidebar button{white-space:nowrap;border-right:none;border-bottom:3px solid transparent;}
+  .sidebar button.on{border-bottom-color:var(--must);}
+  main{padding:18px;}
+}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>پنل مدیریت غزل کرمی</h1>
+    <p>ورود مخصوص مدیر سالن</p>
+    <input type="text" id="loginPhone" placeholder="شماره موبایل" autocomplete="username">
+    <input type="password" id="loginPass" placeholder="رمز عبور" autocomplete="current-password">
+    <button class="btn btn-gold" onclick="doLogin()">ورود</button>
+    <div class="err-msg" id="loginErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <nav class="sidebar">
+    <h2>غزل کرمی</h2>
+    <div class="group-label">رزرو و زمان‌بندی</div>
+    <button data-tab="schedule" class="on">زمان‌بندی سالن</button>
+    <button data-tab="bookings">رزروها</button>
+    <div class="group-label">محتوای سایت</div>
+    <button data-tab="prices">قیمت‌ها</button>
+    <button data-tab="gallery">گالری</button>
+    <button data-tab="reviews">نظرات</button>
+    <button data-tab="siteContent">متن‌های سایت</button>
+    <div class="group-label">کسب‌وکار</div>
+    <button data-tab="services">خدمات</button>
+    <button data-tab="customers">مشتریان</button>
+    <button data-tab="classes">درخواست کلاس</button>
+    <div class="group-label">تنظیمات</div>
+    <button data-tab="contact">اطلاعات تماس</button>
+    <button data-tab="smsLogs">پیامک‌ها</button>
+    <button data-tab="settings">تنظیمات کلی</button>
+    <button class="logout" onclick="logout()">خروج</button>
+  </nav>
+  <main id="mainContent"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "/api";
+let TOKEN = localStorage.getItem("gk_admin_token") || "";
+
+function toast(msg, isErr){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.style.background=isErr?"var(--danger)":"var(--night)";
+  t.classList.add("on");
+  setTimeout(()=>t.classList.remove("on"),2800);
+}
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+function toman(n){ return Number(n||0).toLocaleString("fa-IR")+" تومان"; }
+
+async function api(path, opts={}){
+  const isForm = opts.body instanceof FormData;
+  const res = await fetch(API+path, {
+    ...opts,
+    headers:{
+      ...(isForm?{}:{"Content-Type":"application/json"}),
+      ...(TOKEN?{Authorization:`Bearer ${TOKEN}`}:{}),
+      ...(opts.headers||{}),
+    },
+  });
+  if(res.status===401){ logout(); throw new Error("نشست منقضی شده."); }
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||"خطایی رخ داد.");
+  return data;
+}
+
+async function doLogin(){
+  const phone=document.getElementById("loginPhone").value.trim();
+  const password=document.getElementById("loginPass").value;
+  const errEl=document.getElementById("loginErr");
+  errEl.textContent="";
+  try{
+    const res=await fetch(API+"/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone,password})});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error||"ورود ناموفق بود.");
+    if(data.user.role!=="ADMIN") throw new Error("این حساب دسترسی مدیریت ندارد.");
+    TOKEN=data.token;
+    localStorage.setItem("gk_admin_token",TOKEN);
+    boot();
+  }catch(e){ errEl.textContent=e.message; }
+}
+function logout(){
+  TOKEN=""; localStorage.removeItem("gk_admin_token");
+  document.getElementById("app").classList.remove("on");
+  document.getElementById("loginScreen").style.display="flex";
+}
+
+const DOW_NAMES=["یکشنبه","دوشنبه","سه‌شنبه","چهارشنبه","پنج‌شنبه","جمعه","شنبه"];
+const tabs={};
+
+/* =====================================================================
+   زمان‌بندی سالن: الگوی هفتگی + استثناهای تاریخ خاص + تعطیلی موقت + اسلات‌ها
+   ===================================================================== */
+tabs.schedule = async () => {
+  const [{days}, {exceptions}, {categories}] = await Promise.all([
+    api("/admin/working-days"), api("/admin/day-exceptions"), api("/admin/categories"),
+  ]);
+
+  let html = `<h1>زمان‌بندی سالن</h1>`;
+
+  html += `<div class="section-title">الگوی هفتگی پیش‌فرض</div><div class="card">`;
+  days.sort((a,b)=>a.dayOfWeek-b.dayOfWeek).forEach(d=>{
+    html += `<div class="row">
+      <div style="min-width:100px;"><b>${DOW_NAMES[d.dayOfWeek]}</b></div>
+      <label class="switch"><input type="checkbox" ${d.isOpen?"checked":""} onchange="toggleDay(${d.dayOfWeek}, this.checked)"><span class="slider"></span></label>
+      <label class="field">ساز ساعت<input type="time" value="${d.openTime||''}" onchange="updateDayHours(${d.dayOfWeek},'openTime',this.value)"></label>
+      <label class="field">تا ساعت<input type="time" value="${d.closeTime||''}" onchange="updateDayHours(${d.dayOfWeek},'closeTime',this.value)"></label>
+    </div>`;
+  });
+  html += `<p class="muted" style="margin-top:14px;">این ساعت‌ها فقط نمایشی‌اند؛ اسلات‌های واقعی رزرو را پایین‌تر برای هر سرویس می‌سازید.</p></div>`;
+
+  html += `<div class="section-title">استثنا روی یک تاریخ خاص (باز کردن یه روز تعطیل، یا بستن یه روز عادی)</div><div class="card">
+    <div class="form-grid">
+      <label class="field">تاریخ<input type="date" id="exDate"></label>
+      <label class="field">وضعیت<select id="exOpen"><option value="true">باز</option><option value="false">تعطیل</option></select></label>
+      <label class="field">دلیل (اختیاری)<input type="text" class="wide" id="exReason" placeholder="مثلاً باز کردن ویژه"></label>
+      <button class="btn btn-gold btn-sm" onclick="addDayException()">ثبت استثنا</button>
+    </div>
+    <div style="margin-top:16px;">
+      ${exceptions.length? exceptions.map(e=>`
+        <div class="row">
+          <div>${e.date.slice(0,10)} — <span class="tag ${e.isOpen?'tag-open':'tag-closed'}">${e.isOpen?'باز':'تعطیل'}</span> ${e.reason? '— '+esc(e.reason):''}</div>
+          <button class="btn btn-ghost btn-sm" onclick="deleteDayException('${e.id}')">حذف</button>
+        </div>`).join("") : '<p class="muted">استثنایی ثبت نشده.</p>'}
+    </div>
+  </div>`;
+
+  html += `<div class="section-title">تعطیلی موقت (بستن چند روز پشت‌سرهم — مرخصی، بیماری)</div><div class="card">
+    <div class="form-grid">
+      <label class="field">از تاریخ<input type="date" id="closureStart"></label>
+      <label class="field">تا تاریخ<input type="date" id="closureEnd"></label>
+      <label class="field">دلیل (اختیاری)<input type="text" class="wide" id="closureReason" placeholder="مثلاً مرخصی"></label>
+      <button class="btn btn-danger btn-sm" onclick="addClosureRange()">بستن این بازه</button>
+    </div>
+  </div>`;
+
+  html += `<div class="section-title">اسلات‌های رزرو هر سرویس</div><div class="card">
+    <div class="form-grid" style="margin-bottom:18px;">
+      <label class="field">دسته‌بندی<select id="slotCat" onchange="renderSlotDay()">
+        ${categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}
+      </select></label>
+      <label class="field">روز هفته<select id="slotDow" onchange="renderSlotDay()">
+        ${DOW_NAMES.map((n,i)=>`<option value="${i}">${n}</option>`).join("")}
+      </select></label>
+    </div>
+    <div id="slotDayList"></div>
+    <div class="section-title" style="margin-top:22px;">تولید خودکار اسلات (بازه‌ی ساعتی + مدت هر نوبت)</div>
+    <div class="form-grid">
+      <label class="field">از ساعت<input type="time" id="genStart" value="10:00"></label>
+      <label class="field">تا ساعت<input type="time" id="genEnd" value="19:00"></label>
+      <label class="field">مدت هر نوبت (دقیقه)<input type="number" id="genDuration" value="60" style="width:100px;"></label>
+      <label class="field">فاصله بین نوبت‌ها (دقیقه)<input type="number" id="genGap" value="0" style="width:100px;"></label>
+      <button class="btn btn-gold btn-sm" onclick="generateSlots()">ساخت اسلات‌ها برای این روز</button>
+    </div>
+    <p class="muted" style="margin-top:10px;">اسلات‌های تکراری نادیده گرفته می‌شوند؛ می‌تونی چند بار برای روزهای مختلف بزنی.</p>
+  </div>`;
+
+  document.getElementById("mainContent").innerHTML = html;
+  window._scheduleCategories = categories;
+  renderSlotDay();
+};
+
+window.toggleDay = async (dayOfWeek, isOpen) => {
+  try{ await api(`/admin/working-days/${dayOfWeek}`,{method:"PATCH",body:JSON.stringify({isOpen})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+window.updateDayHours = async (dayOfWeek, field, value) => {
+  try{ await api(`/admin/working-days/${dayOfWeek}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+window.addDayException = async () => {
+  const date=document.getElementById("exDate").value;
+  if(!date) return toast("تاریخ را انتخاب کنید.",true);
+  const isOpen=document.getElementById("exOpen").value==="true";
+  const reason=document.getElementById("exReason").value.trim()||null;
+  try{ await api("/admin/day-exceptions",{method:"POST",body:JSON.stringify({date,isOpen,reason})}); toast("استثنا ثبت شد."); tabs.schedule(); }
+  catch(e){ toast(e.message,true); }
+};
+window.deleteDayException = async (id) => {
+  try{ await api(`/admin/day-exceptions/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.schedule(); }
+  catch(e){ toast(e.message,true); }
+};
+window.addClosureRange = async () => {
+  const startDate=document.getElementById("closureStart").value;
+  const endDate=document.getElementById("closureEnd").value;
+  if(!startDate||!endDate) return toast("بازه‌ی تاریخ را کامل کنید.",true);
+  const reason=document.getElementById("closureReason").value.trim()||null;
+  try{
+    const r=await api("/admin/day-exceptions/closure-range",{method:"POST",body:JSON.stringify({startDate,endDate,reason})});
+    toast(`${r.exceptions.length} روز بسته شد.`);
+    tabs.schedule();
+  }catch(e){ toast(e.message,true); }
+};
+
+function renderSlotDay(){
+  const catId=document.getElementById("slotCat").value;
+  const dow=Number(document.getElementById("slotDow").value);
+  const category=(window._scheduleCategories||[]).find(c=>c.id===catId);
+  const list=document.getElementById("slotDayList");
+  if(!category){ list.innerHTML=""; return; }
+  const slots=category.timeSlots.filter(s=>s.dayOfWeek===dow).sort((a,b)=>a.time.localeCompare(b.time));
+  if(!slots.length){ list.innerHTML='<p class="muted">هنوز اسلاتی برای این روز/دسته ثبت نشده.</p>'; return; }
+  list.innerHTML = slots.map(s=>`
+    <span class="slot-pill ${s.isActive?'':'off'}">
+      ${s.time}
+      <button title="${s.isActive?'غیرفعال کردن':'فعال کردن'}" onclick="toggleSlot('${s.id}', ${!s.isActive})">${s.isActive?'⏸':'▶'}</button>
+      <button title="حذف" onclick="deleteSlot('${s.id}')">✕</button>
+    </span>`).join("");
+}
+window.renderSlotDay = renderSlotDay;
+/* re-fetches just the categories/timeSlots data and redraws the slot list —
+   keeps whatever category/day the admin currently has selected, unlike a
+   full tabs.schedule() reload which would reset those dropdowns */
+async function refreshScheduleSlots(){
+  const {categories} = await api("/admin/categories");
+  window._scheduleCategories = categories;
+  renderSlotDay();
+}
+window.toggleSlot = async (id, isActive) => {
+  try{ await api(`/admin/time-slots/${id}`,{method:"PATCH",body:JSON.stringify({isActive})}); await refreshScheduleSlots(); }
+  catch(e){ toast(e.message,true); }
+};
+window.deleteSlot = async (id) => {
+  if(!confirm("این اسلات حذف شود؟")) return;
+  try{ await api(`/admin/time-slots/${id}`,{method:"DELETE"}); toast("حذف شد."); await refreshScheduleSlots(); }
+  catch(e){ toast(e.message,true); }
+};
+window.generateSlots = async () => {
+  const categoryId=document.getElementById("slotCat").value;
+  const dayOfWeek=Number(document.getElementById("slotDow").value);
+  const startTime=document.getElementById("genStart").value;
+  const endTime=document.getElementById("genEnd").value;
+  const durationMin=Number(document.getElementById("genDuration").value);
+  const gapMin=Number(document.getElementById("genGap").value)||0;
+  try{
+    const r=await api("/admin/time-slots/generate",{method:"POST",body:JSON.stringify({categoryId,dayOfWeek,startTime,endTime,durationMin,gapMin})});
+    toast(`${r.slots.length} اسلات ساخته/به‌روزرسانی شد.`);
+    await refreshScheduleSlots();
+  }catch(e){ toast(e.message,true); }
+};
+
+/* =====================================================================
+   رزروها: لیست + رزرو دستی/قفل تایم + تغییر وضعیت
+   ===================================================================== */
+tabs.bookings = async () => {
+  const [{bookings}, {categories}] = await Promise.all([
+    api("/admin/bookings?upcoming=1"), api("/admin/categories"),
+  ]);
+  const statusFa = {PENDING_PAYMENT:"در انتظار پرداخت",CONFIRMED:"تاییدشده",CANCELLED:"لغوشده",EXPIRED:"منقضی",COMPLETED:"انجام‌شده",NO_SHOW:"مشتری نیامد"};
+  const statusTagClass = {PENDING_PAYMENT:"tag-pending",CONFIRMED:"tag-open",CANCELLED:"tag-closed",EXPIRED:"tag-muted",COMPLETED:"tag-open",NO_SHOW:"tag-closed"};
+
+  let html = `<h1>رزروها</h1>`;
+
+  html += `<div class="section-title">ثبت دستی نوبت / قفل کردن یک تایم</div><div class="card">
+    <p class="muted" style="margin-bottom:14px;">برای نوبت‌های هماهنگ‌شده در دایرکت (مثل رنگ و لایت) یا بستن یک تایم برای مشتری حضوری. اگر شماره مشتری وارد شود، حساب کاربری او خودکار ساخته/پیدا می‌شود — و اگر سرویس از گروه هم‌خط باشد، همان تایم برای بقیه‌ی گروه هم قفل می‌شود.</p>
+    <div class="form-grid">
+      <label class="field">دسته‌بندی<select id="mbCat" onchange="renderManualServiceOptions()">
+        ${categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}
+      </select></label>
+      <label class="field">سرویس (اختیاری — خالی=فقط قفل تایم)<select id="mbService"></select></label>
+      <label class="field">تاریخ<input type="date" id="mbDate"></label>
+      <label class="field">ساعت<input type="text" id="mbTime" placeholder="مثلاً 14:30" style="width:100px;"></label>
+      <label class="field">نام مشتری<input type="text" id="mbName"></label>
+      <label class="field">موبایل مشتری<input type="tel" id="mbPhone" placeholder="09xxxxxxxxx"></label>
+      <label class="field">دلیل/توضیح<input type="text" class="wide" id="mbReason"></label>
+      <button class="btn btn-gold btn-sm" onclick="createManualBooking()">ثبت</button>
+    </div>
+  </div>`;
+
+  html += `<div class="section-title">نوبت‌های آینده</div>`;
+  if(!bookings.length) html += `<div class="card muted">نوبت آینده‌ای ثبت نشده.</div>`;
+  bookings.forEach(b=>{
+    const who = b.user ? esc((b.user.name||b.user.phone)+" ("+b.user.phone+")") : "بدون مشتری (قفل دستی)";
+    const svc = b.service ? b.service.name : (b.blockReason || "بدون سرویس");
+    html += `<div class="card">
+      <div class="row" style="border:none;padding:0;">
+        <div>
+          <b>${esc(svc)}</b> ${b.source!=="ONLINE"?`<span class="tag tag-muted">${b.source==='ADMIN_BLOCK'?'قفل دستی':'ثبت دستی'}</span>`:''}
+          <div class="muted">${who}</div>
+          <div class="muted">${b.date.slice(0,10)} ساعت ${b.time} — بیعانه ${toman(b.depositAmount)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="tag ${statusTagClass[b.status]||'tag-muted'}">${statusFa[b.status]||b.status}</span>
+          ${["CONFIRMED","PENDING_PAYMENT"].includes(b.status)?`
+            <select onchange="setBookingStatus('${b.id}', this.value)">
+              <option value="">تغییر وضعیت…</option>
+              <option value="COMPLETED">انجام‌شده</option>
+              <option value="NO_SHOW">مشتری نیامد</option>
+              <option value="CANCELLED">لغو</option>
+            </select>`:''}
+        </div>
+      </div>
+    </div>`;
+  });
+  document.getElementById("mainContent").innerHTML = html;
+  window._bookingsCategories = categories;
+  renderManualServiceOptions();
+};
+function renderManualServiceOptions(){
+  const catId=document.getElementById("mbCat").value;
+  const category=(window._bookingsCategories||[]).find(c=>c.id===catId);
+  const sel=document.getElementById("mbService");
+  sel.innerHTML = `<option value="">— فقط قفل تایم —</option>` +
+    (category?.services||[]).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("");
+}
+window.renderManualServiceOptions = renderManualServiceOptions;
+window.createManualBooking = async () => {
+  const categoryId=document.getElementById("mbCat").value;
+  const serviceId=document.getElementById("mbService").value||null;
+  const date=document.getElementById("mbDate").value;
+  const time=document.getElementById("mbTime").value.trim();
+  const customerName=document.getElementById("mbName").value.trim()||null;
+  const customerPhone=document.getElementById("mbPhone").value.trim()||null;
+  const reason=document.getElementById("mbReason").value.trim()||null;
+  if(!date||!time) return toast("تاریخ و ساعت را وارد کنید.",true);
+  try{
+    await api("/admin/bookings/manual",{method:"POST",body:JSON.stringify({categoryId,serviceId,date,time,customerName,customerPhone,reason})});
+    toast("ثبت شد.");
+    tabs.bookings();
+  }catch(e){ toast(e.message,true); }
+};
+window.setBookingStatus = async (id, status) => {
+  if(!status) return;
+  if(status==="CANCELLED" && !confirm("این نوبت لغو شود؟")) { tabs.bookings(); return; }
+  try{ await api(`/admin/bookings/${id}/status`,{method:"PATCH",body:JSON.stringify({status})}); toast("وضعیت به‌روزرسانی شد."); tabs.bookings(); }
+  catch(e){ toast(e.message,true); }
+};
+
+/* =====================================================================
+   قیمت‌ها (جدول نمایشی)
+   ===================================================================== */
+tabs.prices = async () => {
+  const {items} = await api("/admin/price-list");
+  const groups = {};
+  items.forEach(i=>{ (groups[i.groupTitle] ||= []).push(i); });
+  let html = `<h1>قیمت‌ها</h1>`;
+  Object.entries(groups).forEach(([title,rows])=>{
+    html += `<div class="card"><h3>${esc(title)}</h3>`;
+    rows.sort((a,b)=>a.sortOrder-b.sortOrder).forEach(r=>{
+      html += `<div class="row">
+        <div style="flex:1;min-width:160px;"><b>${esc(r.name)}</b><div class="muted">${esc(r.description||"")}</div></div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" value="${r.priceMin??""}" placeholder="از" onchange="updatePrice('${r.id}','priceMin',this.value)">
+          <span class="muted">تا</span>
+          <input type="number" value="${r.priceMax??""}" placeholder="تا" onchange="updatePrice('${r.id}','priceMax',this.value)">
+          <input type="text" class="wide" value="${esc(r.priceLabel||"")}" placeholder="یا برچسب متنی (مثلاً «با مشاوره»)" onchange="updatePrice('${r.id}','priceLabel',this.value)">
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.updatePrice = async (id, field, value) => {
+  try{
+    const payload = {};
+    payload[field] = field==="priceLabel" ? (value||null) : (value===""?null:Number(value));
+    await api(`/admin/price-list/${id}`,{method:"PATCH",body:JSON.stringify(payload)});
+    toast("قیمت به‌روزرسانی شد.");
+  }catch(e){ toast(e.message,true); }
+};
+
+/* =====================================================================
+   گالری
+   ===================================================================== */
+tabs.gallery = async () => {
+  const {images} = await api("/admin/gallery");
+  let html = `<h1>گالری</h1><div class="card">
+    <label class="upload-btn">افزودن عکس جدید
+      <input type="file" accept="image/*" style="display:none;" onchange="uploadImage(this)">
+    </label>
+    <span class="muted" style="margin-right:10px;">JPG / PNG / WebP — حداکثر ۸ مگابایت</span>
+  </div>`;
+  html += `<div class="grid-imgs">`;
+  images.forEach(img=>{
+    html += `<div class="gimg">
+      <img src="${img.url}" alt="">
+      <div class="meta">
+        <select onchange="updateGalleryField('${img.id}','category',this.value)">
+          <option value="haircut" ${img.category==="haircut"?"selected":""}>هیرکات</option>
+          <option value="color" ${img.category==="color"?"selected":""}>رنگ</option>
+          <option value="treat" ${img.category==="treat"?"selected":""}>صافی/احیا</option>
+        </select>
+        <div style="display:flex;gap:6px;">
+          <label class="switch" style="width:34px;height:19px;"><input type="checkbox" ${img.active?"checked":""} onchange="updateGalleryField('${img.id}','active',this.checked)"><span class="slider"></span></label>
+          <button class="btn btn-danger btn-sm" onclick="deleteImage('${img.id}')">حذف</button>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.uploadImage = async (input) => {
+  const file = input.files[0];
+  if(!file) return;
+  try{
+    const fd = new FormData(); fd.append("file", file);
+    const data = await api("/admin/upload", { method:"POST", body: fd });
+    await api("/admin/gallery",{method:"POST",body:JSON.stringify({url:data.url,category:"haircut"})});
+    toast("عکس اضافه شد.");
+    tabs.gallery();
+  }catch(e){ toast(e.message,true); }
+};
+window.updateGalleryField = async (id, field, value) => {
+  try{ await api(`/admin/gallery/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+window.deleteImage = async (id) => {
+  if(!confirm("این عکس حذف شود؟")) return;
+  try{ await api(`/admin/gallery/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.gallery(); }
+  catch(e){ toast(e.message,true); }
+};
+
+/* =====================================================================
+   نظرات
+   ===================================================================== */
+tabs.reviews = async () => {
+  const {reviews} = await api("/admin/reviews");
+  let html = `<h1>نظرات مشتریان</h1>`;
+
+  html += `<div class="section-title">افزودن دستی نظر قدیمی (مثلاً از اینستاگرام)</div><div class="card">
+    <div class="form-grid">
+      <label class="field">نام<input type="text" id="rvName"></label>
+      <label class="field">امتیاز<select id="rvRating"><option value="5">۵</option><option value="4">۴</option><option value="3">۳</option><option value="2">۲</option><option value="1">۱</option></select></label>
+      <label class="field">تاریخ (اختیاری)<input type="date" id="rvDate"></label>
+      <button class="btn btn-gold btn-sm" onclick="addManualReview()">ثبت (به‌صورت تاییدشده)</button>
+    </div>
+    <label class="field" style="margin-top:12px;">متن نظر<textarea id="rvText" rows="2"></textarea></label>
+  </div>`;
+
+  html += `<div class="section-title">نظرات ثبت‌شده</div>`;
+  if(!reviews.length) html += `<div class="card muted">هنوز نظری ثبت نشده.</div>`;
+  reviews.forEach(r=>{
+    const statusTag = r.status==="APPROVED"?`<span class="tag tag-open">تاییدشده</span>`
+      : r.status==="REJECTED"?`<span class="tag tag-closed">ردشده</span>`
+      : `<span class="tag tag-pending">در انتظار تایید</span>`;
+    html += `<div class="card">
+      <div class="row" style="border:none;padding:0;">
+        <div>
+          <b>${esc(r.name)}</b> ${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)} ${statusTag}
+          <p style="margin-top:8px;">${esc(r.text)}</p>
+          <div class="muted" style="margin-top:6px;">${new Date(r.createdAt).toLocaleDateString("fa-IR")}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          ${r.status!=="APPROVED"?`<button class="btn btn-gold btn-sm" onclick="setReviewStatus('${r.id}','APPROVED')">تایید</button>`:''}
+          ${r.status!=="REJECTED"?`<button class="btn btn-ghost btn-sm" onclick="setReviewStatus('${r.id}','REJECTED')">رد</button>`:''}
+          <button class="btn btn-danger btn-sm" onclick="deleteReview('${r.id}')">حذف</button>
+        </div>
+      </div>
+    </div>`;
+  });
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.setReviewStatus = async (id, status) => {
+  try{ await api(`/admin/reviews/${id}`,{method:"PATCH",body:JSON.stringify({status})}); toast("وضعیت به‌روزرسانی شد."); tabs.reviews(); }
+  catch(e){ toast(e.message,true); }
+};
+window.deleteReview = async (id) => {
+  if(!confirm("این نظر حذف شود؟")) return;
+  try{ await api(`/admin/reviews/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.reviews(); }
+  catch(e){ toast(e.message,true); }
+};
+window.addManualReview = async () => {
+  const name=document.getElementById("rvName").value.trim();
+  const rating=Number(document.getElementById("rvRating").value);
+  const text=document.getElementById("rvText").value.trim();
+  const date=document.getElementById("rvDate").value;
+  if(!name||!text) return toast("نام و متن نظر را کامل کنید.",true);
+  try{
+    await api("/admin/reviews",{method:"POST",body:JSON.stringify({name,rating,text,createdAt:date||undefined})});
+    toast("نظر ثبت شد.");
+    tabs.reviews();
+  }catch(e){ toast(e.message,true); }
+};
+
+/* =====================================================================
+   متن‌های سایت
+   ===================================================================== */
+const SITE_CONTENT_LABELS = {
+  marquee_text: "متن نوار متحرک تشکر",
+  hero_tagline: "شعار اصلی هدر (اینجا خانه‌ای امن...)",
+  hero_description: "توضیح زیر شعار هدر",
+  tagline_band: "متن نوار «از دل، برای موهای شما»",
+  ghazal_bio_1: "بیوگرافی غزل — پاراگراف اول",
+  ghazal_bio_2: "بیوگرافی غزل — پاراگراف دوم",
+  ghazal_signature: "جمله‌ی امضای غزل",
+  donia_bio: "بیوگرافی دنیا سلیمانی",
+};
+const SITE_IMAGE_LABELS = {
+  logo_url: "لوگو (بالای هدر)",
+  ghazal_photo_url: "عکس پروفایل غزل کرمی",
+  donia_photo_url: "عکس پروفایل دنیا سلیمانی",
+};
+// mirrors backend/src/routes/admin.ts SITE_CONTENT_MAX_LENGTHS — short
+// headline-style fields get a tight cap so they can't visually break the
+// hero/marquee layout; paragraph-style bios get more room.
+const SITE_CONTENT_MAX_LENGTHS = {
+  marquee_text: 200,
+  hero_tagline: 80,
+  hero_description: 300,
+  tagline_band: 100,
+  ghazal_bio_1: 600,
+  ghazal_bio_2: 600,
+  ghazal_signature: 100,
+  donia_bio: 600,
+};
+tabs.siteContent = async () => {
+  const {content} = await api("/admin/site-content");
+  const byKey = Object.fromEntries(content.map(c=>[c.key,c.value]));
+
+  let html = `<h1>متن‌های سایت</h1>`;
+
+  html += `<div class="section-title">تصاویر</div><div class="card">`;
+  Object.entries(SITE_IMAGE_LABELS).forEach(([key,label])=>{
+    const url=byKey[key];
+    html += `<div class="row">
+      <div style="display:flex;align-items:center;gap:14px;">
+        ${url?`<img src="${esc(url)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:10px;border:1.5px solid var(--line);">`:'<div class="muted" style="width:56px;">— بدون عکس —</div>'}
+        <b>${label}</b>
+      </div>
+      <label class="upload-btn">آپلود عکس جدید
+        <input type="file" accept="image/*" style="display:none;" onchange="uploadSiteImage(this,'${key}')">
+      </label>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="section-title">متن‌ها</div><div class="card">`;
+  Object.entries(SITE_CONTENT_LABELS).forEach(([key,label])=>{
+    const max = SITE_CONTENT_MAX_LENGTHS[key] || 500;
+    const len = (byKey[key]||"").length;
+    html += `<div class="row" style="align-items:flex-start;">
+      <label class="field" style="flex:1;">${label}
+        <textarea rows="2" maxlength="${max}" oninput="document.getElementById('cnt-${key}').textContent=this.value.length+' / ${max}'" onchange="updateSiteContent('${key}',this.value)">${esc(byKey[key]||"")}</textarea>
+        <div class="muted" id="cnt-${key}" style="font-size:12px;margin-top:2px;">${len} / ${max}</div>
+      </label>
+    </div>`;
+  });
+  html += `</div>`;
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.updateSiteContent = async (key, value) => {
+  try{ await api(`/admin/site-content/${key}`,{method:"PATCH",body:JSON.stringify({value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+window.uploadSiteImage = async (input, key) => {
+  const file = input.files[0];
+  if(!file) return;
+  try{
+    const fd = new FormData(); fd.append("file", file);
+    const data = await api("/admin/upload", { method:"POST", body: fd });
+    await api(`/admin/site-content/${key}`,{method:"PATCH",body:JSON.stringify({value:data.url})});
+    toast("عکس به‌روزرسانی شد.");
+    tabs.siteContent();
+  }catch(e){ toast(e.message,true); }
+};
+
+/* =====================================================================
+   خدمات
+   ===================================================================== */
+tabs.services = async () => {
+  const [{services}, {categories}] = await Promise.all([api("/admin/services"), api("/admin/categories")]);
+  let html = `<h1>خدمات</h1>`;
+
+  html += `<div class="section-title">افزودن سرویس جدید</div><div class="card">
+    <div class="form-grid">
+      <label class="field">شناسه (key، انگلیسی و یکتا)<input type="text" id="nsKey" placeholder="مثلاً hair_spa"></label>
+      <label class="field">نام<input type="text" id="nsName"></label>
+      <label class="field">دسته‌بندی<select id="nsCat">${categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></label>
+      <label class="field">مدت (دقیقه)<input type="number" id="nsDuration" style="width:90px;"></label>
+      <label class="field">بیعانه (تومان)<input type="number" id="nsDeposit" style="width:120px;"></label>
+      <label class="field">رزرو آنلاین<label class="switch"><input type="checkbox" id="nsOnline" checked><span class="slider"></span></label></label>
+      <button class="btn btn-gold btn-sm" onclick="createService()">افزودن</button>
+    </div>
+  </div>`;
+
+  html += `<div class="section-title">سرویس‌های موجود</div>`;
+  services.forEach(s=>{
+    html += `<div class="card">
+      <div class="row" style="border:none;padding:0;">
+        <div style="flex:1;min-width:200px;">
+          <b>${esc(s.name)}</b> <span class="muted">(${esc(s.category.name)})</span>
+          ${!s.active?'<span class="tag tag-closed">غیرفعال</span>':''}
+        </div>
+      </div>
+      <div class="row">
+        <label class="field">نام<input type="text" value="${esc(s.name)}" onchange="updateService('${s.id}','name',this.value)"></label>
+        <label class="field">حداقل قیمت<input type="number" value="${s.priceMin??''}" onchange="updateService('${s.id}','priceMin',this.value===''?null:Number(this.value))"></label>
+        <label class="field">حداکثر قیمت<input type="number" value="${s.priceMax??''}" onchange="updateService('${s.id}','priceMax',this.value===''?null:Number(this.value))"></label>
+        <label class="field">مدت (دقیقه)<input type="number" value="${s.durationMin??''}" style="width:90px;" onchange="updateService('${s.id}','durationMin',this.value===''?null:Number(this.value))"></label>
+      </div>
+      <div class="row">
+        <label class="field" style="flex:1;">توضیح سرویس (نمایش‌داده‌شده در بخش «خدمات تخصصی» سایت)
+          <textarea rows="2" maxlength="400" oninput="document.getElementById('cnt-note-${s.id}').textContent=this.value.length+' / 400'" onchange="updateService('${s.id}','priceNote',this.value)">${esc(s.priceNote||"")}</textarea>
+          <div class="muted" id="cnt-note-${s.id}" style="font-size:12px;margin-top:2px;">${(s.priceNote||"").length} / 400</div>
+        </label>
+      </div>
+      <div class="row">
+        <label class="field">نوع بیعانه<select onchange="updateService('${s.id}','depositType',this.value)">
+          <option value="FIXED" ${s.depositType==='FIXED'?'selected':''}>مبلغ ثابت</option>
+          <option value="PERCENT" ${s.depositType==='PERCENT'?'selected':''}>درصدی</option>
+        </select></label>
+        <label class="field">مقدار بیعانه (تومان یا %)<input type="number" value="${s.depositValue}" onchange="updateService('${s.id}','depositValue',Number(this.value))"></label>
+        <label class="field">رزرو آنلاین
+          <label class="switch"><input type="checkbox" ${s.allowOnlineBooking?'checked':''} onchange="updateService('${s.id}','allowOnlineBooking',this.checked)"><span class="slider"></span></label>
+        </label>
+        <label class="field">فعال
+          <label class="switch"><input type="checkbox" ${s.active?'checked':''} onchange="updateService('${s.id}','active',this.checked)"><span class="slider"></span></label>
+        </label>
+      </div>
+    </div>`;
+  });
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.updateService = async (id, field, value) => {
+  try{ await api(`/admin/services/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+window.createService = async () => {
+  const key=document.getElementById("nsKey").value.trim();
+  const name=document.getElementById("nsName").value.trim();
+  const categoryId=document.getElementById("nsCat").value;
+  const durationMin=Number(document.getElementById("nsDuration").value)||null;
+  const depositValue=Number(document.getElementById("nsDeposit").value)||0;
+  const allowOnlineBooking=document.getElementById("nsOnline").checked;
+  if(!key||!name) return toast("شناسه و نام سرویس را وارد کنید.",true);
+  try{
+    await api("/admin/services",{method:"POST",body:JSON.stringify({key,name,categoryId,durationMin,depositValue,depositType:"FIXED",allowOnlineBooking})});
+    toast("سرویس اضافه شد.");
+    tabs.services();
+  }catch(e){ toast(e.message,true); }
+};
+
+/* =====================================================================
+   مشتریان
+   ===================================================================== */
+tabs.customers = async () => {
+  const {customers} = await api("/admin/customers");
+  let html = `<h1>مشتریان</h1>`;
+  if(!customers.length) html += `<div class="card muted">هنوز مشتری ثبت‌نامی وجود ندارد.</div>`;
+  html += `<div class="card"><table class="simple"><thead><tr><th>نام</th><th>موبایل</th><th>تعداد نوبت</th><th>تاریخ عضویت</th><th></th></tr></thead><tbody>`;
+  customers.forEach(c=>{
+    html += `<tr>
+      <td>${esc(c.name||"—")}</td>
+      <td>${c.phone}</td>
+      <td>${c._count.bookings}</td>
+      <td>${new Date(c.createdAt).toLocaleDateString("fa-IR")}</td>
+      <td><button class="btn btn-line btn-sm" onclick="showCustomerHistory('${c.id}')">تاریخچه</button></td>
+    </tr>`;
+  });
+  html += `</tbody></table></div><div id="customerHistory"></div>`;
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.showCustomerHistory = async (id) => {
+  try{
+    const {customer} = await api(`/admin/customers/${id}`);
+    const statusFa = {PENDING_PAYMENT:"در انتظار پرداخت",CONFIRMED:"تاییدشده",CANCELLED:"لغوشده",EXPIRED:"منقضی",COMPLETED:"انجام‌شده",NO_SHOW:"مشتری نیامد"};
+    let html = `<div class="card"><h3>تاریخچه‌ی ${esc(customer.name||customer.phone)}</h3>`;
+    if(!customer.bookings.length) html += `<p class="muted">نوبتی ثبت نشده.</p>`;
+    customer.bookings.forEach(b=>{
+      html += `<div class="row"><div>${b.service?esc(b.service.name):"—"} — ${b.date.slice(0,10)} ساعت ${b.time}</div><span class="tag tag-muted">${statusFa[b.status]||b.status}</span></div>`;
+    });
+    html += `</div>`;
+    document.getElementById("customerHistory").innerHTML = html;
+  }catch(e){ toast(e.message,true); }
+};
+
+/* =====================================================================
+   درخواست‌های کلاس
+   ===================================================================== */
+tabs.classes = async () => {
+  const {requests} = await api("/admin/class-requests");
+  let html = `<h1>درخواست‌های کلاس آموزشی</h1>`;
+  if(!requests.length) html += `<div class="card muted">هنوز درخواستی ثبت نشده.</div>`;
+  requests.forEach(r=>{
+    html += `<div class="card">
+      <div class="row" style="border:none;padding:0;">
+        <div>
+          <b>${esc(r.classType)}</b> — زمان مدنظر: ${esc(r.timePref)}
+          <div class="muted">${r.user? esc(r.user.name||r.user.phone)+" ("+r.user.phone+")" : "کاربر مهمان"}</div>
+        </div>
+        <select onchange="setClassStatus('${r.id}',this.value)">
+          ${["NEW","CONTACTED","SCHEDULED","CLOSED"].map(s=>`<option value="${s}" ${r.status===s?"selected":""}>${({NEW:"جدید",CONTACTED:"تماس گرفته شد",SCHEDULED:"زمان‌بندی شد",CLOSED:"بسته شد"})[s]}</option>`).join("")}
+        </select>
+      </div>
+    </div>`;
+  });
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.setClassStatus = async (id, status) => {
+  try{ await api(`/admin/class-requests/${id}`,{method:"PATCH",body:JSON.stringify({status})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+
+/* =====================================================================
+   اطلاعات تماس
+   ===================================================================== */
+const SOCIAL_PLATFORM_FA = {INSTAGRAM:"اینستاگرام", TELEGRAM:"تلگرام", WHATSAPP:"واتساپ", BALEH:"بله"};
+
+tabs.contact = async () => {
+  const [{contact}, {links}] = await Promise.all([
+    api("/admin/contact-info"),
+    api("/admin/social-links"),
+  ]);
+  let html = `<h1>اطلاعات تماس و شبکه‌های اجتماعی</h1><div class="card">
+    <p class="muted" style="margin-bottom:16px;">این اطلاعات به‌صورت خودکار در فوتر و بخش‌های تماس سایت به‌روزرسانی می‌شود.</p>
+    <div class="form-grid">
+      <label class="field">تلفن ثابت<input type="text" class="wide" value="${esc(contact.phone||'')}" onchange="updateContact('phone',this.value)"></label>
+      <label class="field">واتساپ / موبایل (دکمه‌ی تماس سریع)<input type="text" class="wide" value="${esc(contact.whatsapp||'')}" onchange="updateContact('whatsapp',this.value)"></label>
+      <label class="field">آدرس سالن<input type="text" class="wide" value="${esc(contact.address||'')}" onchange="updateContact('address',this.value)"></label>
+    </div>
+  </div>`;
+
+  html += `<div class="section-title">شبکه‌های اجتماعی (می‌توانید چند آیدی برای هر پلتفرم اضافه کنید — مثلاً یکی برای سالن، یکی برای آکادمی)</div>`;
+  Object.entries(SOCIAL_PLATFORM_FA).forEach(([platform, label])=>{
+    const rows = links.filter(l=>l.platform===platform);
+    html += `<div class="card" style="margin-bottom:14px;">
+      <h3 style="margin-bottom:10px;">${label}</h3>`;
+    rows.forEach(l=>{
+      html += `<div class="row" style="gap:10px;margin-bottom:8px;">
+        <input type="text" placeholder="برچسب (مثلاً «سالن» یا «آکادمی»)" value="${esc(l.label)}" onchange="updateSocialLink('${l.id}','label',this.value)" style="flex:1;">
+        <input type="text" placeholder="${platform==='WHATSAPP'?'شماره (مثلاً 09121234567)':'آیدی (بدون @)'}" value="${esc(l.value)}" onchange="updateSocialLink('${l.id}','value',this.value)" style="flex:1;">
+        <button class="btn btn-danger btn-sm" onclick="deleteSocialLink('${l.id}')">حذف</button>
+      </div>`;
+    });
+    if(!rows.length) html += `<p class="muted" style="margin-bottom:8px;">هنوز آیدی‌ای برای ${label} اضافه نشده.</p>`;
+    html += `<div class="row" style="gap:10px;">
+        <input type="text" placeholder="برچسب" id="newLabel-${platform}" style="flex:1;">
+        <input type="text" placeholder="${platform==='WHATSAPP'?'شماره':'آیدی (بدون @)'}" id="newValue-${platform}" style="flex:1;">
+        <button class="btn btn-gold btn-sm" onclick="addSocialLink('${platform}')">افزودن</button>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.updateContact = async (field, value) => {
+  try{ await api("/admin/contact-info",{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+window.addSocialLink = async (platform) => {
+  const labelEl=document.getElementById(`newLabel-${platform}`), valueEl=document.getElementById(`newValue-${platform}`);
+  const label=labelEl.value.trim(), value=valueEl.value.trim();
+  if(!label||!value){ toast("برچسب و آیدی/شماره را وارد کنید.",true); return; }
+  try{
+    await api("/admin/social-links",{method:"POST",body:JSON.stringify({platform,label,value})});
+    toast("اضافه شد.");
+    tabs.contact();
+  }catch(e){ toast(e.message,true); }
+};
+window.updateSocialLink = async (id, field, value) => {
+  try{ await api(`/admin/social-links/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+window.deleteSocialLink = async (id) => {
+  if(!confirm("این آیدی حذف شود؟"))return;
+  try{ await api(`/admin/social-links/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.contact(); }
+  catch(e){ toast(e.message,true); }
+};
+
+/* =====================================================================
+   پیامک‌ها
+   ===================================================================== */
+const SMS_TYPE_FA = {OTP:"کد ورود",BOOKING_CONFIRM:"تایید رزرو",REMINDER:"یادآوری نوبت",THANK_YOU_REVIEW:"تشکر + درخواست نظر"};
+tabs.smsLogs = async () => {
+  const {logs} = await api("/admin/sms-logs?limit=200");
+  let html = `<h1>پیامک‌ها</h1><div class="card"><table class="simple"><thead><tr><th>موبایل</th><th>نوع</th><th>وضعیت</th><th>زمان</th></tr></thead><tbody>`;
+  if(!logs.length) html += `<tr><td colspan="4" class="muted">هنوز پیامکی ارسال نشده.</td></tr>`;
+  logs.forEach(l=>{
+    const tag = l.status==="SUCCESS"?"tag-open":l.status==="FAILED"?"tag-closed":"tag-muted";
+    const statusFa = l.status==="SUCCESS"?"موفق":l.status==="FAILED"?"ناموفق":"حالت آزمایشی (بدون ارسال واقعی)";
+    html += `<tr><td>${l.phone}</td><td>${SMS_TYPE_FA[l.type]||l.type}</td><td><span class="tag ${tag}">${statusFa}</span></td><td>${new Date(l.createdAt).toLocaleString("fa-IR")}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+  document.getElementById("mainContent").innerHTML = html;
+};
+
+/* =====================================================================
+   تنظیمات کلی
+   ===================================================================== */
+tabs.settings = async () => {
+  const {settings} = await api("/admin/settings");
+  let html = `<h1>تنظیمات کلی</h1><div class="card">
+    <div class="form-grid">
+      <label class="field">یادآوری چند ساعت قبل از نوبت ارسال شود؟<input type="number" value="${settings.reminderHoursBefore}" onchange="updateSettings('reminderHoursBefore',Number(this.value))" style="width:100px;"></label>
+    </div>
+    <div class="form-grid" style="margin-top:16px;">
+      <label class="field">نوع بیعانه‌ی پیش‌فرض (وقتی سرویسی مقدار خاص خودش را ندارد)<select onchange="updateSettings('defaultDepositType',this.value)">
+        <option value="FIXED" ${settings.defaultDepositType==='FIXED'?'selected':''}>مبلغ ثابت</option>
+        <option value="PERCENT" ${settings.defaultDepositType==='PERCENT'?'selected':''}>درصدی</option>
+      </select></label>
+      <label class="field">مقدار پیش‌فرض<input type="number" value="${settings.defaultDepositValue}" onchange="updateSettings('defaultDepositValue',Number(this.value))" style="width:120px;"></label>
+    </div>
+  </div>`;
+  document.getElementById("mainContent").innerHTML = html;
+};
+window.updateSettings = async (field, value) => {
+  try{ await api("/admin/settings",{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
+  catch(e){ toast(e.message,true); }
+};
+
+/* ---------------- shell ---------------- */
+document.querySelectorAll(".sidebar button[data-tab]").forEach(btn=>{
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".sidebar button[data-tab]").forEach(b=>b.classList.remove("on"));
+    btn.classList.add("on");
+    document.getElementById("mainContent").innerHTML = `<div class="loading">در حال بارگذاری…</div>`;
+    tabs[btn.dataset.tab]().catch(e=>toast(e.message,true));
+  });
+});
+
+async function boot(){
+  document.getElementById("loginScreen").style.display="none";
+  document.getElementById("app").classList.add("on");
+  document.getElementById("mainContent").innerHTML = `<div class="loading">در حال بارگذاری…</div>`;
+  try{ await tabs.schedule(); }catch(e){ toast(e.message,true); }
+}
+
+if(TOKEN) boot();
+</script>
+</body>
+</html>

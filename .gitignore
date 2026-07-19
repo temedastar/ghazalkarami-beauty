@@ -1,0 +1,12 @@
+node_modules/
+backend/node_modules/
+backend/dist/
+backend/.env
+.DS_Store
+*.log
+public/uploads/*
+!public/uploads/.gitkeep
+backend/playwright-report/
+backend/test-results/
+backend/tests/.test-pool.json
+backend/tests/.server-test.log
