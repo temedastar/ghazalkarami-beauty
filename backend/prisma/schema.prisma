@@ -83,6 +83,10 @@ model User {
   reviews       Review[]
   classRequests ClassRequest[]
   otpCodes      OtpCode[]
+
+  // GET /admin/customers filters on role — without this, that scan grows
+  // linearly with every registered account, not just admins
+  @@index([role])
 }
 
 model OtpCode {
@@ -142,6 +146,10 @@ model Service {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Postgres doesn't auto-index foreign key columns — GET /api/services
+  // joins ServiceCategory -> Service on this every time the public catalog loads
+  @@index([categoryId])
 }
 
 model PriceListItem {
@@ -234,6 +242,15 @@ model Booking {
 
   @@index([userId])
   @@index([categoryId, date, time])
+  // covers the two cron jobs that scan Booking by status every 1/15 minutes
+  // (expireHolds.ts, sendReminders.ts) — without it, both do a full table
+  // scan on every run, and that scan only gets more expensive as booking
+  // history accumulates, since cancelled/expired/completed rows are kept
+  // around rather than deleted
+  @@index([status, holdExpiresAt])
+  // foreign key columns aren't auto-indexed by Postgres; this one backs
+  // admin/reminder queries that include the related Service
+  @@index([serviceId])
 }
 
 model SlotHold {
@@ -278,6 +295,9 @@ model GalleryImage {
   sortOrder Int      @default(0)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
+
+  // the public gallery endpoint always filters on this
+  @@index([active])
 }
 
 model Review {
@@ -290,6 +310,10 @@ model Review {
 
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   userId String?
+
+  // both the public review list and the admin moderation list filter by
+  // this (APPROVED-only in public; optional status filter in admin)
+  @@index([status])
 }
 
 model ClassRequest {
