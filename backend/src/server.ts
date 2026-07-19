@@ -4,6 +4,7 @@ import compression from "compression";
 import helmet from "helmet";
 import path from "path";
 import { env } from "./lib/env";
+import { prisma } from "./lib/prisma";
 import { errorHandler } from "./middleware/errorHandler";
 import { renderIndexHtml } from "./lib/renderIndex";
 import { startExpireHoldsJob } from "./jobs/expireHolds";
@@ -76,7 +77,18 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/class-requests", classRequestRoutes);
 app.use("/api/admin", adminRoutes);
 
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
+// actually checks the database, not just "is the Node process alive" — a
+// static {ok:true} would keep reporting healthy even if Postgres were
+// unreachable, which is exactly the failure an uptime monitor needs to catch
+app.get("/api/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Health check failed — database unreachable:", err);
+    res.status(503).json({ ok: false, error: "database unreachable" });
+  }
+});
 
 // generated (not a static file) so it always reflects FRONTEND_BASE_URL —
 // once the real domain is set in .env this is automatically correct, no
