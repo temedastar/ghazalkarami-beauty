@@ -161,6 +161,20 @@ function toast(msg, isErr){
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
 function toman(n){ return Number(n||0).toLocaleString("fa-IR")+" تومان"; }
 
+/* prevents a create-type button from firing a second overlapping request if
+   double-clicked (or clicked again before the toast/re-render from the first
+   click lands) — some of these actions (manual reviews, social links) have
+   no database uniqueness constraint backing them, so a double-submit there
+   would genuinely create a duplicate row, not just show a confusing error */
+function withSubmitGuard(fn){
+  return async function(...args){
+    const btn = typeof event!=="undefined" && event && event.target ? event.target.closest("button") : null;
+    if(btn){ if(btn.dataset.busy==="1") return; btn.dataset.busy="1"; btn.disabled=true; }
+    try{ await fn.apply(this,args); }
+    finally{ if(btn){ btn.dataset.busy=""; btn.disabled=false; } }
+  };
+}
+
 async function api(path, opts={}){
   const isForm = opts.body instanceof FormData;
   const res = await fetch(API+path, {
@@ -281,19 +295,19 @@ window.updateDayHours = async (dayOfWeek, field, value) => {
   try{ await api(`/admin/working-days/${dayOfWeek}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }
 };
-window.addDayException = async () => {
+window.addDayException = withSubmitGuard(async () => {
   const date=document.getElementById("exDate").value;
   if(!date) return toast("تاریخ را انتخاب کنید.",true);
   const isOpen=document.getElementById("exOpen").value==="true";
   const reason=document.getElementById("exReason").value.trim()||null;
   try{ await api("/admin/day-exceptions",{method:"POST",body:JSON.stringify({date,isOpen,reason})}); toast("استثنا ثبت شد."); tabs.schedule(); }
   catch(e){ toast(e.message,true); }
-};
+});
 window.deleteDayException = async (id) => {
   try{ await api(`/admin/day-exceptions/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.schedule(); }
   catch(e){ toast(e.message,true); }
 };
-window.addClosureRange = async () => {
+window.addClosureRange = withSubmitGuard(async () => {
   const startDate=document.getElementById("closureStart").value;
   const endDate=document.getElementById("closureEnd").value;
   if(!startDate||!endDate) return toast("بازه‌ی تاریخ را کامل کنید.",true);
@@ -303,7 +317,7 @@ window.addClosureRange = async () => {
     toast(`${r.exceptions.length} روز بسته شد.`);
     tabs.schedule();
   }catch(e){ toast(e.message,true); }
-};
+});
 
 function renderSlotDay(){
   const catId=document.getElementById("slotCat").value;
@@ -338,7 +352,7 @@ window.deleteSlot = async (id) => {
   try{ await api(`/admin/time-slots/${id}`,{method:"DELETE"}); toast("حذف شد."); await refreshScheduleSlots(); }
   catch(e){ toast(e.message,true); }
 };
-window.generateSlots = async () => {
+window.generateSlots = withSubmitGuard(async () => {
   const categoryId=document.getElementById("slotCat").value;
   const dayOfWeek=Number(document.getElementById("slotDow").value);
   const startTime=document.getElementById("genStart").value;
@@ -350,7 +364,7 @@ window.generateSlots = async () => {
     toast(`${r.slots.length} اسلات ساخته/به‌روزرسانی شد.`);
     await refreshScheduleSlots();
   }catch(e){ toast(e.message,true); }
-};
+});
 
 /* =====================================================================
    رزروها: لیست + رزرو دستی/قفل تایم + تغییر وضعیت
@@ -417,7 +431,7 @@ function renderManualServiceOptions(){
     (category?.services||[]).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("");
 }
 window.renderManualServiceOptions = renderManualServiceOptions;
-window.createManualBooking = async () => {
+window.createManualBooking = withSubmitGuard(async () => {
   const categoryId=document.getElementById("mbCat").value;
   const serviceId=document.getElementById("mbService").value||null;
   const date=document.getElementById("mbDate").value;
@@ -431,7 +445,7 @@ window.createManualBooking = async () => {
     toast("ثبت شد.");
     tabs.bookings();
   }catch(e){ toast(e.message,true); }
-};
+});
 window.setBookingStatus = async (id, status) => {
   if(!status) return;
   if(status==="CANCELLED" && !confirm("این نوبت لغو شود؟")) { tabs.bookings(); return; }
@@ -507,13 +521,15 @@ tabs.gallery = async () => {
 window.uploadImage = async (input) => {
   const file = input.files[0];
   if(!file) return;
+  if(input.disabled) return; // already uploading — the change event can't normally re-fire mid-upload, but guard anyway
+  input.disabled = true;
   try{
     const fd = new FormData(); fd.append("file", file);
     const data = await api("/admin/upload", { method:"POST", body: fd });
     await api("/admin/gallery",{method:"POST",body:JSON.stringify({url:data.url,category:"haircut"})});
     toast("عکس اضافه شد.");
-    tabs.gallery();
-  }catch(e){ toast(e.message,true); }
+    tabs.gallery(); // re-renders the tab, which recreates (and re-enables) this input
+  }catch(e){ toast(e.message,true); input.disabled = false; input.value = ""; }
 };
 window.updateGalleryField = async (id, field, value) => {
   try{ await api(`/admin/gallery/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
@@ -574,7 +590,7 @@ window.deleteReview = async (id) => {
   try{ await api(`/admin/reviews/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.reviews(); }
   catch(e){ toast(e.message,true); }
 };
-window.addManualReview = async () => {
+window.addManualReview = withSubmitGuard(async () => {
   const name=document.getElementById("rvName").value.trim();
   const rating=Number(document.getElementById("rvRating").value);
   const text=document.getElementById("rvText").value.trim();
@@ -585,7 +601,7 @@ window.addManualReview = async () => {
     toast("نظر ثبت شد.");
     tabs.reviews();
   }catch(e){ toast(e.message,true); }
-};
+});
 
 /* =====================================================================
    متن‌های سایت
@@ -660,13 +676,15 @@ window.updateSiteContent = async (key, value) => {
 window.uploadSiteImage = async (input, key) => {
   const file = input.files[0];
   if(!file) return;
+  if(input.disabled) return;
+  input.disabled = true;
   try{
     const fd = new FormData(); fd.append("file", file);
     const data = await api("/admin/upload", { method:"POST", body: fd });
     await api(`/admin/site-content/${key}`,{method:"PATCH",body:JSON.stringify({value:data.url})});
     toast("عکس به‌روزرسانی شد.");
-    tabs.siteContent();
-  }catch(e){ toast(e.message,true); }
+    tabs.siteContent(); // re-renders the tab, which recreates (and re-enables) this input
+  }catch(e){ toast(e.message,true); input.disabled = false; input.value = ""; }
 };
 
 /* =====================================================================
@@ -730,7 +748,7 @@ window.updateService = async (id, field, value) => {
   try{ await api(`/admin/services/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }
 };
-window.createService = async () => {
+window.createService = withSubmitGuard(async () => {
   const key=document.getElementById("nsKey").value.trim();
   const name=document.getElementById("nsName").value.trim();
   const categoryId=document.getElementById("nsCat").value;
@@ -743,7 +761,7 @@ window.createService = async () => {
     toast("سرویس اضافه شد.");
     tabs.services();
   }catch(e){ toast(e.message,true); }
-};
+});
 
 /* =====================================================================
    مشتریان
@@ -852,7 +870,7 @@ window.updateContact = async (field, value) => {
   try{ await api("/admin/contact-info",{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }
 };
-window.addSocialLink = async (platform) => {
+window.addSocialLink = withSubmitGuard(async (platform) => {
   const labelEl=document.getElementById(`newLabel-${platform}`), valueEl=document.getElementById(`newValue-${platform}`);
   const label=labelEl.value.trim(), value=valueEl.value.trim();
   if(!label||!value){ toast("برچسب و آیدی/شماره را وارد کنید.",true); return; }
@@ -861,7 +879,7 @@ window.addSocialLink = async (platform) => {
     toast("اضافه شد.");
     tabs.contact();
   }catch(e){ toast(e.message,true); }
-};
+});
 window.updateSocialLink = async (id, field, value) => {
   try{ await api(`/admin/social-links/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }
