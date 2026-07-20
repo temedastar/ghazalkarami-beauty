@@ -5,6 +5,13 @@
 # finds none there, and has nothing to build — this Dockerfile makes the
 # build explicit instead of relying on that detection.
 FROM node:20-alpine AS build
+# node:20-alpine has no OpenSSL package installed — Prisma's schema/query
+# engine binaries link against libssl and fail to even start without it
+# ("Could not parse schema engine response" is that failure's stdout, a
+# plain-text error, getting fed to a JSON parser). Needed in this stage
+# because `prisma generate` probes the installed OpenSSL version to pick
+# the matching engine build.
+RUN apk add --no-cache openssl
 WORKDIR /app/backend
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci
@@ -13,6 +20,9 @@ RUN npx prisma generate
 RUN npm run build
 
 FROM node:20-alpine
+# same requirement as the build stage, but now for the engine binaries
+# actually running at container start (migrate deploy / db seed / the app)
+RUN apk add --no-cache openssl
 WORKDIR /app/backend
 ENV NODE_ENV=production
 COPY --from=build /app/backend/node_modules ./node_modules
