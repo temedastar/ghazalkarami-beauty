@@ -32,5 +32,10 @@ EXPOSE 3000
 # a no-op if the DB is already at the latest migration) — this is what
 # actually creates the tables on the real Liara Postgres instance, since
 # nothing outside Liara's own network can reach it (see earlier session:
-# raw-TCP database connections aren't reachable from the dev/test sandbox)
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+# raw-TCP database connections aren't reachable from the dev/test sandbox).
+# `migrate deploy` does NOT run the seed script (that's Prisma's documented
+# behavior — auto-seeding only happens on `migrate dev`/`migrate reset`), so
+# without an explicit `db seed` here the tables would exist but stay empty:
+# no admin login, no bookable time slots, no default categories/prices.
+# seed.ts is upsert-only throughout, so re-running it on every deploy is safe.
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && npm start"]
