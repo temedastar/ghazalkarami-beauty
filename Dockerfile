@@ -33,6 +33,16 @@ COPY --from=build /app/backend/ecosystem.config.js ./ecosystem.config.js
 COPY public /app/public
 COPY admin-panel /app/admin-panel
 
+# PM2 defaults to writing its runtime state under $HOME/.pm2 — on Liara's
+# container runtime that resolved to /root/.pm2, which the process couldn't
+# create (ENOENT on mkdir/open for pm2.pid, module_conf.json, etc.), most
+# likely because the container actually runs under a UID that doesn't own
+# /root. Pointing PM2_HOME at a directory we create and open up ourselves at
+# build time sidesteps the question of which UID ends up running the
+# container entirely.
+ENV PM2_HOME=/app/.pm2
+RUN mkdir -p /app/.pm2 && chmod -R 777 /app/.pm2
+
 # fallback default — Liara's Node/Docker platform injects its own PORT at
 # runtime, which src/lib/env.ts already reads via process.env.PORT
 ENV PORT=3000
