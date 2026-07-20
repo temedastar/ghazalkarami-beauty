@@ -127,6 +127,11 @@ app.use(
       if (filePath.includes(`${path.sep}uploads${path.sep}`)) {
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
       }
+      // self-hosted font files (public/fonts/, see fonts.css) — same
+      // reasoning: filenames are content-derived and never change in place
+      if (filePath.includes(`${path.sep}fonts${path.sep}`)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
     },
   })
 );

@@ -34,13 +34,14 @@
   }
 }
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- loaded non-render-blocking: Google Fonts connectivity can be slow or
-     unreliable for visitors in Iran, and this way a slow/blocked font
-     request never holds up the rest of the page from rendering -->
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&family=Gulzar&family=Italiana&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&family=Gulzar&family=Italiana&display=swap"></noscript>
+<!-- self-hosted (see public/fonts/) instead of fonts.googleapis.com: Google's
+     font domains can be slow or unreliable to reach from mobile carriers in
+     Iran, which was silently falling back to the system font on phones even
+     though desktop (different network path) loaded fine. Same-origin means
+     no separate DNS/TLS handshake and no dependency on Google's uptime, so
+     it can be a plain blocking stylesheet link — @font-face's font-display:swap
+     (kept from Google's original CSS) still avoids invisible text either way. -->
+<link rel="stylesheet" href="/fonts/fonts.css">
 <style>
 :root{
   --must:#DFA02D;
