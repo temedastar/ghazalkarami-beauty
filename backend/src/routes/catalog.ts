@@ -24,7 +24,12 @@ router.get("/working-days", async (_req, res) => {
 router.get("/price-list", async (_req, res) => {
   const items = await prisma.priceListItem.findMany({
     where: { active: true },
-    orderBy: [{ groupTitle: "asc" }, { sortOrder: "asc" }],
+    // sortOrder is a single global sequence across all groups (not just
+    // within-group) — that's what lets it control which group appears
+    // before which, since the frontend groups rows by first appearance in
+    // whatever order this query returns them (see loadPriceList() in
+    // public/index.html)
+    orderBy: { sortOrder: "asc" },
   });
   res.json({ items });
 });

@@ -351,11 +351,13 @@ model SiteContent {
 }
 
 model ContactInfo {
-  id        String   @id @default("singleton")
-  phone     String?
-  whatsapp  String? // used for the header "tap to call" shortcut and the wa.me chat link — a single primary number, distinct from the social-icon row below
-  address   String?
-  updatedAt DateTime @updatedAt
+  id             String   @id @default("singleton")
+  phone          String?
+  whatsapp       String? // used for the header "tap to call" shortcut and the wa.me chat link — a single primary number, distinct from the social-icon row below
+  address        String?
+  doniaPhone     String? // direct line for the رنگ‌ولایت consultation drawer (public/index.html) — separate from the salon's main phone above
+  doniaInstagram String? // handle without "@", same drawer
+  updatedAt      DateTime @updatedAt
 }
 
 enum SocialPlatform {

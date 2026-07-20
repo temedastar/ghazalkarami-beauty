@@ -344,7 +344,11 @@ router.post("/services", async (req, res) => {
 
 router.get("/price-list", async (_req, res) => {
   const items = await prisma.priceListItem.findMany({
-    orderBy: [{ groupTitle: "asc" }, { sortOrder: "asc" }],
+    // sortOrder is a single global sequence across all groups (not just
+    // within-group) — that's what lets it control which group appears
+    // before which, since the public page groups rows by first appearance
+    // in whatever order this query returns them
+    orderBy: { sortOrder: "asc" },
   });
   res.json({ items });
 });
@@ -679,6 +683,8 @@ const contactInfoPatchSchema = z.object({
   phone: z.string().max(40).nullable().optional(),
   whatsapp: z.string().max(40).nullable().optional(),
   address: z.string().max(300).nullable().optional(),
+  doniaPhone: z.string().max(40).nullable().optional(),
+  doniaInstagram: z.string().max(60).nullable().optional(),
 });
 
 router.patch("/contact-info", async (req, res) => {

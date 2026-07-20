@@ -843,6 +843,15 @@ tabs.contact = async () => {
     </div>
   </div>`;
 
+  html += `<div class="section-title">مشاوره‌ی رنگ و لایت (دنیا سلیمانی)</div>
+  <div class="card">
+    <p class="muted" style="margin-bottom:16px;">این دو مقدار در دکمه‌ی «مشاوره» بخش «رنگ و لایت موی بلند» صفحه‌ی قیمت‌ها استفاده می‌شوند — با کلیک روی آن دکمه، کاربر این دو گزینه را می‌بیند.</p>
+    <div class="form-grid">
+      <label class="field">شماره تماس مستقیم دنیا سلیمانی<input type="text" class="wide" value="${esc(contact.doniaPhone||'')}" onchange="updateContact('doniaPhone',this.value)"></label>
+      <label class="field">آیدی اینستاگرام دنیا سلیمانی (بدون @)<input type="text" class="wide" value="${esc(contact.doniaInstagram||'')}" onchange="updateContact('doniaInstagram',this.value)"></label>
+    </div>
+  </div>`;
+
   html += `<div class="section-title">شبکه‌های اجتماعی (می‌توانید چند آیدی برای هر پلتفرم اضافه کنید — مثلاً یکی برای سالن، یکی برای آکادمی)</div>`;
   Object.entries(SOCIAL_PLATFORM_FA).forEach(([platform, label])=>{
     const rows = links.filter(l=>l.platform===platform);

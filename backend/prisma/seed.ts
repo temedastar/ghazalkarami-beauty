@@ -99,14 +99,19 @@ async function main() {
     priceLabel?: string;
     sortOrder: number;
   }> = [
+    // sortOrder is a single global sequence (not per-group) — it's what
+    // decides both the group display order (A: هیرکات، B: صافی و احیا، C: رنگ
+    // و دکلره) and the row order within each group, since the API now orders
+    // by sortOrder alone (see catalog.ts/admin.ts) and the frontend groups
+    // rows by first appearance in that order.
     { groupTitle: "هیرکات (کوتاهی مو)", name: "قد کوتاه", description: "پیکسی، اسپایکی، بازکات، فید تخصصی و…", priceMin: 1650000, priceMax: 2000000, sortOrder: 1 },
     { groupTitle: "هیرکات (کوتاهی مو)", name: "قد تا فک / سرشانه", description: "باب‌ها و لیرهای کوتاه", priceMin: 1900000, priceMax: 2200000, sortOrder: 2 },
     { groupTitle: "هیرکات (کوتاهی مو)", name: "قد بلند (لانگ)", description: "خانواده‌ی لیرها", priceMin: 2200000, priceMax: 2800000, sortOrder: 3 },
     { groupTitle: "هیرکات (کوتاهی مو)", name: "مدل‌های آوانگارد و ترکیبی", description: "ولف‌کات، شگ مالت، شگی و…", priceMin: 2000000, priceMax: 2400000, sortOrder: 4 },
     { groupTitle: "صافی و احیای مو", name: "پروتئین‌تراپی مو", description: "بسته به حجم و قد موهای شما", priceMin: 6500000, priceMax: 12000000, sortOrder: 5 },
-    { groupTitle: "صافی و احیای مو", name: "بوتاکس مو", description: "بسته به حجم و قد موهای شما", priceMin: 7500000, priceMax: 14000000, sortOrder: 6 },
-    { groupTitle: "صافی و احیای مو", name: "کرابوتاکس مو", description: "بسته به حجم و قد موهای شما", priceMin: 8000000, priceMax: 15000000, sortOrder: 7 },
-    { groupTitle: "صافی و احیای مو", name: "کراتینه", description: "بسته به حجم و قد موهای شما", priceMin: 7500000, priceMax: 14000000, sortOrder: 8 },
+    { groupTitle: "صافی و احیای مو", name: "کراتینه", description: "بسته به حجم و قد موهای شما", priceMin: 7500000, priceMax: 14000000, sortOrder: 6 },
+    { groupTitle: "صافی و احیای مو", name: "بوتاکس مو", description: "بسته به حجم و قد موهای شما", priceMin: 7500000, priceMax: 14000000, sortOrder: 7 },
+    { groupTitle: "صافی و احیای مو", name: "کرابوتاکس مو", description: "بسته به حجم و قد موهای شما", priceMin: 8000000, priceMax: 15000000, sortOrder: 8 },
     { groupTitle: "صافی و احیای مو", name: "اسکراب اسکالپ", description: "پاک‌سازی کف سر، بسته به نیاز", priceMin: 2800000, priceMax: 4000000, sortOrder: 9 },
     { groupTitle: "رنگ و دکلره", name: "دکلره و رنگ موی پیکسی", description: "خانواده‌ی پیکسی — با بهترین متریال، بدون آسیب به کف سر و مو", priceMin: 7000000, priceMax: 10500000, sortOrder: 10 },
     { groupTitle: "رنگ و دکلره", name: "رنگ ریشه (رشد یک ماه)", description: "تثبیت رنگ ریشه‌ی تازه رشد کرده", priceMin: 1700000, sortOrder: 11 },
