@@ -36,12 +36,16 @@ COPY admin-panel /app/admin-panel
 # PM2 defaults to writing its runtime state under $HOME/.pm2 — on Liara's
 # container runtime that resolved to /root/.pm2, which the process couldn't
 # create (ENOENT on mkdir/open for pm2.pid, module_conf.json, etc.), most
-# likely because the container actually runs under a UID that doesn't own
-# /root. Pointing PM2_HOME at a directory we create and open up ourselves at
-# build time sidesteps the question of which UID ends up running the
-# container entirely.
-ENV PM2_HOME=/app/.pm2
-RUN mkdir -p /app/.pm2 && chmod -R 777 /app/.pm2
+# likely because the container runs under a UID that doesn't own /root.
+# Pointing PM2_HOME at /app/.pm2 instead (created + chmod'd at build time)
+# was the first fix attempt, but Liara mounts /app itself read-only at
+# runtime (EROFS on the exact same files). /tmp is the one path virtually
+# every container runtime — Liara included — leaves writable regardless of
+# the rest of the filesystem's mount mode, so PM2_HOME goes there instead.
+# It's created fresh in CMD, not here at build time, because whatever gets
+# written under /tmp during the build does not necessarily survive into the
+# actual runtime container.
+ENV PM2_HOME=/tmp/.pm2
 
 # fallback default — Liara's Node/Docker platform injects its own PORT at
 # runtime, which src/lib/env.ts already reads via process.env.PORT
@@ -58,4 +62,4 @@ EXPOSE 3000
 # without an explicit `db seed` here the tables would exist but stay empty:
 # no admin login, no bookable time slots, no default categories/prices.
 # seed.ts is upsert-only throughout, so re-running it on every deploy is safe.
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && npm start"]
+CMD ["sh", "-c", "mkdir -p $PM2_HOME && npx prisma migrate deploy && npx prisma db seed && npm start"]
