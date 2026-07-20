@@ -5,6 +5,13 @@
 # finds none there, and has nothing to build — this Dockerfile makes the
 # build explicit instead of relying on that detection.
 FROM node:20-alpine AS build
+# node:20-alpine has no OpenSSL package installed — Prisma's schema/query
+# engine binaries link against libssl and fail to even start without it
+# ("Could not parse schema engine response" is that failure's stdout, a
+# plain-text error, getting fed to a JSON parser). Needed in this stage
+# because `prisma generate` probes the installed OpenSSL version to pick
+# the matching engine build.
+RUN apk add --no-cache openssl
 WORKDIR /app/backend
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci
@@ -13,6 +20,9 @@ RUN npx prisma generate
 RUN npm run build
 
 FROM node:20-alpine
+# same requirement as the build stage, but now for the engine binaries
+# actually running at container start (migrate deploy / db seed / the app)
+RUN apk add --no-cache openssl
 WORKDIR /app/backend
 ENV NODE_ENV=production
 COPY --from=build /app/backend/node_modules ./node_modules
@@ -32,5 +42,10 @@ EXPOSE 3000
 # a no-op if the DB is already at the latest migration) — this is what
 # actually creates the tables on the real Liara Postgres instance, since
 # nothing outside Liara's own network can reach it (see earlier session:
-# raw-TCP database connections aren't reachable from the dev/test sandbox)
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+# raw-TCP database connections aren't reachable from the dev/test sandbox).
+# `migrate deploy` does NOT run the seed script (that's Prisma's documented
+# behavior — auto-seeding only happens on `migrate dev`/`migrate reset`), so
+# without an explicit `db seed` here the tables would exist but stay empty:
+# no admin login, no bookable time slots, no default categories/prices.
+# seed.ts is upsert-only throughout, so re-running it on every deploy is safe.
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && npm start"]
