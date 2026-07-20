@@ -1,0 +1,12 @@
+backend/node_modules
+backend/dist
+backend/.env
+backend/test-results
+backend/playwright-report
+backend/tests
+backend/tsconfig.json
+backend/playwright.config.ts
+frontend-reference
+.git
+.claude
+*.md
