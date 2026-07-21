@@ -456,8 +456,10 @@ section{padding:96px 0;}
 .dsv h3{font-size:15px;color:var(--must-l);margin-bottom:4px;}
 .dsv p{font-size:13px;color:rgba(251,247,238,.62);}
 .d-ig{display:flex;align-items:flex-start;gap:12px;border:1.5px solid rgba(223,160,45,.28);
-  border-radius:14px;padding:17px 19px;background:rgba(223,160,45,.08);max-width:530px;transition:border-color .25s,transform .25s;}
-.d-ig:hover{border-color:var(--must-l);transform:translateY(-3px);}
+  border-radius:14px;padding:17px 19px;background:rgba(223,160,45,.08);max-width:530px;
+  transition:border-color .25s,transform .25s;
+  width:100%;text-align:right;font-family:'Vazirmatn',sans-serif;cursor:pointer;}
+.d-ig:hover,.d-ig:focus-visible{border-color:var(--must-l);transform:translateY(-3px);}
 .d-ig svg{color:var(--must);flex-shrink:0;margin-top:2px;}
 .d-ig b{display:block;font-size:14.5px;color:var(--must-t);margin-bottom:3px;}
 .d-ig span{font-size:13px;color:rgba(251,247,238,.65);}
@@ -969,10 +971,10 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <div class="dsv"><h3>بوتاکس و کرابوتاکس</h3><p>درمان احیاکننده، تقویت‌کننده و صافی مو برای بازسازی موهای آسیب‌دیده و همچنین صافی آن‌ها</p></div>
         <div class="dsv"><h3>پروتئین‌تراپی تخصصی</h3><p>بازسازی کامل موهای آسیب‌دیده و جبران مواد مغذی از دست‌رفته‌ی ساقه‌ی موها</p></div>
       </div>
-      <div class="d-ig">
+      <button type="button" class="d-ig" onclick="openDoniaModal()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-        <div><b>هایلایت موی بلند (آمبره، سامبره، بالیاژ و…)</b><span>پس از مشاوره‌ی تخصصی در دایرکت اینستاگرام دنیا سلیمانی رزرو می‌شود</span></div>
-      </div>
+        <div><b>هایلایت موی بلند (آمبره، سامبره، بالیاژ و…)</b><span>پس از مشاوره‌ی تخصصی، مستقیم با دنیا سلیمانی هماهنگ کنید — لمس کنید</span></div>
+      </button>
     </div>
   </div>
 </section>
