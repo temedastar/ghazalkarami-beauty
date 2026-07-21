@@ -230,7 +230,7 @@ tabs.schedule = async () => {
     html += `<div class="row">
       <div style="min-width:100px;"><b>${DOW_NAMES[d.dayOfWeek]}</b></div>
       <label class="switch"><input type="checkbox" ${d.isOpen?"checked":""} onchange="toggleDay(${d.dayOfWeek}, this.checked)"><span class="slider"></span></label>
-      <label class="field">ساز ساعت<input type="time" value="${d.openTime||''}" onchange="updateDayHours(${d.dayOfWeek},'openTime',this.value)"></label>
+      <label class="field">از ساعت<input type="time" value="${d.openTime||''}" onchange="updateDayHours(${d.dayOfWeek},'openTime',this.value)"></label>
       <label class="field">تا ساعت<input type="time" value="${d.closeTime||''}" onchange="updateDayHours(${d.dayOfWeek},'closeTime',this.value)"></label>
     </div>`;
   });
