@@ -9,103 +9,166 @@
 <style>
 :root{
   --must:#DFA02D;--must-d:#A87310;--must-l:#F3C766;--must-t:#FBEECB;
-  --night:#0B1526;--night-2:#12203A;--bone:#FBF7EE;--bone-2:#F1E7CF;
+  --night:#0B1526;--night-2:#12203A;--night-3:#182A47;
+  --bone:#FBF7EE;--bone-2:#F1E7CF;
   --line:#E3D5B2;--ink:#181207;--ink-2:#59481F;--danger:#C0392B;--success:#3A8A5A;
+  --gline:rgba(223,160,45,.16);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Vazirmatn',sans-serif;background:var(--bone);color:var(--ink);min-height:100vh;}
+html{scroll-behavior:smooth;}
+body{font-family:'Vazirmatn',sans-serif;background:var(--night);color:var(--bone);min-height:100vh;-webkit-font-smoothing:antialiased;}
 a{color:inherit;}
 .hidden{display:none !important;}
+::selection{background:var(--must);color:var(--night);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:var(--night);}
+::-webkit-scrollbar-thumb{background:rgba(223,160,45,.35);border-radius:999px;border:2px solid var(--night);}
+::-webkit-scrollbar-thumb:hover{background:var(--must);}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
 
 /* ---- login screen ---- */
-#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--night);padding:20px;}
-.login-card{background:var(--night-2);border:1px solid rgba(223,160,45,.25);border-radius:20px;padding:36px;width:100%;max-width:380px;}
-.login-card h1{color:#fff;font-size:20px;margin-bottom:6px;text-align:center;}
-.login-card p{color:rgba(251,247,238,.6);font-size:13px;text-align:center;margin-bottom:24px;}
-.login-card input{width:100%;padding:14px 16px;border-radius:12px;border:1.5px solid rgba(223,160,45,.3);
-  background:rgba(255,255,255,.04);color:#fff;font-family:inherit;font-size:15px;margin-bottom:12px;}
-.login-card input::placeholder{color:rgba(251,247,238,.4);}
-.login-card input:focus{outline:2px solid var(--must);}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;
-  border-radius:999px;font-weight:700;font-size:14.5px;border:1.5px solid transparent;cursor:pointer;
-  font-family:inherit;transition:.2s;}
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--night);padding:20px;
+  background-image:radial-gradient(rgba(223,160,45,.08) 1px,transparent 1px);background-size:32px 32px;}
+.login-card{background:var(--night-2);border:1px solid rgba(223,160,45,.25);border-radius:22px;padding:38px;width:100%;max-width:380px;
+  box-shadow:0 30px 60px -20px rgba(0,0,0,.5);animation:fadeInUp .5s cubic-bezier(.2,.8,.3,1);}
+.login-card h1{color:#fff;font-size:21px;margin-bottom:6px;text-align:center;font-weight:900;}
+.login-card p{color:rgba(251,247,238,.55);font-size:13px;text-align:center;margin-bottom:26px;}
+.login-card input{width:100%;padding:14px 16px;border-radius:13px;border:1.5px solid rgba(223,160,45,.3);
+  background:rgba(255,255,255,.04);color:#fff;font-family:inherit;font-size:15px;margin-bottom:12px;transition:border-color .2s ease,background .2s ease;}
+.login-card input::placeholder{color:rgba(251,247,238,.35);}
+.login-card input:focus{outline:none;border-color:var(--must);background:rgba(255,255,255,.06);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;
+  border-radius:999px;font-weight:700;font-size:14px;border:1.5px solid transparent;cursor:pointer;
+  font-family:inherit;transition:transform .2s ease,box-shadow .2s ease,background .2s ease,border-color .2s ease,color .2s ease;}
 .btn-gold{background:var(--must);color:var(--night);width:100%;}
-.btn-gold:hover{background:var(--must-l);}
-.btn-line{border-color:var(--must);color:var(--must-d);background:transparent;}
-.btn-danger{background:var(--danger);color:#fff;}
-.btn-ghost{background:var(--bone-2);color:var(--ink-2);}
-.btn-sm{padding:8px 14px;font-size:13px;width:auto;}
-.btn[disabled]{opacity:.5;cursor:not-allowed;}
+.btn-gold:hover{background:var(--must-l);transform:translateY(-1px);box-shadow:0 10px 22px -10px rgba(223,160,45,.55);}
+.btn-line{border-color:rgba(223,160,45,.45);color:var(--must-l);background:transparent;}
+.btn-line:hover{border-color:var(--must);background:rgba(223,160,45,.08);}
+.btn-danger{background:rgba(192,57,43,.14);color:#FF9A90;border-color:rgba(192,57,43,.3);}
+.btn-danger:hover{background:var(--danger);color:#fff;border-color:var(--danger);}
+.btn-ghost{background:rgba(255,255,255,.06);color:rgba(251,247,238,.75);}
+.btn-ghost:hover{background:rgba(255,255,255,.1);color:#fff;}
+.btn-sm{padding:9px 15px;font-size:12.5px;width:auto;}
+.btn[disabled]{opacity:.5;cursor:not-allowed;transform:none !important;box-shadow:none !important;}
 .err-msg{color:#ff8a80;font-size:13px;text-align:center;margin-top:10px;min-height:16px;}
 
 /* ---- app shell ---- */
 #app{display:none;min-height:100vh;}
 #app.on{display:flex;}
-.sidebar{width:240px;flex-shrink:0;background:var(--night);color:#fff;min-height:100vh;padding:20px 0;overflow-y:auto;}
-.sidebar h2{padding:0 22px 16px;font-size:16px;color:var(--must-l);border-bottom:1px solid rgba(223,160,45,.18);margin-bottom:6px;}
-.sidebar .group-label{padding:14px 22px 6px;font-size:11px;color:rgba(251,247,238,.4);letter-spacing:.05em;}
-.sidebar button{display:flex;align-items:center;gap:10px;width:100%;text-align:right;padding:11px 22px;
-  background:none;border:none;color:rgba(251,247,238,.75);font-family:inherit;font-size:13.5px;cursor:pointer;
-  border-right:3px solid transparent;transition:.2s;}
+.sidebar{width:252px;flex-shrink:0;background:var(--night-2);color:#fff;min-height:100vh;padding:26px 0;overflow-y:auto;
+  border-left:1px solid var(--gline);position:sticky;top:0;align-self:flex-start;height:100vh;}
+.sidebar h2{padding:0 24px 18px;font-size:17px;color:var(--must-l);font-weight:900;border-bottom:1px solid var(--gline);margin-bottom:8px;
+  display:flex;align-items:center;gap:9px;}
+.sidebar h2::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--must);box-shadow:0 0 10px 1px rgba(223,160,45,.6);}
+.sidebar .group-label{padding:18px 24px 8px;font-size:10.5px;color:rgba(251,247,238,.35);letter-spacing:.08em;}
+.sidebar button{display:flex;align-items:center;gap:11px;width:100%;text-align:right;padding:12px 24px;
+  background:none;border:none;color:rgba(251,247,238,.68);font-family:inherit;font-size:13.5px;cursor:pointer;
+  border-right:3px solid transparent;transition:background .2s ease,color .2s ease,border-color .2s ease;}
 .sidebar button:hover{background:rgba(223,160,45,.08);color:#fff;}
-.sidebar button.on{background:rgba(223,160,45,.14);color:var(--must-l);border-right-color:var(--must);font-weight:700;}
-.sidebar .logout{margin-top:16px;color:rgba(251,247,238,.5);}
-main{flex:1;padding:32px 36px;max-width:1180px;}
-main h1{font-size:22px;margin-bottom:22px;}
-main h3{font-size:15px;margin-bottom:14px;}
-.card{background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:22px;margin-bottom:16px;}
-.card + .card-title{margin-top:24px;}
-.section-title{font-size:13px;color:var(--must-d);font-weight:700;margin:26px 0 12px;letter-spacing:.02em;}
+.sidebar button.on{background:rgba(223,160,45,.13);color:var(--must-l);border-right-color:var(--must);font-weight:700;}
+.sidebar .logout{margin-top:20px;color:rgba(251,247,238,.4);}
+.sidebar .logout:hover{background:rgba(192,57,43,.1);color:#ff8a80;}
+main{flex:1;padding:38px 42px;max-width:1280px;}
+main h1{font-size:23px;margin-bottom:26px;color:#fff;font-weight:900;letter-spacing:-.01em;}
+main h3{font-size:15px;margin-bottom:14px;color:#fff;}
+#mainContent{animation:fadeInUp .35s cubic-bezier(.2,.8,.3,1);}
+.card{background:var(--night-2);border:1px solid var(--gline);border-radius:18px;padding:24px;margin-bottom:18px;
+  transition:border-color .2s ease;}
+.card:hover{border-color:rgba(223,160,45,.26);}
+.section-title{font-size:12.5px;color:var(--must-l);font-weight:700;margin:30px 0 14px;letter-spacing:.04em;}
 .section-title:first-child{margin-top:0;}
 .row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
-.row + .row{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
-.muted{color:var(--ink-2);font-size:13px;}
-.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;}
-.tag-open{background:rgba(58,138,90,.14);color:var(--success);}
-.tag-closed{background:rgba(192,57,43,.14);color:var(--danger);}
-.tag-pending{background:rgba(223,160,45,.18);color:var(--must-d);}
-.tag-muted{background:var(--bone-2);color:var(--ink-2);}
+.row + .row{margin-top:14px;padding-top:14px;border-top:1px solid var(--gline);}
+.muted{color:rgba(251,247,238,.55);font-size:13px;}
+.tag{display:inline-block;padding:4px 11px;border-radius:999px;font-size:11.5px;font-weight:700;}
+.tag-open{background:rgba(58,138,90,.18);color:#7FD9A4;}
+.tag-closed{background:rgba(192,57,43,.18);color:#FF9A90;}
+.tag-pending{background:rgba(223,160,45,.2);color:var(--must-l);}
+.tag-muted{background:rgba(255,255,255,.07);color:rgba(251,247,238,.55);}
 input[type=text],input[type=number],input[type=date],input[type=time],input[type=tel],select{
-  padding:9px 12px;border-radius:9px;border:1.5px solid var(--line);
-  font-family:inherit;font-size:13.5px;width:130px;background:#fff;color:var(--ink);}
-input[type=text].wide,input[type=tel].wide{width:220px;}
-label.field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--ink-2);}
-.form-grid{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;}
+  padding:10px 13px;border-radius:10px;border:1.5px solid var(--gline);
+  font-family:inherit;font-size:13.5px;width:130px;background:rgba(255,255,255,.04);color:#fff;
+  transition:border-color .2s ease,background .2s ease;}
+input::placeholder{color:rgba(251,247,238,.35);}
+input[type=text]:focus,input[type=number]:focus,input[type=date]:focus,input[type=time]:focus,input[type=tel]:focus,select:focus{
+  outline:none;border-color:var(--must);background:rgba(255,255,255,.06);}
+input[type=date]::-webkit-calendar-picker-indicator,input[type=time]::-webkit-calendar-picker-indicator{filter:invert(.85);cursor:pointer;}
+select option{background:var(--night-2);color:#fff;}
+input[type=text].wide,input[type=tel].wide{width:240px;}
+label.field{display:flex;flex-direction:column;gap:6px;font-size:12px;color:rgba(251,247,238,.6);}
+.form-grid{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;}
 .switch{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;}
 .switch input{opacity:0;width:0;height:0;}
-.slider{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:999px;transition:.2s;}
+.slider{position:absolute;cursor:pointer;inset:0;background:rgba(255,255,255,.14);border-radius:999px;transition:.2s;}
 .slider::before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
 input:checked + .slider{background:var(--must);}
 input:checked + .slider::before{transform:translateX(-20px);}
 .grid-imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;}
-.gimg{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;position:relative;background:var(--bone-2);}
+.gimg{border:1.5px solid var(--gline);border-radius:13px;overflow:hidden;position:relative;background:rgba(255,255,255,.03);
+  transition:border-color .2s ease,transform .2s ease;}
+.gimg:hover{border-color:rgba(223,160,45,.35);transform:translateY(-2px);}
 .gimg img{width:100%;height:140px;object-fit:cover;display:block;}
-.gimg .meta{padding:8px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:6px;}
+.gimg .meta{padding:9px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:6px;}
 .gimg select{font-family:inherit;font-size:11px;padding:3px;border-radius:6px;width:auto;}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--night);color:#fff;
-  padding:12px 22px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:200;max-width:90vw;text-align:center;}
-.toast.on{opacity:1;transform:translateX(-50%) translateY(-6px);}
-.loading{color:var(--ink-2);font-size:13.5px;padding:20px 0;}
-textarea{width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid var(--line);font-family:inherit;font-size:13.5px;resize:vertical;}
-.upload-btn{display:inline-block;padding:9px 16px;border-radius:999px;border:1.5px dashed var(--must);
-  color:var(--must-d);font-size:13px;cursor:pointer;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--night-2);color:#fff;
+  border:1px solid rgba(223,160,45,.3);padding:13px 24px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .25s ease;z-index:200;max-width:90vw;text-align:center;box-shadow:0 20px 40px -12px rgba(0,0,0,.5);}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(-8px);}
+.loading{color:rgba(251,247,238,.5);font-size:13.5px;padding:20px 0;}
+textarea{width:100%;padding:11px 13px;border-radius:10px;border:1.5px solid var(--gline);font-family:inherit;font-size:13.5px;
+  resize:vertical;background:rgba(255,255,255,.04);color:#fff;transition:border-color .2s ease;}
+textarea:focus{outline:none;border-color:var(--must);}
+.upload-btn{display:inline-block;padding:10px 18px;border-radius:999px;border:1.5px dashed rgba(223,160,45,.5);
+  color:var(--must-l);font-size:13px;cursor:pointer;transition:background .2s ease,border-color .2s ease;}
+.upload-btn:hover{background:rgba(223,160,45,.08);border-color:var(--must);}
 .chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
-.chip{padding:8px 15px;border-radius:999px;border:1.5px solid var(--line);background:#fff;color:var(--ink-2);
-  font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;}
+.chip{padding:8px 15px;border-radius:999px;border:1.5px solid var(--gline);background:rgba(255,255,255,.03);color:rgba(251,247,238,.6);
+  font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:.2s;}
 .chip.on{background:var(--must);color:var(--night);border-color:var(--must);}
-table.simple{width:100%;border-collapse:collapse;font-size:13px;}
-table.simple th{text-align:right;color:var(--ink-2);font-weight:700;font-size:12px;padding:8px 6px;border-bottom:1.5px solid var(--line);}
-table.simple td{padding:8px 6px;border-bottom:1px solid var(--line);}
-.slot-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1.5px solid var(--line);font-size:12px;margin:3px;}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table.simple{width:100%;border-collapse:collapse;font-size:13px;min-width:480px;}
+table.simple th{text-align:right;color:rgba(251,247,238,.5);font-weight:700;font-size:12px;padding:9px 6px;border-bottom:1.5px solid var(--gline);}
+table.simple td{padding:9px 6px;border-bottom:1px solid var(--gline);}
+.slot-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;border:1.5px solid var(--gline);font-size:12px;margin:3px;
+  background:rgba(255,255,255,.03);}
 .slot-pill.off{opacity:.4;text-decoration:line-through;}
-.slot-pill button{background:none;border:none;cursor:pointer;color:var(--danger);font-size:13px;padding:0;line-height:1;}
+.slot-pill button{background:none;border:none;cursor:pointer;color:#FF9A90;font-size:13px;padding:0;line-height:1;}
+
+/* ---- dashboard ---- */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:18px;}
+.stat-tile{background:var(--night-2);border:1px solid var(--gline);border-radius:16px;padding:20px;
+  transition:border-color .2s ease,transform .2s ease;}
+.stat-tile:hover{border-color:rgba(223,160,45,.32);transform:translateY(-2px);}
+.stat-tile .n{font-size:28px;font-weight:900;color:var(--must-l);display:block;line-height:1.25;}
+.stat-tile .l{font-size:12px;color:rgba(251,247,238,.55);margin-top:5px;}
+.chart-wrap{display:flex;align-items:flex-end;gap:8px;height:150px;padding:6px 4px 0;}
+.chart-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end;}
+.chart-bar{width:100%;max-width:36px;background:linear-gradient(180deg,var(--must-l),var(--must-d));
+  border-radius:8px 8px 3px 3px;transition:height .6s cubic-bezier(.2,.8,.3,1);min-height:4px;}
+.chart-bar-col .lbl{font-size:11px;color:rgba(251,247,238,.5);}
+.chart-bar-col .cnt{font-size:12px;color:var(--must-l);font-weight:700;}
+.popular-list{display:flex;flex-direction:column;gap:12px;}
+.popular-row{display:flex;align-items:center;gap:12px;}
+.popular-row .bar-bg{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden;}
+.popular-row .bar-fill{height:100%;background:linear-gradient(90deg,var(--must-d),var(--must-l));border-radius:999px;transition:width .7s cubic-bezier(.2,.8,.3,1);}
+.popular-row .name{width:140px;flex-shrink:0;font-size:13px;color:#fff;}
+.popular-row .count{width:26px;flex-shrink:0;text-align:left;font-size:12.5px;color:var(--must-l);font-weight:700;}
+.recent-row{padding:16px 20px;margin-bottom:10px;}
+
 @media(max-width:760px){
   #app.on{flex-direction:column;}
-  .sidebar{width:100%;display:flex;overflow-x:auto;padding:14px 0;min-height:auto;}
+  .sidebar{width:100%;display:flex;overflow-x:auto;padding:12px 0;min-height:auto;height:auto;position:sticky;top:0;z-index:50;}
   .sidebar h2,.sidebar .logout,.sidebar .group-label{display:none;}
-  .sidebar button{white-space:nowrap;border-right:none;border-bottom:3px solid transparent;}
+  .sidebar button{white-space:nowrap;border-right:none;border-bottom:3px solid transparent;padding:12px 16px;}
   .sidebar button.on{border-bottom-color:var(--must);}
-  main{padding:18px;}
+  main{padding:20px 16px;}
+  main h1{font-size:19px;margin-bottom:20px;}
+  .card{padding:18px;border-radius:14px;}
+  .form-grid{gap:12px;}
+  input[type=text],input[type=number],input[type=date],input[type=time],input[type=tel],select{width:100%;}
+  input[type=text].wide,input[type=tel].wide{width:100%;}
+  .stat-tile .n{font-size:24px;}
+  .popular-row .name{width:100px;font-size:12.5px;}
 }
 </style>
 </head>
@@ -125,8 +188,9 @@ table.simple td{padding:8px 6px;border-bottom:1px solid var(--line);}
 <div id="app">
   <nav class="sidebar">
     <h2>غزل کرمی</h2>
+    <button data-tab="dashboard" class="on">داشبورد</button>
     <div class="group-label">رزرو و زمان‌بندی</div>
-    <button data-tab="schedule" class="on">زمان‌بندی سالن</button>
+    <button data-tab="schedule">زمان‌بندی سالن</button>
     <button data-tab="bookings">رزروها</button>
     <div class="group-label">محتوای سایت</div>
     <button data-tab="prices">قیمت‌ها</button>
@@ -160,6 +224,16 @@ function toast(msg, isErr){
 }
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
 function toman(n){ return Number(n||0).toLocaleString("fa-IR")+" تومان"; }
+
+/* every tab render goes through this instead of a raw innerHTML assignment,
+   so switching tabs gets a consistent subtle fade instead of an abrupt swap */
+function setMainContent(html){
+  const el=document.getElementById("mainContent");
+  el.innerHTML=html;
+  el.style.animation='none';
+  void el.offsetWidth; /* force reflow so the animation restarts every time */
+  el.style.animation='fadeInUp .35s cubic-bezier(.2,.8,.3,1)';
+}
 
 /* prevents a create-type button from firing a second overlapping request if
    double-clicked (or clicked again before the toast/re-render from the first
@@ -214,6 +288,65 @@ function logout(){
 
 const DOW_NAMES=["یکشنبه","دوشنبه","سه‌شنبه","چهارشنبه","پنج‌شنبه","جمعه","شنبه"];
 const tabs={};
+
+/* =====================================================================
+   داشبورد: آمار واقعی از /admin/dashboard — هیچ عددی اینجا ساختگی نیست
+   ===================================================================== */
+tabs.dashboard = async () => {
+  const d = await api("/admin/dashboard");
+  let html = `<h1>داشبورد</h1>`;
+
+  html += `<div class="stat-grid">
+    <div class="stat-tile"><span class="n">${d.today.count}</span><div class="l">رزرو امروز</div></div>
+    <div class="stat-tile"><span class="n">${d.week.count}</span><div class="l">رزرو این هفته</div></div>
+    <div class="stat-tile"><span class="n">${d.month.count}</span><div class="l">رزرو این ماه</div></div>
+    <div class="stat-tile"><span class="n" style="font-size:18px;">${d.popularServices[0]?esc(d.popularServices[0].name):'—'}</span><div class="l">محبوب‌ترین سرویس</div></div>
+  </div>`;
+
+  const maxDay = Math.max(1, ...d.last7Days.map(x=>x.count));
+  html += `<div class="section-title">رزروهای ۷ روز گذشته</div><div class="card">
+    <div class="chart-wrap">
+      ${d.last7Days.map(x=>`
+        <div class="chart-bar-col">
+          <span class="cnt">${x.count}</span>
+          <div class="chart-bar" style="height:${Math.max(4,(x.count/maxDay)*100)}%;"></div>
+          <span class="lbl">${DOW_NAMES[x.dayOfWeek]}</span>
+        </div>`).join("")}
+    </div>
+  </div>`;
+
+  html += `<div class="section-title">محبوب‌ترین خدمات</div><div class="card">`;
+  if(!d.popularServices.length){
+    html += `<p class="muted">هنوز رزروی ثبت نشده.</p>`;
+  } else {
+    const maxPop = Math.max(1, ...d.popularServices.map(s=>s.count));
+    html += `<div class="popular-list">` + d.popularServices.map(s=>`
+      <div class="popular-row">
+        <span class="name">${esc(s.name)}</span>
+        <div class="bar-bg"><div class="bar-fill" style="width:${(s.count/maxPop)*100}%;"></div></div>
+        <span class="count">${s.count}</span>
+      </div>`).join("") + `</div>`;
+  }
+  html += `</div>`;
+
+  html += `<div class="section-title">آخرین رزروهای ثبت‌شده</div>`;
+  if(!d.recentBookings.length) html += `<div class="card muted">هنوز رزروی ثبت نشده.</div>`;
+  const statusFa = {PENDING_PAYMENT:"در انتظار پرداخت",CONFIRMED:"تاییدشده",CANCELLED:"لغوشده",EXPIRED:"منقضی",COMPLETED:"انجام‌شده",NO_SHOW:"مشتری نیامد"};
+  const statusTagClass = {PENDING_PAYMENT:"tag-pending",CONFIRMED:"tag-open",CANCELLED:"tag-closed",EXPIRED:"tag-muted",COMPLETED:"tag-open",NO_SHOW:"tag-closed"};
+  d.recentBookings.forEach(b=>{
+    html += `<div class="card recent-row">
+      <div class="row" style="border:none;padding:0;">
+        <div>
+          <b>${esc(b.customerName)}</b> — ${esc(b.serviceName)}
+          <div class="muted">${b.date.slice(0,10)} ساعت ${b.time}</div>
+        </div>
+        <span class="tag ${statusTagClass[b.status]||'tag-muted'}">${statusFa[b.status]||b.status}</span>
+      </div>
+    </div>`;
+  });
+
+  setMainContent(html);
+};
 
 /* =====================================================================
    زمان‌بندی سالن: الگوی هفتگی + استثناهای تاریخ خاص + تعطیلی موقت + اسلات‌ها
@@ -282,7 +415,7 @@ tabs.schedule = async () => {
     <p class="muted" style="margin-top:10px;">اسلات‌های تکراری نادیده گرفته می‌شوند؛ می‌تونی چند بار برای روزهای مختلف بزنی.</p>
   </div>`;
 
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
   window._scheduleCategories = categories;
   renderSlotDay();
 };
@@ -419,7 +552,7 @@ tabs.bookings = async () => {
       </div>
     </div>`;
   });
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
   window._bookingsCategories = categories;
   renderManualServiceOptions();
 };
@@ -476,7 +609,7 @@ tabs.prices = async () => {
     });
     html += `</div>`;
   });
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
 };
 window.updatePrice = async (id, field, value) => {
   try{
@@ -516,7 +649,7 @@ tabs.gallery = async () => {
     </div>`;
   });
   html += `</div>`;
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
 };
 window.uploadImage = async (input) => {
   const file = input.files[0];
@@ -579,7 +712,7 @@ tabs.reviews = async () => {
       </div>
     </div>`;
   });
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
 };
 window.setReviewStatus = async (id, status) => {
   try{ await api(`/admin/reviews/${id}`,{method:"PATCH",body:JSON.stringify({status})}); toast("وضعیت به‌روزرسانی شد."); tabs.reviews(); }
@@ -667,7 +800,7 @@ tabs.siteContent = async () => {
     </div>`;
   });
   html += `</div>`;
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
 };
 window.updateSiteContent = async (key, value) => {
   try{ await api(`/admin/site-content/${key}`,{method:"PATCH",body:JSON.stringify({value})}); toast("ذخیره شد."); }
@@ -742,7 +875,7 @@ tabs.services = async () => {
       </div>
     </div>`;
   });
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
 };
 window.updateService = async (id, field, value) => {
   try{ await api(`/admin/services/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
@@ -770,7 +903,7 @@ tabs.customers = async () => {
   const {customers} = await api("/admin/customers");
   let html = `<h1>مشتریان</h1>`;
   if(!customers.length) html += `<div class="card muted">هنوز مشتری ثبت‌نامی وجود ندارد.</div>`;
-  html += `<div class="card"><table class="simple"><thead><tr><th>نام</th><th>موبایل</th><th>تعداد نوبت</th><th>تاریخ عضویت</th><th></th></tr></thead><tbody>`;
+  html += `<div class="card table-wrap"><table class="simple"><thead><tr><th>نام</th><th>موبایل</th><th>تعداد نوبت</th><th>تاریخ عضویت</th><th></th></tr></thead><tbody>`;
   customers.forEach(c=>{
     html += `<tr>
       <td>${esc(c.name||"—")}</td>
@@ -781,7 +914,7 @@ tabs.customers = async () => {
     </tr>`;
   });
   html += `</tbody></table></div><div id="customerHistory"></div>`;
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
 };
 window.showCustomerHistory = async (id) => {
   try{
@@ -817,7 +950,7 @@ tabs.classes = async () => {
       </div>
     </div>`;
   });
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
 };
 window.setClassStatus = async (id, status) => {
   try{ await api(`/admin/class-requests/${id}`,{method:"PATCH",body:JSON.stringify({status})}); toast("ذخیره شد."); }
@@ -873,7 +1006,7 @@ tabs.contact = async () => {
     </div>`;
   });
 
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
 };
 window.updateContact = async (field, value) => {
   try{ await api("/admin/contact-info",{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
@@ -905,7 +1038,7 @@ window.deleteSocialLink = async (id) => {
 const SMS_TYPE_FA = {OTP:"کد ورود",BOOKING_CONFIRM:"تایید رزرو",REMINDER:"یادآوری نوبت",THANK_YOU_REVIEW:"تشکر + درخواست نظر"};
 tabs.smsLogs = async () => {
   const {logs} = await api("/admin/sms-logs?limit=200");
-  let html = `<h1>پیامک‌ها</h1><div class="card"><table class="simple"><thead><tr><th>موبایل</th><th>نوع</th><th>وضعیت</th><th>زمان</th></tr></thead><tbody>`;
+  let html = `<h1>پیامک‌ها</h1><div class="card table-wrap"><table class="simple"><thead><tr><th>موبایل</th><th>نوع</th><th>وضعیت</th><th>زمان</th></tr></thead><tbody>`;
   if(!logs.length) html += `<tr><td colspan="4" class="muted">هنوز پیامکی ارسال نشده.</td></tr>`;
   logs.forEach(l=>{
     const tag = l.status==="SUCCESS"?"tag-open":l.status==="FAILED"?"tag-closed":"tag-muted";
@@ -913,7 +1046,7 @@ tabs.smsLogs = async () => {
     html += `<tr><td>${l.phone}</td><td>${SMS_TYPE_FA[l.type]||l.type}</td><td><span class="tag ${tag}">${statusFa}</span></td><td>${new Date(l.createdAt).toLocaleString("fa-IR")}</td></tr>`;
   });
   html += `</tbody></table></div>`;
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
 };
 
 /* =====================================================================
@@ -933,7 +1066,7 @@ tabs.settings = async () => {
       <label class="field">مقدار پیش‌فرض<input type="number" value="${settings.defaultDepositValue}" onchange="updateSettings('defaultDepositValue',Number(this.value))" style="width:120px;"></label>
     </div>
   </div>`;
-  document.getElementById("mainContent").innerHTML = html;
+  setMainContent(html);
 };
 window.updateSettings = async (field, value) => {
   try{ await api("/admin/settings",{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
@@ -954,7 +1087,7 @@ async function boot(){
   document.getElementById("loginScreen").style.display="none";
   document.getElementById("app").classList.add("on");
   document.getElementById("mainContent").innerHTML = `<div class="loading">در حال بارگذاری…</div>`;
-  try{ await tabs.schedule(); }catch(e){ toast(e.message,true); }
+  try{ await tabs.dashboard(); }catch(e){ toast(e.message,true); }
 }
 
 if(TOKEN) boot();

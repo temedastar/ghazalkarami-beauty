@@ -5,17 +5,99 @@ import fs from "fs";
 import crypto from "crypto";
 import sharp from "sharp";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+import { Prisma, BookingStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { normalizePhone } from "../lib/phone";
-import { parseDateOnly } from "../lib/dates";
+import { parseDateOnly, toDateOnlyString, dayOfWeekUTC } from "../lib/dates";
 import { sendThankYouReviewSms } from "../services/kavenegar";
 import { isObjectStorageConfigured, uploadBuffer } from "../lib/objectStorage";
 import { env } from "../lib/env";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
+
+/* ---------- dashboard (real aggregates only — no placeholder/fake numbers) ---------- */
+
+router.get("/dashboard", async (_req, res) => {
+  const todayStr = toDateOnlyString(new Date());
+  const today = parseDateOnly(todayStr)!;
+
+  // Persian week starts Saturday — dayOfWeekUTC follows 0=Sunday..6=Saturday
+  // (see schema.prisma), so Saturday(6)->0 days back, Sunday(0)->1, ... Friday(5)->6
+  const daysSinceSaturday = (dayOfWeekUTC(today) + 1) % 7;
+  const weekStart = new Date(today);
+  weekStart.setUTCDate(weekStart.getUTCDate() - daysSinceSaturday);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+
+  const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+
+  // a booking someone cancelled (or that expired unpaid) never actually
+  // happened — counting it would overstate real salon activity
+  const NOT_CANCELLED: BookingStatus[] = ["CANCELLED", "EXPIRED"];
+
+  const [todayCount, weekCount, monthCount, last7Days, topServiceGroups, recentBookings] = await Promise.all([
+    prisma.booking.count({ where: { date: today, status: { notIn: NOT_CANCELLED } } }),
+    prisma.booking.count({ where: { date: { gte: weekStart, lte: weekEnd }, status: { notIn: NOT_CANCELLED } } }),
+    prisma.booking.count({ where: { date: { gte: monthStart, lte: today }, status: { notIn: NOT_CANCELLED } } }),
+    Promise.all(
+      Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today);
+        d.setUTCDate(d.getUTCDate() - (6 - i));
+        return prisma.booking
+          .count({ where: { date: d, status: { notIn: NOT_CANCELLED } } })
+          .then((count) => ({ date: toDateOnlyString(d), dayOfWeek: dayOfWeekUTC(d), count }));
+      })
+    ),
+    prisma.booking.groupBy({
+      by: ["serviceId"],
+      where: { serviceId: { not: null }, status: { notIn: NOT_CANCELLED } },
+      _count: { serviceId: true },
+    }),
+    prisma.booking.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      include: { service: true, user: true },
+    }),
+  ]);
+
+  // sorted here instead of via groupBy's `orderBy: { _count: ... }` — Prisma's
+  // TS overloads for that get ambiguous once both `_count` and an
+  // aggregate-based `orderBy` are present in the same call
+  const topServices = topServiceGroups
+    .slice()
+    .sort((a, b) => b._count.serviceId - a._count.serviceId)
+    .slice(0, 5);
+
+  const serviceIds = topServices.map((g) => g.serviceId).filter((id): id is string => Boolean(id));
+  const services = serviceIds.length
+    ? await prisma.service.findMany({ where: { id: { in: serviceIds } } })
+    : [];
+  const serviceNameById = Object.fromEntries(services.map((s) => [s.id, s.name]));
+  const popularServices = topServices.map((g) => ({
+    serviceId: g.serviceId,
+    name: (g.serviceId && serviceNameById[g.serviceId]) || "—",
+    count: g._count.serviceId,
+  }));
+
+  res.json({
+    today: { count: todayCount, date: todayStr },
+    week: { count: weekCount },
+    month: { count: monthCount },
+    last7Days,
+    popularServices,
+    recentBookings: recentBookings.map((b) => ({
+      id: b.id,
+      date: b.date,
+      time: b.time,
+      status: b.status,
+      customerName: b.user?.name || b.user?.phone || b.blockReason || "بدون مشتری",
+      serviceName: b.service?.name || b.blockReason || "بدون سرویس",
+      createdAt: b.createdAt,
+    })),
+  });
+});
 
 /* ---------- image upload (gallery photos, logo, profile photos) ---------- */
 
