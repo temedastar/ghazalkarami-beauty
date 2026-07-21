@@ -47,6 +47,13 @@ export async function renderIndexHtml(): Promise<string> {
     '<meta property="og:locale" content="fa_IR">',
     `<meta property="og:locale" content="fa_IR">\n<meta property="og:url" content="${escapeAttr(pageUrl)}">\n<meta property="og:site_name" content="${escapeAttr(siteName)}">`
   );
+  // the static markup ships a relative canonical ("/"), which is valid but
+  // vague — now that FRONTEND_BASE_URL is a real, stable production domain
+  // rather than a placeholder, an absolute canonical is the clearer signal
+  html = html.replace(
+    '<link rel="canonical" href="/">',
+    `<link rel="canonical" href="${escapeAttr(pageUrl)}">`
+  );
 
   // same fields the client-side loadContactInfo() patches, plus "image"
   // (which client JS never actually touched — filled in here too, same fix)
