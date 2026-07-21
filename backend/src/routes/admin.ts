@@ -37,10 +37,42 @@ router.get("/dashboard", async (_req, res) => {
   // happened — counting it would overstate real salon activity
   const NOT_CANCELLED: BookingStatus[] = ["CANCELLED", "EXPIRED"];
 
-  const [todayCount, weekCount, monthCount, last7Days, topServiceGroups, recentBookings] = await Promise.all([
+  // "revenue" here only counts deposits actually confirmed paid through
+  // ZarinPal (Payment.status="PAID", scoped by verifiedAt — when the money
+  // actually arrived, not the booking's appointment date). Manual/in-person
+  // bookings never get a Payment row at all, so they're deliberately excluded
+  // — we have no real confirmation that cash changed hands for those, and
+  // counting an unconfirmed amount as "income" would be a made-up number.
+  // exclusive upper bound (`lt`, not `lte`) — verifiedAt carries a real
+  // time-of-day, unlike the date-only Booking.date field used elsewhere here
+  const revenueWhere = (from: Date, to: Date) => ({
+    status: "PAID" as const,
+    verifiedAt: { gte: from, lt: to },
+  });
+  const endOfToday = new Date(today);
+  endOfToday.setUTCDate(endOfToday.getUTCDate() + 1);
+  const endOfWeek = new Date(weekEnd);
+  endOfWeek.setUTCDate(endOfWeek.getUTCDate() + 1);
+  const endOfMonth = new Date(today);
+  endOfMonth.setUTCDate(endOfMonth.getUTCDate() + 1);
+
+  const [
+    todayCount,
+    weekCount,
+    monthCount,
+    todayRevenue,
+    weekRevenue,
+    monthRevenue,
+    last7Days,
+    topServiceGroups,
+    recentBookings,
+  ] = await Promise.all([
     prisma.booking.count({ where: { date: today, status: { notIn: NOT_CANCELLED } } }),
     prisma.booking.count({ where: { date: { gte: weekStart, lte: weekEnd }, status: { notIn: NOT_CANCELLED } } }),
     prisma.booking.count({ where: { date: { gte: monthStart, lte: today }, status: { notIn: NOT_CANCELLED } } }),
+    prisma.payment.aggregate({ _sum: { amount: true }, where: revenueWhere(today, endOfToday) }),
+    prisma.payment.aggregate({ _sum: { amount: true }, where: revenueWhere(weekStart, endOfWeek) }),
+    prisma.payment.aggregate({ _sum: { amount: true }, where: revenueWhere(monthStart, endOfMonth) }),
     Promise.all(
       Array.from({ length: 7 }, (_, i) => {
         const d = new Date(today);
@@ -82,9 +114,9 @@ router.get("/dashboard", async (_req, res) => {
   }));
 
   res.json({
-    today: { count: todayCount, date: todayStr },
-    week: { count: weekCount },
-    month: { count: monthCount },
+    today: { count: todayCount, date: todayStr, revenue: todayRevenue._sum.amount ?? 0 },
+    week: { count: weekCount, revenue: weekRevenue._sum.amount ?? 0 },
+    month: { count: monthCount, revenue: monthRevenue._sum.amount ?? 0 },
     last7Days,
     popularServices,
     recentBookings: recentBookings.map((b) => ({

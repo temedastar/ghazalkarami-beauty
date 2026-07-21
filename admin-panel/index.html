@@ -141,6 +141,8 @@ table.simple td{padding:9px 6px;border-bottom:1px solid var(--gline);}
 .stat-tile:hover{border-color:rgba(223,160,45,.32);transform:translateY(-2px);}
 .stat-tile .n{font-size:28px;font-weight:900;color:var(--must-l);display:block;line-height:1.25;}
 .stat-tile .l{font-size:12px;color:rgba(251,247,238,.55);margin-top:5px;}
+.stat-tile .rev{font-size:12.5px;color:rgba(251,247,238,.7);margin-top:8px;padding-top:8px;border-top:1px solid var(--gline);}
+.stat-tile .rev b{color:#7FD9A4;font-weight:700;}
 .chart-wrap{display:flex;align-items:flex-end;gap:8px;height:150px;padding:6px 4px 0;}
 .chart-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end;}
 .chart-bar{width:100%;max-width:36px;background:linear-gradient(180deg,var(--must-l),var(--must-d));
@@ -297,11 +299,15 @@ tabs.dashboard = async () => {
   let html = `<h1>داشبورد</h1>`;
 
   html += `<div class="stat-grid">
-    <div class="stat-tile"><span class="n">${d.today.count}</span><div class="l">رزرو امروز</div></div>
-    <div class="stat-tile"><span class="n">${d.week.count}</span><div class="l">رزرو این هفته</div></div>
-    <div class="stat-tile"><span class="n">${d.month.count}</span><div class="l">رزرو این ماه</div></div>
+    <div class="stat-tile"><span class="n">${d.today.count}</span><div class="l">رزرو امروز</div>
+      <div class="rev">بیعانه‌ی دریافتی: <b>${toman(d.today.revenue)}</b></div></div>
+    <div class="stat-tile"><span class="n">${d.week.count}</span><div class="l">رزرو این هفته</div>
+      <div class="rev">بیعانه‌ی دریافتی: <b>${toman(d.week.revenue)}</b></div></div>
+    <div class="stat-tile"><span class="n">${d.month.count}</span><div class="l">رزرو این ماه</div>
+      <div class="rev">بیعانه‌ی دریافتی: <b>${toman(d.month.revenue)}</b></div></div>
     <div class="stat-tile"><span class="n" style="font-size:18px;">${d.popularServices[0]?esc(d.popularServices[0].name):'—'}</span><div class="l">محبوب‌ترین سرویس</div></div>
-  </div>`;
+  </div>
+  <p class="muted" style="margin:-6px 0 18px;">درآمد فقط شامل بیعانه‌های واقعاً پرداخت‌شده از طریق زرین‌پال است؛ نوبت‌های ثبت‌دستی/حضوری در این عدد حساب نمی‌شوند.</p>`;
 
   const maxDay = Math.max(1, ...d.last7Days.map(x=>x.count));
   html += `<div class="section-title">رزروهای ۷ روز گذشته</div><div class="card">
