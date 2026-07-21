@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { parseDateOnly, dayOfWeekUTC, isPastDate } from "../lib/dates";
-import { isDateOpen } from "../lib/schedule";
+import { getDayOpenInfo, isTimeAllowed } from "../lib/schedule";
 
 const router = Router();
 
@@ -16,7 +16,8 @@ router.get("/", async (req, res) => {
   if (!date) return res.status(400).json({ error: "تاریخ نامعتبر است." });
   if (isPastDate(date)) return res.json({ dayOpen: false, slots: [] });
 
-  if (!(await isDateOpen(date))) return res.json({ dayOpen: false, slots: [] });
+  const dayInfo = await getDayOpenInfo(date);
+  if (!dayInfo.open) return res.json({ dayOpen: false, slots: [] });
 
   const dow = dayOfWeekUTC(date);
   const timeSlots = await prisma.timeSlot.findMany({
@@ -44,7 +45,9 @@ router.get("/", async (req, res) => {
   });
   const takenTimes = new Set(holds.map((h) => h.time));
 
-  const slots = timeSlots.map((s) => ({ time: s.time, available: !takenTimes.has(s.time) }));
+  const slots = timeSlots
+    .filter((s) => isTimeAllowed(s.time, dayInfo))
+    .map((s) => ({ time: s.time, available: !takenTimes.has(s.time) }));
   res.json({ dayOpen: true, slots });
 });
 

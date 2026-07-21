@@ -1,4 +1,12 @@
 import express from "express";
+// MUST be imported before any routes are registered. Express 4 does not
+// forward a rejected promise from an async route handler to next(err) —
+// it becomes an unhandled promise rejection, which crashes the entire
+// Node process (verified: a plain "record not found" on DELETE, no
+// exploit needed, took the whole server down for every user). This patches
+// every router method so thrown/rejected errors reach errorHandler below
+// instead of killing the process.
+import "express-async-errors";
 import cors from "cors";
 import compression from "compression";
 import helmet from "helmet";

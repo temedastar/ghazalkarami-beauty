@@ -488,8 +488,8 @@ function renderSlotDay(){
   list.innerHTML = slots.map(s=>`
     <span class="slot-pill ${s.isActive?'':'off'}">
       ${s.time}
-      <button title="${s.isActive?'غیرفعال کردن':'فعال کردن'}" onclick="toggleSlot('${s.id}', ${!s.isActive})">${s.isActive?'⏸':'▶'}</button>
-      <button title="حذف" onclick="deleteSlot('${s.id}')">✕</button>
+      <button title="${s.isActive?'غیرفعال کردن':'فعال کردن'}" aria-label="${s.isActive?'غیرفعال کردن':'فعال کردن'}" onclick="toggleSlot('${s.id}', ${!s.isActive})">${s.isActive?'⏸':'▶'}</button>
+      <button title="حذف" aria-label="حذف این اسلات" onclick="deleteSlot('${s.id}')">✕</button>
     </span>`).join("");
 }
 window.renderSlotDay = renderSlotDay;
@@ -667,8 +667,8 @@ tabs.gallery = async () => {
           <option value="treat" ${img.category==="treat"?"selected":""}>صافی/احیا</option>
         </select>
         <div style="display:flex;gap:6px;align-items:center;">
-          <button class="btn btn-ghost btn-sm" style="padding:6px 10px;" onclick="moveGalleryImage('${img.id}','up')" ${idx===0?"disabled":""} title="جابه‌جایی به بالا">↑</button>
-          <button class="btn btn-ghost btn-sm" style="padding:6px 10px;" onclick="moveGalleryImage('${img.id}','down')" ${idx===images.length-1?"disabled":""} title="جابه‌جایی به پایین">↓</button>
+          <button class="btn btn-ghost btn-sm" style="padding:6px 10px;" onclick="moveGalleryImage('${img.id}','up')" ${idx===0?"disabled":""} title="جابه‌جایی به بالا" aria-label="جابه‌جایی این عکس به بالا">↑</button>
+          <button class="btn btn-ghost btn-sm" style="padding:6px 10px;" onclick="moveGalleryImage('${img.id}','down')" ${idx===images.length-1?"disabled":""} title="جابه‌جایی به پایین" aria-label="جابه‌جایی این عکس به پایین">↓</button>
           <label class="switch" style="width:34px;height:19px;"><input type="checkbox" ${img.active?"checked":""} onchange="updateGalleryField('${img.id}','active',this.checked)"><span class="slider"></span></label>
           <button class="btn btn-danger btn-sm" onclick="deleteImage('${img.id}')">حذف</button>
         </div>

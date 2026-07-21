@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { parseDateOnly, dayOfWeekUTC, isPastDate } from "../lib/dates";
-import { isDateOpen, computeDepositAmount } from "../lib/schedule";
+import { getDayOpenInfo, isTimeAllowed, computeDepositAmount } from "../lib/schedule";
 
 const router = Router();
 
@@ -27,9 +27,9 @@ router.post("/", requireAuth, async (req, res) => {
 
   // service lookup and the open-day check don't depend on each other — run
   // them concurrently instead of paying for both round-trips in sequence
-  const [service, dateOpen] = await Promise.all([
+  const [service, dayInfo] = await Promise.all([
     prisma.service.findUnique({ where: { key: parsed.data.serviceKey }, include: { category: true } }),
-    isDateOpen(date),
+    getDayOpenInfo(date),
   ]);
   if (!service || !service.active) return res.status(404).json({ error: "سرویس یافت نشد." });
   if (!service.allowOnlineBooking) {
@@ -37,7 +37,7 @@ router.post("/", requireAuth, async (req, res) => {
       error: "این سرویس فقط با هماهنگی مستقیم قابل رزرو است.",
     });
   }
-  if (!dateOpen) return res.status(400).json({ error: "سالن در این روز تعطیل است." });
+  if (!dayInfo.open) return res.status(400).json({ error: "سالن در این روز تعطیل است." });
 
   const dow = dayOfWeekUTC(date);
   const timeSlot = await prisma.timeSlot.findFirst({
@@ -48,7 +48,9 @@ router.post("/", requireAuth, async (req, res) => {
       isActive: true,
     },
   });
-  if (!timeSlot) return res.status(400).json({ error: "ساعت انتخابی معتبر نیست." });
+  if (!timeSlot || !isTimeAllowed(timeSlot.time, dayInfo)) {
+    return res.status(400).json({ error: "ساعت انتخابی معتبر نیست." });
+  }
 
   const depositAmount = await computeDepositAmount(service);
 

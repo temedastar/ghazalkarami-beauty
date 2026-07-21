@@ -53,8 +53,9 @@ router.get("/dashboard", async (_req, res) => {
   endOfToday.setUTCDate(endOfToday.getUTCDate() + 1);
   const endOfWeek = new Date(weekEnd);
   endOfWeek.setUTCDate(endOfWeek.getUTCDate() + 1);
-  const endOfMonth = new Date(today);
-  endOfMonth.setUTCDate(endOfMonth.getUTCDate() + 1);
+  // the month's revenue window runs from monthStart through "right now", which
+  // is the same exclusive upper bound as today's — no need to compute it twice
+  const endOfMonth = endOfToday;
 
   const [
     todayCount,
@@ -217,7 +218,7 @@ const workingDaySchema = z.object({
   isOpen: z.boolean().optional(),
   openTime: z.string().nullable().optional(),
   closeTime: z.string().nullable().optional(),
-  note: z.string().nullable().optional(),
+  note: z.string().max(300).nullable().optional(),
 });
 
 router.patch("/working-days/:dayOfWeek", async (req, res) => {
@@ -249,9 +250,9 @@ router.get("/day-exceptions", async (_req, res) => {
 const dayExceptionSchema = z.object({
   date: z.string(),
   isOpen: z.boolean(),
-  openTime: z.string().nullable().optional(),
-  closeTime: z.string().nullable().optional(),
-  reason: z.string().nullable().optional(),
+  openTime: z.string().max(10).nullable().optional(),
+  closeTime: z.string().max(10).nullable().optional(),
+  reason: z.string().max(300).nullable().optional(),
 });
 
 router.post("/day-exceptions", async (req, res) => {
@@ -276,7 +277,7 @@ router.delete("/day-exceptions/:id", async (req, res) => {
 const closureRangeSchema = z.object({
   startDate: z.string(),
   endDate: z.string(),
-  reason: z.string().nullable().optional(),
+  reason: z.string().max(300).nullable().optional(),
 });
 
 router.post("/day-exceptions/closure-range", async (req, res) => {
@@ -286,11 +287,16 @@ router.post("/day-exceptions/closure-range", async (req, res) => {
   const end = parseDateOnly(parsed.data.endDate);
   if (!start || !end || end < start) return res.status(400).json({ error: "بازه‌ی تاریخ نامعتبر است." });
 
+  // check the range size from the two timestamps directly, before building
+  // any array — an admin submitting e.g. year 9999 as endDate would otherwise
+  // make the server allocate millions of Date objects before ever rejecting it
+  const dayCount = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  if (dayCount > 90) return res.status(400).json({ error: "بازه‌ی بسته‌شدن نباید بیشتر از ۹۰ روز باشد." });
+
   const dates: Date[] = [];
   for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
     dates.push(new Date(d));
   }
-  if (dates.length > 90) return res.status(400).json({ error: "بازه‌ی بسته‌شدن نباید بیشتر از ۹۰ روز باشد." });
 
   const created = await prisma.$transaction(
     dates.map((date) =>
@@ -407,10 +413,10 @@ router.get("/services", async (_req, res) => {
 });
 
 const servicePatchSchema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().min(1).max(120).optional(),
   priceMin: z.number().int().nullable().optional(),
   priceMax: z.number().int().nullable().optional(),
-  priceLabel: z.string().nullable().optional(),
+  priceLabel: z.string().max(120).nullable().optional(),
   priceNote: z.string().max(400).nullable().optional(),
   durationMin: z.number().int().nullable().optional(),
   allowOnlineBooking: z.boolean().optional(),
@@ -428,12 +434,12 @@ router.patch("/services/:id", async (req, res) => {
 });
 
 const serviceCreateSchema = z.object({
-  key: z.string().min(1),
-  name: z.string().min(1),
+  key: z.string().min(1).max(60),
+  name: z.string().min(1).max(120),
   categoryId: z.string(),
   priceMin: z.number().int().nullable().optional(),
   priceMax: z.number().int().nullable().optional(),
-  priceLabel: z.string().nullable().optional(),
+  priceLabel: z.string().max(120).nullable().optional(),
   durationMin: z.number().int().nullable().optional(),
   allowOnlineBooking: z.boolean().optional(),
   depositType: z.enum(["FIXED", "PERCENT"]).optional(),
@@ -468,11 +474,11 @@ router.get("/price-list", async (_req, res) => {
 });
 
 const priceListPatchSchema = z.object({
-  name: z.string().min(1).optional(),
-  description: z.string().nullable().optional(),
+  name: z.string().min(1).max(120).optional(),
+  description: z.string().max(400).nullable().optional(),
   priceMin: z.number().int().nullable().optional(),
   priceMax: z.number().int().nullable().optional(),
-  priceLabel: z.string().nullable().optional(),
+  priceLabel: z.string().max(120).nullable().optional(),
   active: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });
@@ -524,10 +530,21 @@ router.delete("/gallery/:id", async (req, res) => {
 
 /* ---------- reviews moderation ---------- */
 
+const REVIEW_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
+
 router.get("/reviews", async (req, res) => {
-  const status = typeof req.query.status === "string" ? req.query.status.toUpperCase() : undefined;
+  const raw = typeof req.query.status === "string" ? req.query.status.toUpperCase() : undefined;
+  // an unrecognized value used to get cast straight into the Prisma query
+  // (`as` bypasses type-checking, not validation) — Prisma rejects it with an
+  // unhandled error rather than silently misbehaving, but a bad ?status=
+  // value should just be a normal 400, not a request that depends on the
+  // global error handler to avoid a 500
+  if (raw !== undefined && !REVIEW_STATUSES.includes(raw as (typeof REVIEW_STATUSES)[number])) {
+    return res.status(400).json({ error: "وضعیت نامعتبر است." });
+  }
+  const status = raw as (typeof REVIEW_STATUSES)[number] | undefined;
   const reviews = await prisma.review.findMany({
-    where: status ? { status: status as "PENDING" | "APPROVED" | "REJECTED" } : undefined,
+    where: status ? { status } : undefined,
     orderBy: { createdAt: "desc" },
   });
   res.json({ reviews });
@@ -591,10 +608,10 @@ const manualBookingSchema = z.object({
   date: z.string(),
   time: z.string(),
   serviceId: z.string().nullable().optional(),
-  customerName: z.string().nullable().optional(),
+  customerName: z.string().max(120).nullable().optional(),
   customerPhone: z.string().nullable().optional(),
-  reason: z.string().nullable().optional(),
-  depositAmount: z.number().int().min(0).optional(),
+  reason: z.string().max(300).nullable().optional(),
+  depositAmount: z.number().int().min(0).max(100_000_000).optional(),
 });
 
 router.post("/bookings/manual", async (req, res) => {

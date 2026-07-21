@@ -257,6 +257,11 @@ model Booking {
   // foreign key columns aren't auto-indexed by Postgres; this one backs
   // admin/reminder queries that include the related Service
   @@index([serviceId])
+  // backs the admin dashboard's today/week/month/last-7-days counts, none of
+  // which filter by categoryId, so they can't use the composite index above
+  @@index([date])
+  // backs the admin dashboard's "8 most recent bookings" feed
+  @@index([createdAt])
 }
 
 model SlotHold {
@@ -292,6 +297,11 @@ model Payment {
 
   booking   Booking @relation(fields: [bookingId], references: [id])
   bookingId String  @unique
+
+  // backs the admin dashboard's revenue aggregates (status="PAID" AND
+  // verifiedAt within a date range) — without it, every dashboard load scans
+  // the whole Payment table
+  @@index([status, verifiedAt])
 }
 
 model GalleryImage {
