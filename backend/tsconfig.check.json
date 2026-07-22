@@ -1,0 +1,22 @@
+{
+  // Type-checking-only config — NOT used for the real build (see tsconfig.json
+  // for that, unchanged, still scoped to src/ so `dist/` keeps its expected
+  // shape for the Dockerfile/ecosystem.config.js).
+  //
+  // tsconfig.json's `include` only ever covered `src`, so prisma/seed.ts —
+  // real code that runs on every deploy (see Dockerfile's CMD) — was invisible
+  // to `tsc --noEmit` entirely. That's exactly how a seed.ts call still using
+  // the old User.name field (removed by a schema migration) went unnoticed
+  // until it crashed the seed step in production and took the whole app down
+  // with it (the Dockerfile chains migrate deploy && db seed && start).
+  //
+  // Run this one via `npm run typecheck` before every push.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // overridden so files under prisma/ aren't rejected as "outside rootDir" —
+    // irrelevant anyway since noEmit means nothing is ever written to outDir
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": ["src", "prisma/**/*.ts"]
+}

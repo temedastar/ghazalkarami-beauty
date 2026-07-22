@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.check.json",
     "start": "pm2-runtime start ecosystem.config.js",
     "start:plain": "node dist/server.js",
     "prisma:generate": "prisma generate",
