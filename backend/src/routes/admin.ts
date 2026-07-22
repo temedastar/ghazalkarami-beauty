@@ -125,7 +125,7 @@ router.get("/dashboard", async (_req, res) => {
       date: b.date,
       time: b.time,
       status: b.status,
-      customerName: b.user?.name || b.user?.phone || b.blockReason || "بدون مشتری",
+      customerName: (b.user ? `${b.user.firstName} ${b.user.lastName}` : null) || b.blockReason || "بدون مشتری",
       serviceName: b.service?.name || b.blockReason || "بدون سرویس",
       createdAt: b.createdAt,
     })),
@@ -603,6 +603,18 @@ router.get("/bookings", async (req, res) => {
   res.json({ bookings });
 });
 
+// the manual-booking form has a single free-text "customer name" field (an
+// admin quickly noting down a walk-in/phone customer), but User now requires
+// separate firstName/lastName — split on the first space, same convention
+// as the migration that backfilled existing rows.
+function splitFullName(full: string | null | undefined): { firstName: string; lastName: string } {
+  const trimmed = (full || "").trim();
+  if (!trimmed) return { firstName: "مشتری", lastName: "-" };
+  const spaceIdx = trimmed.indexOf(" ");
+  if (spaceIdx === -1) return { firstName: trimmed, lastName: "-" };
+  return { firstName: trimmed.slice(0, spaceIdx), lastName: trimmed.slice(spaceIdx + 1).trim() || "-" };
+}
+
 const manualBookingSchema = z.object({
   categoryId: z.string(),
   date: z.string(),
@@ -625,10 +637,11 @@ router.post("/bookings/manual", async (req, res) => {
   if (parsed.data.customerPhone) {
     const phone = normalizePhone(parsed.data.customerPhone);
     if (!phone) return res.status(400).json({ error: "شماره موبایل مشتری معتبر نیست." });
+    const { firstName, lastName } = splitFullName(parsed.data.customerName);
     const user = await prisma.user.upsert({
       where: { phone },
-      create: { phone, name: parsed.data.customerName || null },
-      update: parsed.data.customerName ? { name: parsed.data.customerName } : {},
+      create: { phone, firstName, lastName },
+      update: parsed.data.customerName ? { firstName, lastName } : {},
     });
     userId = user.id;
   }

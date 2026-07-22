@@ -777,6 +777,11 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
 .modal input{padding:15px 17px;border-radius:13px;border:1.5px solid var(--line);
   font-family:'Vazirmatn',sans-serif;font-size:16px;background:#fff;}
 .modal input:focus{outline:2.5px solid var(--must);border-color:var(--must);}
+.field-wrap{display:flex;flex-direction:column;gap:4px;}
+.field-wrap input.invalid{border-color:var(--danger);}
+.field-err{font-size:12.5px;color:var(--danger);display:none;padding:0 3px;}
+.field-err.show{display:block;}
+.field-hint{font-size:12px;color:var(--ink-2);line-height:1.6;padding:0 3px;}
 .ms{display:none;}
 .ms.on{display:block;}
 .pay{background:var(--bone-2);border-radius:15px;padding:18px;text-align:center;margin-bottom:16px;}
@@ -1370,12 +1375,25 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <button type="button" class="btn b-line btn-full" id="login-otp-toggle" onclick="toggleLoginOtpMode()" style="margin-top:2px;">ورود با کد پیامکی (بدون رمز عبور)</button>
       </form>
       <form onsubmit="submitRegister(event)" id="rf2">
-        <label for="reg-name" class="sr-only">نام و نام خانوادگی</label>
-        <input type="text" id="reg-name" placeholder="نام و نام خانوادگی" autocomplete="name" required>
-        <label for="reg-tel" class="sr-only">شماره موبایل</label>
-        <input type="tel" inputmode="tel" id="reg-tel" placeholder="شماره موبایل" autocomplete="tel" required>
-        <label for="reg-pass" class="sr-only">رمز عبور (اختیاری)</label>
-        <input type="password" id="reg-pass" placeholder="رمز عبور (اختیاری — برای ورود سریع‌تر دفعات بعد)" autocomplete="new-password">
+        <div class="field-wrap">
+          <label for="reg-first-name" class="sr-only">نام</label>
+          <input type="text" id="reg-first-name" placeholder="نام" autocomplete="given-name" required oninput="this.classList.remove('invalid');document.getElementById('reg-first-name-err').classList.remove('show');">
+          <small class="field-err" id="reg-first-name-err">نام الزامی است.</small>
+        </div>
+        <div class="field-wrap">
+          <label for="reg-last-name" class="sr-only">نام خانوادگی</label>
+          <input type="text" id="reg-last-name" placeholder="نام خانوادگی" autocomplete="family-name" required oninput="this.classList.remove('invalid');document.getElementById('reg-last-name-err').classList.remove('show');">
+          <small class="field-err" id="reg-last-name-err">نام خانوادگی الزامی است.</small>
+        </div>
+        <div class="field-wrap">
+          <label for="reg-tel" class="sr-only">شماره موبایل</label>
+          <input type="tel" inputmode="tel" id="reg-tel" placeholder="شماره موبایل (مثلاً 09123456789)" autocomplete="tel" required>
+        </div>
+        <div class="field-wrap">
+          <label for="reg-pass" class="sr-only">رمز عبور (اختیاری)</label>
+          <input type="password" id="reg-pass" placeholder="رمز عبور (اختیاری — برای ورود سریع‌تر دفعات بعد)" autocomplete="new-password">
+          <small class="field-hint">در صورت تنظیم: حداقل ۶ و حداکثر ۷۲ کاراکتر (هر حرف/عدد/علامتی مجاز است).</small>
+        </div>
         <button class="btn b-gold btn-full" type="submit">دریافت کد تایید</button>
       </form>
       <p class="auth-why" id="auth-err" style="color:var(--danger);display:none;"></p>
@@ -2258,11 +2276,15 @@ let AUTH_TOKEN=localStorage.getItem('gk_token')||null;
 let AUTH_USER=null;
 let pendingAction=null; /* 'booking' | 'class' | null */
 let otpMode=null;       /* 'login' | 'register' */
-let pendingPhone=null,pendingName=null,pendingPassword=null;
+let pendingPhone=null,pendingFirstName=null,pendingLastName=null,pendingPassword=null;
 let loginOtpMode=false;
 let currentBookingId=null;
 
-function openAuth(t){am.classList.add('on');switchModal('s-auth');switchTab(t);hideAuthErr();hideOtpErr();}
+function openAuth(t){
+  am.classList.add('on');switchModal('s-auth');switchTab(t);hideAuthErr();hideOtpErr();
+  document.querySelectorAll('#rf2 .field-err').forEach(el=>el.classList.remove('show'));
+  document.querySelectorAll('#rf2 input.invalid').forEach(el=>el.classList.remove('invalid'));
+}
 function closeAuth(){am.classList.remove('on');pendingAction=null;}
 function openDoniaModal(){doniaMbg.classList.add('on');}
 function closeDoniaModal(){doniaMbg.classList.remove('on');}
@@ -2311,6 +2333,18 @@ function playSuccessChime(){
   }catch(e){/* audio not supported or blocked — fail silently, this is a nice-to-have only */}
 }
 
+/* a phone number with no account: shown from either login path (password or
+   SMS-code), and switches the modal straight to the register tab with the
+   phone already filled in, instead of leaving the person stuck on a "wrong
+   password" message for an account that was never created */
+function handleNotRegistered(phone){
+  switchTab('register');
+  hideAuthErr();
+  const tel=document.getElementById('reg-tel');
+  if(tel)tel.value=phone;
+  showAuthErr('این شماره ثبت‌نام نشده است. لطفاً نام و رمز عبور (اختیاری) را وارد کرده و ثبت‌نام کنید.');
+}
+
 async function submitLogin(e){
   e.preventDefault();
   hideAuthErr();
@@ -2319,8 +2353,11 @@ async function submitLogin(e){
     try{
       const res=await fetch('/api/auth/otp/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,purpose:'LOGIN'})});
       const data=await res.json();
-      if(!res.ok)throw new Error(data.error||'خطا در ارسال کد.');
-      otpMode='login';pendingPhone=phone;pendingName=null;pendingPassword=null;
+      if(!res.ok){
+        if(data.notRegistered)return handleNotRegistered(phone);
+        throw new Error(data.error||'خطا در ارسال کد.');
+      }
+      otpMode='login';pendingPhone=phone;pendingFirstName=null;pendingLastName=null;pendingPassword=null;
       openOtpStep(phone);
     }catch(err){showAuthErr(err.message);}
     return;
@@ -2329,23 +2366,43 @@ async function submitLogin(e){
   try{
     const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,password})});
     const data=await res.json();
-    if(!res.ok)throw new Error(data.error||'ورود ناموفق بود.');
+    if(!res.ok){
+      if(data.notRegistered)return handleNotRegistered(phone);
+      throw new Error(data.error||'ورود ناموفق بود.');
+    }
     setAuth(data.token,data.user);
     await afterAuthSuccess();
   }catch(err){showAuthErr(err.message);}
 }
 
+/* both names are required — validated here (inline error under each field)
+   as well as on the server, since this only ever reaches the API once both
+   are non-empty */
+function validateRegisterNames(firstName,lastName){
+  const firstErr=document.getElementById('reg-first-name-err');
+  const lastErr=document.getElementById('reg-last-name-err');
+  const firstInput=document.getElementById('reg-first-name');
+  const lastInput=document.getElementById('reg-last-name');
+  firstErr.classList.toggle('show',!firstName);
+  firstInput.classList.toggle('invalid',!firstName);
+  lastErr.classList.toggle('show',!lastName);
+  lastInput.classList.toggle('invalid',!lastName);
+  return Boolean(firstName)&&Boolean(lastName);
+}
+
 async function submitRegister(e){
   e.preventDefault();
   hideAuthErr();
-  const name=document.getElementById('reg-name').value.trim();
+  const firstName=document.getElementById('reg-first-name').value.trim();
+  const lastName=document.getElementById('reg-last-name').value.trim();
   const phone=document.getElementById('reg-tel').value.trim();
   const password=document.getElementById('reg-pass').value;
+  if(!validateRegisterNames(firstName,lastName))return;
   try{
     const res=await fetch('/api/auth/otp/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,purpose:'REGISTER'})});
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||'خطا در ارسال کد.');
-    otpMode='register';pendingPhone=phone;pendingName=name;pendingPassword=password||null;
+    otpMode='register';pendingPhone=phone;pendingFirstName=firstName;pendingLastName=lastName;pendingPassword=password||null;
     openOtpStep(phone);
   }catch(err){showAuthErr(err.message);}
 }
@@ -2386,9 +2443,12 @@ async function submitOtp(e){
   hideOtpErr();
   const code=document.getElementById('otp-code').value.trim();
   try{
-    const res=await fetch('/api/auth/otp/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:pendingPhone,code,purpose:otpMode==='login'?'LOGIN':'REGISTER',name:pendingName||undefined})});
+    const res=await fetch('/api/auth/otp/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:pendingPhone,code,purpose:otpMode==='login'?'LOGIN':'REGISTER',firstName:pendingFirstName||undefined,lastName:pendingLastName||undefined})});
     const data=await res.json();
-    if(!res.ok)throw new Error(data.error||'کد وارد شده صحیح نیست.');
+    if(!res.ok){
+      if(data.notRegistered){am.classList.add('on');return handleNotRegistered(pendingPhone);}
+      throw new Error(data.error||'کد وارد شده صحیح نیست.');
+    }
     setAuth(data.token,data.user);
     if(otpMode==='register'&&pendingPassword){
       await fetch('/api/auth/set-password',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${AUTH_TOKEN}`},body:JSON.stringify({password:pendingPassword})}).catch(()=>{});

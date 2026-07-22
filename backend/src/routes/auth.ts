@@ -40,6 +40,16 @@ router.post("/otp/request", otpLimiter, async (req, res) => {
   const phone = normalizePhone(parsed.data.phone);
   if (!phone) return res.status(400).json({ error: "شماره موبایل معتبر نیست." });
 
+  // fail fast for a LOGIN attempt on a number that was never registered —
+  // no point sending a real SMS (cost) for a code that can never lead to a
+  // successful login anyway; /otp/verify still re-checks this independently
+  if (parsed.data.purpose === "LOGIN") {
+    const existing = await prisma.user.findUnique({ where: { phone } });
+    if (!existing) {
+      return res.status(404).json({ error: "این شماره ثبت‌نام نشده است.", notRegistered: true });
+    }
+  }
+
   try {
     await requestOtp(phone, parsed.data.purpose);
     res.json({ ok: true });
@@ -53,7 +63,8 @@ const verifyOtpSchema = z.object({
   phone: z.string(),
   code: z.string().length(6),
   purpose: z.enum(["REGISTER", "LOGIN"]),
-  name: z.string().min(2).max(80).optional(),
+  firstName: z.string().min(1).max(60).optional(),
+  lastName: z.string().min(1).max(60).optional(),
 });
 
 router.post("/otp/verify", otpLimiter, async (req, res) => {
@@ -62,6 +73,23 @@ router.post("/otp/verify", otpLimiter, async (req, res) => {
 
   const phone = normalizePhone(parsed.data.phone);
   if (!phone) return res.status(400).json({ error: "شماره موبایل معتبر نیست." });
+
+  // checked before verifyOtp() (which consumes the one-time code) so a
+  // request that's doomed to fail for an unrelated reason — wrong purpose
+  // for an unregistered number, or a REGISTER call missing the now-required
+  // name fields — doesn't burn the person's only code for it
+  let user = await prisma.user.findUnique({ where: { phone } });
+  if (!user) {
+    // logging in via the SMS-code path used to silently create an account for
+    // any phone number, even one that had never registered — that's a login
+    // form quietly turning into registration. Only REGISTER may create a user.
+    if (parsed.data.purpose !== "REGISTER") {
+      return res.status(404).json({ error: "این شماره ثبت‌نام نشده است.", notRegistered: true });
+    }
+    if (!parsed.data.firstName || !parsed.data.lastName) {
+      return res.status(400).json({ error: "نام و نام خانوادگی الزامی است." });
+    }
+  }
 
   let valid: boolean;
   try {
@@ -72,17 +100,16 @@ router.post("/otp/verify", otpLimiter, async (req, res) => {
   }
   if (!valid) return res.status(400).json({ error: "کد وارد شده صحیح نیست." });
 
-  let user = await prisma.user.findUnique({ where: { phone } });
   if (!user) {
     user = await prisma.user.create({
-      data: { phone, name: parsed.data.name ?? null },
+      data: { phone, firstName: parsed.data.firstName!, lastName: parsed.data.lastName! },
     });
   }
 
   const token = signAuthToken({ userId: user.id, role: user.role });
   res.json({
     token,
-    user: { id: user.id, phone: user.phone, name: user.name, role: user.role },
+    user: { id: user.id, phone: user.phone, firstName: user.firstName, lastName: user.lastName, role: user.role },
   });
 });
 
@@ -99,17 +126,20 @@ router.post("/login", loginLimiter, async (req, res) => {
   if (!phone) return res.status(400).json({ error: "شماره موبایل معتبر نیست." });
 
   const user = await prisma.user.findUnique({ where: { phone } });
-  if (!user?.passwordHash) {
-    return res.status(401).json({ error: "شماره موبایل یا رمز عبور اشتباه است." });
+  if (!user) {
+    return res.status(404).json({ error: "این شماره ثبت‌نام نشده است.", notRegistered: true });
+  }
+  if (!user.passwordHash) {
+    return res.status(401).json({ error: "برای این شماره رمز عبوری تنظیم نشده است. با کد پیامکی وارد شوید." });
   }
 
   const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
-  if (!valid) return res.status(401).json({ error: "شماره موبایل یا رمز عبور اشتباه است." });
+  if (!valid) return res.status(401).json({ error: "رمز عبور وارد شده اشتباه است." });
 
   const token = signAuthToken({ userId: user.id, role: user.role });
   res.json({
     token,
-    user: { id: user.id, phone: user.phone, name: user.name, role: user.role },
+    user: { id: user.id, phone: user.phone, firstName: user.firstName, lastName: user.lastName, role: user.role },
   });
 });
 
@@ -135,7 +165,8 @@ router.get("/me", requireAuth, async (req, res) => {
     user: {
       id: user.id,
       phone: user.phone,
-      name: user.name,
+      firstName: user.firstName,
+      lastName: user.lastName,
       role: user.role,
       hasPassword: Boolean(user.passwordHash),
     },
@@ -194,7 +225,7 @@ router.post("/password/reset/verify", otpLimiter, async (req, res) => {
   const token = signAuthToken({ userId: user.id, role: user.role });
   res.json({
     token,
-    user: { id: user.id, phone: user.phone, name: user.name, role: user.role },
+    user: { id: user.id, phone: user.phone, firstName: user.firstName, lastName: user.lastName, role: user.role },
   });
 });
 

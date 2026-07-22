@@ -40,7 +40,7 @@ export default async function globalSetup() {
     }
     const code = await lastOtpCodeForPhone(phone);
     const verifyRes = await ctx.post("/api/auth/otp/verify", {
-      data: { phone, code, purpose: "REGISTER", name: `مشتری تست ${i + 1}` },
+      data: { phone, code, purpose: "REGISTER", firstName: "مشتری", lastName: `تست ${i + 1}` },
     });
     if (!verifyRes.ok()) {
       throw new Error(`global-setup: otp/verify failed (${verifyRes.status()}) for pool customer ${i}`);

@@ -555,7 +555,7 @@ tabs.bookings = async () => {
   html += `<div class="section-title">نوبت‌های آینده</div>`;
   if(!bookings.length) html += `<div class="card muted">نوبت آینده‌ای ثبت نشده.</div>`;
   bookings.forEach(b=>{
-    const who = b.user ? esc((b.user.name||b.user.phone)+" ("+b.user.phone+")") : "بدون مشتری (قفل دستی)";
+    const who = b.user ? esc(`${b.user.firstName} ${b.user.lastName} (${b.user.phone})`) : "بدون مشتری (قفل دستی)";
     const svc = b.service ? b.service.name : (b.blockReason || "بدون سرویس");
     html += `<div class="card">
       <div class="row" style="border:none;padding:0;">
@@ -949,7 +949,7 @@ tabs.customers = async () => {
   html += `<div class="card table-wrap"><table class="simple"><thead><tr><th>نام</th><th>موبایل</th><th>تعداد نوبت</th><th>تاریخ عضویت</th><th></th></tr></thead><tbody>`;
   customers.forEach(c=>{
     html += `<tr>
-      <td>${esc(c.name||"—")}</td>
+      <td>${esc(`${c.firstName} ${c.lastName}`)}</td>
       <td>${c.phone}</td>
       <td>${c._count.bookings}</td>
       <td>${new Date(c.createdAt).toLocaleDateString("fa-IR")}</td>
@@ -963,7 +963,7 @@ window.showCustomerHistory = async (id) => {
   try{
     const {customer} = await api(`/admin/customers/${id}`);
     const statusFa = {PENDING_PAYMENT:"در انتظار پرداخت",CONFIRMED:"تاییدشده",CANCELLED:"لغوشده",EXPIRED:"منقضی",COMPLETED:"انجام‌شده",NO_SHOW:"مشتری نیامد"};
-    let html = `<div class="card"><h3>تاریخچه‌ی ${esc(customer.name||customer.phone)}</h3>`;
+    let html = `<div class="card"><h3>تاریخچه‌ی ${esc(`${customer.firstName} ${customer.lastName}`)}</h3>`;
     if(!customer.bookings.length) html += `<p class="muted">نوبتی ثبت نشده.</p>`;
     customer.bookings.forEach(b=>{
       html += `<div class="row"><div>${b.service?esc(b.service.name):"—"} — ${b.date.slice(0,10)} ساعت ${b.time}</div><span class="tag tag-muted">${statusFa[b.status]||b.status}</span></div>`;
@@ -985,7 +985,7 @@ tabs.classes = async () => {
       <div class="row" style="border:none;padding:0;">
         <div>
           <b>${esc(r.classType)}</b> — زمان مدنظر: ${esc(r.timePref)}
-          <div class="muted">${r.user? esc(r.user.name||r.user.phone)+" ("+r.user.phone+")" : "کاربر مهمان"}</div>
+          <div class="muted">${r.user? esc(`${r.user.firstName} ${r.user.lastName} (${r.user.phone})`) : "کاربر مهمان"}</div>
         </div>
         <select onchange="setClassStatus('${r.id}',this.value)">
           ${["NEW","CONTACTED","SCHEDULED","CLOSED"].map(s=>`<option value="${s}" ${r.status===s?"selected":""}>${({NEW:"جدید",CONTACTED:"تماس گرفته شد",SCHEDULED:"زمان‌بندی شد",CLOSED:"بسته شد"})[s]}</option>`).join("")}
