@@ -102,10 +102,21 @@ app.get("/api/health", async (_req, res) => {
 // once the real domain is set in .env this is automatically correct, no
 // separate file to remember to update
 app.get("/sitemap.xml", (_req, res) => {
+  const staticPages = [
+    { path: "/", changefreq: "weekly", priority: "1.0" },
+    { path: "/terms.html", changefreq: "yearly", priority: "0.3" },
+    { path: "/privacy.html", changefreq: "yearly", priority: "0.3" },
+    { path: "/refund-policy.html", changefreq: "yearly", priority: "0.3" },
+  ];
   res.type("application/xml").send(
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
       `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-      `  <url><loc>${env.frontendBaseUrl}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n` +
+      staticPages
+        .map(
+          (p) =>
+            `  <url><loc>${env.frontendBaseUrl}${p.path}</loc><changefreq>${p.changefreq}</changefreq><priority>${p.priority}</priority></url>\n`
+        )
+        .join("") +
       `</urlset>\n`
   );
 });
