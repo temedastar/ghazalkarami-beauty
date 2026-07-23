@@ -9,6 +9,13 @@ function escapeAttr(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// same href-building rule as loadContactInfo()'s applyContactLink() in
+// index.html — kept in sync deliberately, not derived, since one is JS
+// running in the browser and the other runs here before any JS exists
+function telHref(value: string): string {
+  return `tel:${value.replace(/[^\d+]/g, "")}`;
+}
+
 /**
  * Fills in og:image/og:url/og:site_name and the JSON-LD telephone/address/
  * image server-side, before the HTML ever leaves the server. The same
@@ -18,6 +25,12 @@ function escapeAttr(value: string): string {
  * Instagram, ...) that fetch the raw HTML without executing JavaScript.
  * The client-side JS still runs too — it just re-applies the same values,
  * which is harmless.
+ *
+ * The footer's phone/whatsapp/address text (also normally patched in by
+ * loadContactInfo()) gets the same server-side treatment for the same
+ * reason: a crawler that never runs JS would otherwise see whatever
+ * placeholder text was in the file at seed time, forever, even after the
+ * real values are edited in the admin panel.
  */
 export async function renderIndexHtml(): Promise<string> {
   let html = fs.readFileSync(indexHtmlPath, "utf8");
@@ -71,6 +84,41 @@ export async function renderIndexHtml(): Promise<string> {
       }
     }
   );
+
+  // there are TWO tel: links marked data-contact="phone" (the footer one,
+  // and a standalone "call the salon instead" CTA near the booking widget —
+  // see .phone-alt in index.html) with different surrounding markup, so the
+  // href fix runs globally across the whole document rather than assuming
+  // one fixed structure; only the footer's link also carries a visible
+  // data-contact-label span, handled as a separate, more targeted pass
+  function replaceTelHrefs(sourceHtml: string, dataContact: string, rawValue: string): string {
+    const hrefRe = new RegExp(`(<a href=")tel:[^"]*("[^>]*data-contact="${dataContact}")`, "g");
+    return sourceHtml.replace(hrefRe, (_m, pre, post) => `${pre}${escapeAttr(telHref(rawValue))}${post}`);
+  }
+
+  // same conditional-only-if-set behavior as applyContactLink() in
+  // index.html (an unset field leaves the seed-time placeholder in place
+  // rather than blanking it out)
+  if (contact?.phone) {
+    html = replaceTelHrefs(html, "phone", contact.phone);
+    html = html.replace(
+      /(data-contact="phone">[\s\S]*?<span data-contact-label>)[^<]*(<\/span>)/,
+      (_m, prefix, suffix) => `${prefix}${escapeAttr(contact.phone!)}${suffix}`
+    );
+  }
+  if (contact?.whatsapp) {
+    html = replaceTelHrefs(html, "whatsapp", contact.whatsapp);
+    html = html.replace(
+      /(data-contact="whatsapp">[\s\S]*?<span data-contact-label>)[^<]*(<\/span>)/,
+      (_m, prefix, suffix) => `${prefix}${escapeAttr(contact.whatsapp!)}${suffix}`
+    );
+  }
+  if (contact?.address) {
+    html = html.replace(
+      /(<div class="f-social" style="align-items:flex-start;" data-contact="address">[\s\S]*?<span>)[^<]*(<\/span><\/div>)/,
+      (_m, prefix, suffix) => `${prefix}${escapeAttr(contact.address!)}${suffix}`
+    );
+  }
 
   return html;
 }
