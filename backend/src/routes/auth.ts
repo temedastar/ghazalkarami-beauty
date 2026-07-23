@@ -40,13 +40,19 @@ router.post("/otp/request", otpLimiter, async (req, res) => {
   const phone = normalizePhone(parsed.data.phone);
   if (!phone) return res.status(400).json({ error: "شماره موبایل معتبر نیست." });
 
-  // fail fast for a LOGIN attempt on a number that was never registered —
-  // no point sending a real SMS (cost) for a code that can never lead to a
-  // successful login anyway; /otp/verify still re-checks this independently
+  // fail fast for a LOGIN attempt on a number that was never registered, or
+  // a REGISTER attempt on one that already has an account — no point
+  // sending a real SMS (cost) for a code that can never lead anywhere;
+  // /otp/verify still re-checks both independently
   if (parsed.data.purpose === "LOGIN") {
     const existing = await prisma.user.findUnique({ where: { phone } });
     if (!existing) {
       return res.status(404).json({ error: "این شماره ثبت‌نام نشده است.", notRegistered: true });
+    }
+  } else {
+    const existing = await prisma.user.findUnique({ where: { phone } });
+    if (existing) {
+      return res.status(409).json({ error: "این شماره قبلاً ثبت‌نام کرده است. لطفاً وارد شوید.", alreadyRegistered: true });
     }
   }
 
@@ -79,6 +85,16 @@ router.post("/otp/verify", otpLimiter, async (req, res) => {
   // for an unregistered number, or a REGISTER call missing the now-required
   // name fields — doesn't burn the person's only code for it
   let user = await prisma.user.findUnique({ where: { phone } });
+
+  // a REGISTER attempt on a phone that already has an account used to just
+  // silently log the person into their existing account (discarding the
+  // firstName/lastName they'd just entered) instead of telling them they
+  // already have one — same "form quietly does something other than what
+  // it says" shape as the notRegistered fix below, just the mirror case
+  if (user && parsed.data.purpose === "REGISTER") {
+    return res.status(409).json({ error: "این شماره قبلاً ثبت‌نام کرده است. لطفاً وارد شوید.", alreadyRegistered: true });
+  }
+
   if (!user) {
     // logging in via the SMS-code path used to silently create an account for
     // any phone number, even one that had never registered — that's a login

@@ -2378,6 +2378,17 @@ function handleNotRegistered(phone){
   showAuthErr('این شماره ثبت‌نام نشده است. لطفاً نام و رمز عبور (اختیاری) را وارد کرده و ثبت‌نام کنید.');
 }
 
+/* mirror case of handleNotRegistered() — a REGISTER attempt on a phone that
+   already has an account, switched to the login tab instead of silently
+   logging into the existing account with the newly-typed name discarded */
+function handleAlreadyRegistered(phone){
+  switchTab('login');
+  hideAuthErr();
+  const tel=document.getElementById('login-tel');
+  if(tel)tel.value=phone;
+  showAuthErr('این شماره قبلاً ثبت‌نام کرده است. لطفاً وارد شوید.');
+}
+
 async function submitLogin(e){
   e.preventDefault();
   hideAuthErr();
@@ -2434,7 +2445,10 @@ async function submitRegister(e){
   try{
     const res=await fetch('/api/auth/otp/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,purpose:'REGISTER'})});
     const data=await res.json();
-    if(!res.ok)throw new Error(data.error||'خطا در ارسال کد.');
+    if(!res.ok){
+      if(data.alreadyRegistered)return handleAlreadyRegistered(phone);
+      throw new Error(data.error||'خطا در ارسال کد.');
+    }
     otpMode='register';pendingPhone=phone;pendingFirstName=firstName;pendingLastName=lastName;pendingPassword=password||null;
     openOtpStep(phone);
   }catch(err){showAuthErr(err.message);}
@@ -2480,6 +2494,7 @@ async function submitOtp(e){
     const data=await res.json();
     if(!res.ok){
       if(data.notRegistered){am.classList.add('on');return handleNotRegistered(pendingPhone);}
+      if(data.alreadyRegistered){am.classList.add('on');return handleAlreadyRegistered(pendingPhone);}
       throw new Error(data.error||'کد وارد شده صحیح نیست.');
     }
     setAuth(data.token,data.user);
