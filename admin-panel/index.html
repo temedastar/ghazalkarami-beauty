@@ -1013,7 +1013,7 @@ tabs.contact = async () => {
   let html = `<h1>اطلاعات تماس و شبکه‌های اجتماعی</h1><div class="card">
     <p class="muted" style="margin-bottom:16px;">این اطلاعات به‌صورت خودکار در فوتر و بخش‌های تماس سایت به‌روزرسانی می‌شود.</p>
     <div class="form-grid">
-      <label class="field">تلفن ثابت<input type="text" class="wide" value="${esc(contact.phone||'')}" onchange="updateContact('phone',this.value)"></label>
+      <label class="field">شماره تماس<input type="text" class="wide" value="${esc(contact.phone||'')}" onchange="updateContact('phone',this.value)"></label>
       <label class="field">واتساپ / موبایل (دکمه‌ی تماس سریع)<input type="text" class="wide" value="${esc(contact.whatsapp||'')}" onchange="updateContact('whatsapp',this.value)"></label>
       <label class="field">آدرس سالن<input type="text" class="wide" value="${esc(contact.address||'')}" onchange="updateContact('address',this.value)"></label>
     </div>
