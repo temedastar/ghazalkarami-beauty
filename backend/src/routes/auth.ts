@@ -8,6 +8,7 @@ import { normalizePhone } from "../lib/phone";
 import { signAuthToken } from "../lib/jwt";
 import { requestOtp, verifyOtp, OtpError } from "../services/otp";
 import { requireAuth } from "../middleware/auth";
+import { strongPasswordSchema, PASSWORD_POLICY_MESSAGE } from "../lib/password";
 
 const router = Router();
 
@@ -159,12 +160,12 @@ router.post("/login", loginLimiter, async (req, res) => {
   });
 });
 
-const setPasswordSchema = z.object({ password: z.string().min(6).max(72) });
+const setPasswordSchema = z.object({ password: strongPasswordSchema });
 
 router.post("/set-password", requireAuth, async (req, res) => {
   const parsed = setPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "رمز عبور باید حداقل ۶ کاراکتر باشد." });
+    return res.status(400).json({ error: PASSWORD_POLICY_MESSAGE });
   }
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
   await prisma.user.update({
@@ -213,12 +214,15 @@ router.post("/password/reset/request", otpLimiter, async (req, res) => {
 const resetVerifySchema = z.object({
   phone: z.string(),
   code: z.string().length(6),
-  newPassword: z.string().min(6).max(72),
+  newPassword: strongPasswordSchema,
 });
 
 router.post("/password/reset/verify", otpLimiter, async (req, res) => {
   const parsed = resetVerifySchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  if (!parsed.success) {
+    const weakPassword = parsed.error.issues.some((issue) => issue.path[0] === "newPassword");
+    return res.status(400).json({ error: weakPassword ? PASSWORD_POLICY_MESSAGE : "ورودی نامعتبر است." });
+  }
 
   const phone = normalizePhone(parsed.data.phone);
   if (!phone) return res.status(400).json({ error: "شماره موبایل معتبر نیست." });
