@@ -527,12 +527,72 @@ window.generateSlots = withSubmitGuard(async () => {
 /* =====================================================================
    رزروها: لیست + رزرو دستی/قفل تایم + تغییر وضعیت
    ===================================================================== */
+const BOOKING_STATUS_FA = {PENDING_PAYMENT:"در انتظار پرداخت",CONFIRMED:"تاییدشده",CANCELLED:"لغوشده",EXPIRED:"منقضی",COMPLETED:"انجام‌شده",NO_SHOW:"مشتری نیامد"};
+const BOOKING_STATUS_TAG_CLASS = {PENDING_PAYMENT:"tag-pending",CONFIRMED:"tag-open",CANCELLED:"tag-closed",EXPIRED:"tag-muted",COMPLETED:"tag-open",NO_SHOW:"tag-closed"};
+// only meaningful for a CANCELLED booking that actually had a paid deposit —
+// see backend services/bookingCancellation.ts for how each is decided
+const REFUND_STATUS_FA = {SUCCEEDED:"بازگشت وجه موفق",NEEDS_MANUAL_FOLLOWUP:"نیاز به پیگیری دستی",NOT_APPLICABLE:"بدون بازگشت (لغو دیرهنگام)"};
+const REFUND_STATUS_TAG_CLASS = {SUCCEEDED:"tag-open",NEEDS_MANUAL_FOLLOWUP:"tag-pending",NOT_APPLICABLE:"tag-muted"};
+
+// the filter is a superset of BookingStatus: CANCELLED is split into its
+// three refund outcomes so "نیاز به پیگیری دستی" can be isolated at a glance
+// instead of getting lost among every other cancelled booking
+function bookingFilterKey(b){
+  if(b.status!=="CANCELLED") return b.status;
+  if(!b.payment || b.payment.status!=="PAID") return "CANCELLED_NO_PAYMENT";
+  return `CANCELLED_${b.payment.refundStatus}`;
+}
+
+function renderBookingsList(bookings, filter){
+  const filtered = filter==="ALL" ? bookings : bookings.filter(b=>bookingFilterKey(b)===filter);
+  if(!filtered.length) return `<div class="card muted">نوبتی با این فیلتر پیدا نشد.</div>`;
+  return filtered.map(b=>{
+    const who = b.user ? esc(`${b.user.firstName} ${b.user.lastName} (${b.user.phone})`) : "بدون مشتری (قفل دستی)";
+    const svc = b.service ? b.service.name : (b.blockReason || "بدون سرویس");
+    const showRefund = b.status==="CANCELLED" && b.payment && b.payment.status==="PAID";
+    return `<div class="card">
+      <div class="row" style="border:none;padding:0;">
+        <div>
+          <b>${esc(svc)}</b> ${b.source!=="ONLINE"?`<span class="tag tag-muted">${b.source==='ADMIN_BLOCK'?'قفل دستی':'ثبت دستی'}</span>`:''}
+          <div class="muted">${who}</div>
+          <div class="muted">${b.date.slice(0,10)} ساعت ${b.time} — بیعانه ${toman(b.depositAmount)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="tag ${BOOKING_STATUS_TAG_CLASS[b.status]||'tag-muted'}">${BOOKING_STATUS_FA[b.status]||b.status}</span>
+          ${showRefund?`<span class="tag ${REFUND_STATUS_TAG_CLASS[b.payment.refundStatus]||'tag-muted'}">${REFUND_STATUS_FA[b.payment.refundStatus]||b.payment.refundStatus}</span>`:''}
+          ${showRefund && b.payment.refundStatus==="NEEDS_MANUAL_FOLLOWUP"?`<button class="btn btn-ghost btn-sm" onclick="resolveRefund('${b.payment.id}')">علامت‌گذاری به‌عنوان بازگشت داده‌شده</button>`:''}
+          ${["CONFIRMED","PENDING_PAYMENT"].includes(b.status)?`
+            <select onchange="setBookingStatus('${b.id}', this.value)">
+              <option value="">تغییر وضعیت…</option>
+              <option value="COMPLETED">انجام‌شده</option>
+              <option value="NO_SHOW">مشتری نیامد</option>
+              <option value="CANCELLED">لغو</option>
+            </select>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+window.filterBookings = () => {
+  const filter = document.getElementById("bookingsFilter").value;
+  document.getElementById("bookingsList").innerHTML = renderBookingsList(window._allBookings||[], filter);
+};
+
+window.resolveRefund = async (paymentId) => {
+  if(!confirm("آیا بازگشت بیعانه به‌صورت دستی انجام شده و این مورد باید بسته شود؟")) return;
+  try{
+    await api(`/admin/payments/${paymentId}/refund-status`,{method:"PATCH",body:JSON.stringify({refundStatus:"SUCCEEDED"})});
+    toast("ثبت شد.");
+    tabs.bookings();
+  }catch(e){ toast(e.message,true); }
+};
+
 tabs.bookings = async () => {
   const [{bookings}, {categories}] = await Promise.all([
     api("/admin/bookings?upcoming=1"), api("/admin/categories"),
   ]);
-  const statusFa = {PENDING_PAYMENT:"در انتظار پرداخت",CONFIRMED:"تاییدشده",CANCELLED:"لغوشده",EXPIRED:"منقضی",COMPLETED:"انجام‌شده",NO_SHOW:"مشتری نیامد"};
-  const statusTagClass = {PENDING_PAYMENT:"tag-pending",CONFIRMED:"tag-open",CANCELLED:"tag-closed",EXPIRED:"tag-muted",COMPLETED:"tag-open",NO_SHOW:"tag-closed"};
+  window._allBookings = bookings;
 
   let html = `<h1>رزروها</h1>`;
 
@@ -552,31 +612,23 @@ tabs.bookings = async () => {
     </div>
   </div>`;
 
-  html += `<div class="section-title">نوبت‌های آینده</div>`;
-  if(!bookings.length) html += `<div class="card muted">نوبت آینده‌ای ثبت نشده.</div>`;
-  bookings.forEach(b=>{
-    const who = b.user ? esc(`${b.user.firstName} ${b.user.lastName} (${b.user.phone})`) : "بدون مشتری (قفل دستی)";
-    const svc = b.service ? b.service.name : (b.blockReason || "بدون سرویس");
-    html += `<div class="card">
-      <div class="row" style="border:none;padding:0;">
-        <div>
-          <b>${esc(svc)}</b> ${b.source!=="ONLINE"?`<span class="tag tag-muted">${b.source==='ADMIN_BLOCK'?'قفل دستی':'ثبت دستی'}</span>`:''}
-          <div class="muted">${who}</div>
-          <div class="muted">${b.date.slice(0,10)} ساعت ${b.time} — بیعانه ${toman(b.depositAmount)}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <span class="tag ${statusTagClass[b.status]||'tag-muted'}">${statusFa[b.status]||b.status}</span>
-          ${["CONFIRMED","PENDING_PAYMENT"].includes(b.status)?`
-            <select onchange="setBookingStatus('${b.id}', this.value)">
-              <option value="">تغییر وضعیت…</option>
-              <option value="COMPLETED">انجام‌شده</option>
-              <option value="NO_SHOW">مشتری نیامد</option>
-              <option value="CANCELLED">لغو</option>
-            </select>`:''}
-        </div>
-      </div>
-    </div>`;
-  });
+  html += `<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <span>نوبت‌های آینده</span>
+    <select id="bookingsFilter" onchange="filterBookings()" style="width:auto;">
+      <option value="ALL">همه وضعیت‌ها</option>
+      <option value="PENDING_PAYMENT">در انتظار پرداخت</option>
+      <option value="CONFIRMED">تاییدشده</option>
+      <option value="COMPLETED">انجام‌شده</option>
+      <option value="NO_SHOW">مشتری نیامد</option>
+      <option value="EXPIRED">منقضی</option>
+      <option value="CANCELLED_SUCCEEDED">لغوشده — بازگشت وجه موفق</option>
+      <option value="CANCELLED_NEEDS_MANUAL_FOLLOWUP">لغوشده — نیاز به پیگیری دستی</option>
+      <option value="CANCELLED_NOT_APPLICABLE">لغوشده — بدون بازگشت (دیرهنگام)</option>
+      <option value="CANCELLED_NO_PAYMENT">لغوشده — بدون پرداخت</option>
+    </select>
+  </div>`;
+  html += `<div id="bookingsList">${renderBookingsList(bookings, "ALL")}</div>`;
+
   setMainContent(html);
   window._bookingsCategories = categories;
   renderManualServiceOptions();

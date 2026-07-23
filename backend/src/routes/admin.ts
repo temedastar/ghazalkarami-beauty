@@ -13,6 +13,7 @@ import { parseDateOnly, toDateOnlyString, dayOfWeekUTC } from "../lib/dates";
 import { sendThankYouReviewSms } from "../services/kavenegar";
 import { isObjectStorageConfigured, uploadBuffer } from "../lib/objectStorage";
 import { env } from "../lib/env";
+import { cancelBookingAndMaybeRefund } from "../services/bookingCancellation";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -687,15 +688,14 @@ router.patch("/bookings/:id/status", async (req, res) => {
 
   const booking = await prisma.booking.findUnique({
     where: { id: req.params.id },
-    include: { service: true, user: true },
+    include: { service: true, user: true, payment: true },
   });
   if (!booking) return res.status(404).json({ error: "رزرو یافت نشد." });
 
   if (parsed.data.status === "CANCELLED") {
-    await prisma.$transaction([
-      prisma.slotHold.deleteMany({ where: { bookingId: booking.id } }),
-      prisma.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED" } }),
-    ]);
+    // same 48h refund-eligibility policy as the customer's own cancel
+    // button — see services/bookingCancellation.ts
+    await cancelBookingAndMaybeRefund(booking);
   } else {
     await prisma.booking.update({ where: { id: booking.id }, data: { status: parsed.data.status } });
   }
@@ -712,6 +712,29 @@ router.patch("/bookings/:id/status", async (req, res) => {
     include: { service: true, category: true, user: true, payment: true },
   });
   res.json({ booking: updated });
+});
+
+// lets Ghazal close out a NEEDS_MANUAL_FOLLOWUP refund after she's issued it
+// herself directly in the ZarinPal panel (automatic refunds always land in
+// that state for now — see services/zarinpalRefund.ts) — otherwise the
+// admin panel's cancellation view would show it as unresolved forever
+const refundStatusSchema = z.object({ refundStatus: z.literal("SUCCEEDED") });
+
+router.patch("/payments/:id/refund-status", async (req, res) => {
+  const parsed = refundStatusSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+
+  const payment = await prisma.payment.findUnique({ where: { id: req.params.id } });
+  if (!payment) return res.status(404).json({ error: "پرداخت یافت نشد." });
+  if (payment.refundStatus !== "NEEDS_MANUAL_FOLLOWUP") {
+    return res.status(400).json({ error: "این پرداخت نیاز به پیگیری دستی ندارد." });
+  }
+
+  const updated = await prisma.payment.update({
+    where: { id: payment.id },
+    data: { refundStatus: "SUCCEEDED", refundedAt: new Date() },
+  });
+  res.json({ payment: updated });
 });
 
 /* ---------- customers ---------- */

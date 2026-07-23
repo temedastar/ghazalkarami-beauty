@@ -40,6 +40,7 @@ export const env = {
       bookingConfirm: process.env.KAVENEGAR_TEMPLATE_BOOKING_CONFIRM ?? "",
       reminder: process.env.KAVENEGAR_TEMPLATE_REMINDER ?? "",
       thankYouReview: process.env.KAVENEGAR_TEMPLATE_THANKYOU_REVIEW ?? "",
+      refund: process.env.KAVENEGAR_TEMPLATE_REFUND ?? "",
     },
   },
 
@@ -50,6 +51,14 @@ export const env = {
       "ZARINPAL_CALLBACK_URL",
       "http://localhost:4000/api/payments/zarinpal/callback"
     ),
+    // separate OAuth2 credential set for the Refund API — see
+    // services/zarinpalRefund.ts and the comment above these vars in .env.example
+    refund: {
+      clientId: process.env.ZARINPAL_REFUND_CLIENT_ID ?? "",
+      clientSecret: process.env.ZARINPAL_REFUND_CLIENT_SECRET ?? "",
+      username: process.env.ZARINPAL_REFUND_USERNAME ?? "",
+      password: process.env.ZARINPAL_REFUND_PASSWORD ?? "",
+    },
   },
 
   // any S3-compatible object storage works here (Liara Object Storage, Arvan,

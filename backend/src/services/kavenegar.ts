@@ -98,6 +98,19 @@ export async function sendBookingReminderSms(
   });
 }
 
+export async function sendRefundSms(
+  phone: string,
+  opts: { serviceName: string; amountToman: number }
+): Promise<void> {
+  await sendLookup({
+    phone,
+    type: "REFUND",
+    template: env.kavenegar.templates.refund,
+    token: opts.serviceName,
+    token2: String(opts.amountToman),
+  });
+}
+
 export async function sendThankYouReviewSms(
   phone: string,
   opts: { serviceName: string; reviewUrl: string }

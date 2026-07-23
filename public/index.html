@@ -2517,11 +2517,15 @@ async function afterAuthSuccess(){
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
 const MB_STATUS_FA={PENDING_PAYMENT:'در انتظار پرداخت',CONFIRMED:'تایید شده',CANCELLED:'لغو شده',EXPIRED:'منقضی شده',COMPLETED:'انجام شده',NO_SHOW:'عدم حضور'};
 const MB_STATUS_CLASS={PENDING_PAYMENT:'st-pending',CONFIRMED:'st-confirmed',CANCELLED:'st-cancelled',EXPIRED:'st-cancelled',COMPLETED:'st-done',NO_SHOW:'st-cancelled'};
+// only shown for a cancelled booking whose deposit had actually been paid —
+// see backend services/bookingCancellation.ts for how each is decided
+const MB_REFUND_FA={SUCCEEDED:'بیعانه با موفقیت بازگردانده شد',NEEDS_MANUAL_FOLLOWUP:'بازگشت بیعانه در حال پیگیری توسط سالن است',NOT_APPLICABLE:'طبق قوانین لغو (کمتر از ۴۸ ساعت مانده)، بیعانه قابل بازگشت نبود'};
+const MB_REFUND_CLASS={SUCCEEDED:'st-done',NEEDS_MANUAL_FOLLOWUP:'st-pending',NOT_APPLICABLE:'st-cancelled'};
 // PENDING_PAYMENT/CONFIRMED are the only statuses worth showing a button
-// for at all — the rest are already terminal. Whether a CONFIRMED booking
-// can actually be auto-cancelled is the *backend's* call (see bookings.ts),
-// not something guessed here; the button just attempts it and shows
-// whatever message comes back, success or "call the salon instead".
+// for at all — the rest are already terminal. Cancelling a CONFIRMED
+// booking is fully self-service; the backend decides refund eligibility
+// (48h policy, see cancellationPolicy.ts) and returns the exact outcome
+// message, which is what gets shown — never guessed here.
 const MB_CANCELLABLE=['PENDING_PAYMENT','CONFIRMED'];
 
 function openMyBookings(){
@@ -2554,10 +2558,16 @@ function renderMyBookings(bookings){
     const statusClass=MB_STATUS_CLASS[b.status]||'';
     const deposit=Number(b.depositAmount||0).toLocaleString('fa-IR')+' تومان';
     const canCancel=MB_CANCELLABLE.includes(b.status);
+    // refund outcome only makes sense once there was actually a paid
+    // deposit to refund in the first place
+    const showRefund=b.status==='CANCELLED'&&b.payment&&b.payment.status==='PAID';
+    const refundFa=showRefund?(MB_REFUND_FA[b.payment.refundStatus]||''):'';
+    const refundClass=showRefund?(MB_REFUND_CLASS[b.payment.refundStatus]||''):'';
     return `<div class="mb-row">
       <div class="mb-info">
         <div class="mb-svc">${esc(svcName)}<span class="mb-tag ${statusClass}">${esc(statusFa)}</span></div>
         <div class="mb-meta">${esc(dateLabel)} — ساعت ${esc(b.time)} · بیعانه: ${esc(deposit)}</div>
+        ${refundFa?`<div class="mb-meta"><span class="mb-tag ${refundClass}">${esc(refundFa)}</span></div>`:''}
       </div>
       ${canCancel?`<button class="btn b-danger b-sm" onclick="cancelMyBooking('${b.id}')">لغو نوبت</button>`:''}
     </div>`;
@@ -2570,7 +2580,7 @@ window.cancelMyBooking=async(id)=>{
     const res=await fetch(`/api/bookings/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${AUTH_TOKEN}`}});
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||'خطا در لغو نوبت.');
-    toastAlert('نوبت با موفقیت لغو شد.');
+    toastAlert(data.message||'نوبت با موفقیت لغو شد.');
     await loadMyBookings();
   }catch(e){ toastAlert(e.message); }
 };

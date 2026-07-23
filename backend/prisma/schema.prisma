@@ -68,6 +68,20 @@ enum SmsType {
   BOOKING_CONFIRM
   REMINDER
   THANK_YOU_REVIEW
+  REFUND
+}
+
+// NOT_APPLICABLE: booking was never paid, or was cancelled less than
+// REFUND_ELIGIBLE_HOURS before the appointment (deposit forfeited per policy)
+// NEEDS_MANUAL_FOLLOWUP: eligible for a refund but the automatic ZarinPal
+// refund attempt failed (currently: always, since we don't have the OAuth2
+// refund credentials yet — see services/zarinpalRefund.ts) — Ghazal must
+// issue it manually and mark it resolved
+// SUCCEEDED: refund completed, automatically or after being marked resolved
+enum RefundStatus {
+  NOT_APPLICABLE
+  NEEDS_MANUAL_FOLLOWUP
+  SUCCEEDED
 }
 
 enum SmsStatus {
@@ -229,6 +243,7 @@ model Booking {
   blockReason   String? // set when source=ADMIN_BLOCK and there's no real service/customer
   holdExpiresAt DateTime?
   reminderSentAt DateTime?
+  cancelledAt   DateTime? // when status became CANCELLED — backs the admin panel's cancellation view
 
   // nullable: ADMIN_BLOCK entries (Ghazal closing a slot with no assigned
   // customer/service) don't need either of these
@@ -295,6 +310,12 @@ model Payment {
   gateway    String        @default("zarinpal")
   verifiedAt DateTime?
   createdAt  DateTime      @default(now())
+
+  // set only when the booking this payment is tied to gets cancelled while
+  // CONFIRMED+PAID — see lib/cancellationPolicy.ts for the 48h eligibility rule
+  refundStatus RefundStatus @default(NOT_APPLICABLE)
+  refundedAt   DateTime?
+  refundNote   String? // failure reason, or a note for whoever follows up manually
 
   booking   Booking @relation(fields: [bookingId], references: [id])
   bookingId String  @unique

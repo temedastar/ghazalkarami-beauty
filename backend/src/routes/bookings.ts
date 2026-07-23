@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { parseDateOnly, dayOfWeekUTC, isPastDate } from "../lib/dates";
 import { getDayOpenInfo, isTimeAllowed, computeDepositAmount } from "../lib/schedule";
+import { cancelBookingAndMaybeRefund } from "../services/bookingCancellation";
 
 const router = Router();
 
@@ -120,23 +121,23 @@ router.get("/mine", requireAuth, async (req, res) => {
 });
 
 router.delete("/:id", requireAuth, async (req, res) => {
-  const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
+  const booking = await prisma.booking.findUnique({
+    where: { id: req.params.id },
+    include: { payment: true, user: true, service: true },
+  });
   if (!booking) return res.status(404).json({ error: "رزرو یافت نشد." });
   if (booking.userId !== req.auth!.userId && req.auth!.role !== "ADMIN") {
     return res.status(403).json({ error: "دسترسی غیرمجاز." });
   }
-  if (booking.status === "CONFIRMED" || booking.status === "COMPLETED") {
-    return res.status(400).json({
-      error: "این رزرو تایید شده است؛ برای لغو با سالن تماس بگیرید.",
-    });
+  if (booking.status === "COMPLETED") {
+    return res.status(400).json({ error: "این رزرو قبلاً انجام شده است." });
+  }
+  if (["CANCELLED", "EXPIRED", "NO_SHOW"].includes(booking.status)) {
+    return res.status(400).json({ error: "این رزرو قبلاً لغو یا منقضی شده است." });
   }
 
-  await prisma.$transaction([
-    prisma.slotHold.deleteMany({ where: { bookingId: booking.id } }),
-    prisma.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED" } }),
-  ]);
-
-  res.json({ ok: true });
+  const result = await cancelBookingAndMaybeRefund(booking);
+  res.json({ ok: true, refund: result.refund, message: result.message });
 });
 
 export default router;
