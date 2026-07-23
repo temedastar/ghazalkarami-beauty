@@ -255,6 +255,22 @@ h1,h2,h3{font-weight:900;line-height:1.35;font-family:'Vazirmatn',sans-serif;}
 .b-ghost{color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.3);}
 .b-ghost:hover{border-color:rgba(255,255,255,.55);}
 .b-sm{padding:9px 20px;font-size:14px;min-height:42px;}
+.b-danger{border-color:var(--danger);color:var(--danger);}
+.b-danger:hover{background:rgba(192,57,43,.08);}
+
+/* — my bookings — */
+.mb-row{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:16px 18px;border:1px solid var(--line);border-radius:14px;margin-bottom:12px;flex-wrap:wrap;}
+.mb-info{flex:1;min-width:200px;}
+.mb-svc{font-weight:800;font-size:15px;color:var(--night);margin-bottom:4px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;}
+.mb-meta{font-size:13px;color:var(--ink-2);}
+.mb-tag{display:inline-block;padding:3px 12px;border-radius:999px;font-size:11.5px;font-weight:700;}
+.mb-tag.st-pending{background:rgba(223,160,45,.15);color:var(--must-d);}
+.mb-tag.st-confirmed{background:rgba(58,138,90,.15);color:var(--success);}
+.mb-tag.st-done{background:rgba(24,18,7,.08);color:var(--ink-2);}
+.mb-tag.st-cancelled{background:rgba(192,57,43,.1);color:var(--danger);}
+.mb-empty,.mb-loading{text-align:center;padding:34px 10px;color:var(--ink-2);font-size:14px;}
+@media(max-width:480px){.mb-row{flex-direction:column;align-items:flex-start;}}
 
 /* — header — */
 header{position:sticky;top:0;z-index:90;background:rgba(11,21,38,.97);
@@ -834,6 +850,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
       <a href="#services">خدمات</a>
       <a href="#pricing">قیمت‌ها</a>
       <a href="#booking">رزرو نوبت</a>
+      <a href="#" onclick="openMyBookings();return false;">نوبت‌های من</a>
       <a href="#gallery">نمونه‌کارها</a>
       <a href="#reviews">نظرات</a>
     </nav>
@@ -858,6 +875,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
     <a href="#services" onclick="closeMnav()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><path d="M20 4 8 14M20 20 8 10"/></svg>خدمات</a>
     <a href="#pricing" onclick="closeMnav()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>قیمت‌ها</a>
     <a href="#booking" onclick="closeMnav()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>رزرو نوبت</a>
+    <a href="#" onclick="openMyBookings();closeMnav();return false;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>نوبت‌های من</a>
     <a href="#gallery" onclick="closeMnav()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>نمونه‌کارها</a>
     <a href="#teach" onclick="closeMnav()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>آموزش</a>
     <a href="#reviews" onclick="closeMnav()"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>نظرات</a>
@@ -1429,6 +1447,15 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <button class="btn b-night" style="margin-top:16px;" onclick="closeAuth()">بازگشت</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- MY BOOKINGS -->
+<div class="mbg" id="mbBg" onclick="if(event.target===this)closeMyBookings()">
+  <div class="modal" style="max-width:560px;">
+    <button class="mx" onclick="closeMyBookings()" aria-label="بستن">✕</button>
+    <h3 style="margin-bottom:18px;">نوبت‌های من</h3>
+    <div id="myBookingsList"><div class="mb-loading">در حال بارگذاری…</div></div>
   </div>
 </div>
 
@@ -2468,6 +2495,70 @@ async function afterAuthSuccess(){
   else if(pendingAction==='class')await proceedClassRequest();
   else closeAuth();
 }
+
+/* — my bookings: list + cancel, both backed by endpoints that already
+   existed and were already tested (GET /api/bookings/mine, DELETE
+   /api/bookings/:id) — this just gives them a UI */
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+const MB_STATUS_FA={PENDING_PAYMENT:'در انتظار پرداخت',CONFIRMED:'تایید شده',CANCELLED:'لغو شده',EXPIRED:'منقضی شده',COMPLETED:'انجام شده',NO_SHOW:'عدم حضور'};
+const MB_STATUS_CLASS={PENDING_PAYMENT:'st-pending',CONFIRMED:'st-confirmed',CANCELLED:'st-cancelled',EXPIRED:'st-cancelled',COMPLETED:'st-done',NO_SHOW:'st-cancelled'};
+// PENDING_PAYMENT/CONFIRMED are the only statuses worth showing a button
+// for at all — the rest are already terminal. Whether a CONFIRMED booking
+// can actually be auto-cancelled is the *backend's* call (see bookings.ts),
+// not something guessed here; the button just attempts it and shows
+// whatever message comes back, success or "call the salon instead".
+const MB_CANCELLABLE=['PENDING_PAYMENT','CONFIRMED'];
+
+function openMyBookings(){
+  if(!AUTH_TOKEN){ openAuth('login'); return; }
+  document.getElementById('mbBg').classList.add('on');
+  loadMyBookings();
+}
+function closeMyBookings(){ document.getElementById('mbBg').classList.remove('on'); }
+
+async function loadMyBookings(){
+  const list=document.getElementById('myBookingsList');
+  list.innerHTML='<div class="mb-loading">در حال بارگذاری…</div>';
+  try{
+    const res=await fetch('/api/bookings/mine',{headers:{Authorization:`Bearer ${AUTH_TOKEN}`}});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'خطا در دریافت نوبت‌ها.');
+    renderMyBookings(data.bookings||[]);
+  }catch(e){
+    list.innerHTML=`<div class="mb-empty">${esc(e.message)}</div>`;
+  }
+}
+
+function renderMyBookings(bookings){
+  const list=document.getElementById('myBookingsList');
+  if(!bookings.length){ list.innerHTML='<div class="mb-empty">هنوز نوبتی ثبت نکرده‌اید.</div>'; return; }
+  list.innerHTML=bookings.map(b=>{
+    const svcName=b.service?b.service.name:(b.blockReason||'بدون سرویس');
+    const dateLabel=fmtRvDate(b.date);
+    const statusFa=MB_STATUS_FA[b.status]||b.status;
+    const statusClass=MB_STATUS_CLASS[b.status]||'';
+    const deposit=Number(b.depositAmount||0).toLocaleString('fa-IR')+' تومان';
+    const canCancel=MB_CANCELLABLE.includes(b.status);
+    return `<div class="mb-row">
+      <div class="mb-info">
+        <div class="mb-svc">${esc(svcName)}<span class="mb-tag ${statusClass}">${esc(statusFa)}</span></div>
+        <div class="mb-meta">${esc(dateLabel)} — ساعت ${esc(b.time)} · بیعانه: ${esc(deposit)}</div>
+      </div>
+      ${canCancel?`<button class="btn b-danger b-sm" onclick="cancelMyBooking('${b.id}')">لغو نوبت</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+window.cancelMyBooking=async(id)=>{
+  if(!confirm('آیا از لغو این نوبت مطمئن هستید؟'))return;
+  try{
+    const res=await fetch(`/api/bookings/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${AUTH_TOKEN}`}});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'خطا در لغو نوبت.');
+    toastAlert('نوبت با موفقیت لغو شد.');
+    await loadMyBookings();
+  }catch(e){ toastAlert(e.message); }
+};
 
 function startBookingAuth(){
   const svc=svcInfo[cKey];
