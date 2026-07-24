@@ -148,12 +148,6 @@ const upload = multer({
   },
 });
 
-const IMAGE_CONTENT_TYPES: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-};
-
 // the client-supplied filename/extension is trivially spoofable, so the
 // actual stored extension and Content-Type are derived from the file's real
 // magic bytes, not from what the uploader claims it is
@@ -169,25 +163,29 @@ function detectImageExtension(buffer: Buffer): string | null {
 // caps dimensions and re-encodes at a reasonable quality so a multi-megabyte
 // phone-camera photo doesn't get served as-is to every site visitor — width
 // is what the public design actually needs (largest image on the page is a
-// full-bleed hero/profile shot), height caps portrait-orientation uploads
-async function optimizeImage(buffer: Buffer, ext: string): Promise<Buffer> {
-  const resized = sharp(buffer)
+// full-bleed hero/profile shot), height caps portrait-orientation uploads.
+// Output is always WebP regardless of what was uploaded: none of these
+// images (salon/gallery photos) need PNG transparency, and WebP runs
+// 25-35% smaller than JPEG/PNG at equivalent visual quality — direct win
+// for LCP on the hero/profile photos and for gallery load time.
+async function optimizeImage(buffer: Buffer): Promise<Buffer> {
+  return sharp(buffer)
     .rotate() // auto-orient from EXIF, then the orientation tag is dropped
-    .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true });
-  if (ext === ".png") return resized.png({ quality: 82, compressionLevel: 9 }).toBuffer();
-  if (ext === ".webp") return resized.webp({ quality: 82 }).toBuffer();
-  return resized.jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+    .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
 }
 
 router.post("/upload", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "فایل تصویر معتبر ارسال نشد." });
-  const ext = detectImageExtension(req.file.buffer);
-  if (!ext) return res.status(400).json({ error: "فایل تصویر معتبر نیست." });
-  const key = `${crypto.randomUUID()}${ext}`;
+  // still real-format-checked via magic bytes before any processing — only
+  // the STORED extension is now always .webp, not what got uploaded
+  if (!detectImageExtension(req.file.buffer)) return res.status(400).json({ error: "فایل تصویر معتبر نیست." });
+  const key = `${crypto.randomUUID()}.webp`;
 
   let optimized: Buffer;
   try {
-    optimized = await optimizeImage(req.file.buffer, ext);
+    optimized = await optimizeImage(req.file.buffer);
   } catch (err) {
     console.error("Image optimization failed:", err);
     return res.status(400).json({ error: "پردازش تصویر ناموفق بود." });
@@ -195,7 +193,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 
   if (isObjectStorageConfigured()) {
     try {
-      const url = await uploadBuffer(optimized, key, IMAGE_CONTENT_TYPES[ext]);
+      const url = await uploadBuffer(optimized, key, "image/webp");
       return res.status(201).json({ url });
     } catch (err) {
       console.error("Object storage upload failed:", err);

@@ -32,7 +32,7 @@ header .wrap{display:flex;align-items:center;justify-content:space-between;gap:1
 .brand{display:flex;align-items:center;gap:10px;}
 .brand-mark{width:36px;height:36px;border-radius:10px;background:var(--must);
   display:flex;align-items:center;justify-content:center;color:var(--night);font-weight:900;flex-shrink:0;}
-.brand h1{font-size:16px;font-weight:800;}
+.brand p{font-size:16px;font-weight:800;}
 .brand span{display:block;font-size:11px;color:var(--must-l);letter-spacing:.03em;}
 .back-link{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700;
   color:var(--must-l);border:1px solid rgba(223,160,45,.4);border-radius:999px;

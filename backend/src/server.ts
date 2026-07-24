@@ -98,6 +98,20 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
+// generated (not a static file), same reasoning as /sitemap.xml below: the
+// Sitemap directive must be an absolute URL per the sitemap protocol (a
+// relative one was flagged invalid by Lighthouse's robots.txt audit), and an
+// absolute URL needs to know the real domain, which only env.frontendBaseUrl
+// knows. "Disallow: /admin" (no trailing slash) is deliberate — robots.txt
+// matching is a plain prefix match, so "/admin/" would NOT have covered a
+// request to the bare "/admin" path (no trailing slash) the way "/admin"
+// covers both that and everything under it.
+app.get("/robots.txt", (_req, res) => {
+  res.type("text/plain").send(
+    `User-agent: *\n` + `Allow: /\n` + `Disallow: /admin\n\n` + `Sitemap: ${env.frontendBaseUrl}/sitemap.xml\n`
+  );
+});
+
 // generated (not a static file) so it always reflects FRONTEND_BASE_URL —
 // once the real domain is set in .env this is automatically correct, no
 // separate file to remember to update

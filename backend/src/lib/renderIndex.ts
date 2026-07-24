@@ -32,12 +32,37 @@ function telHref(value: string): string {
  * placeholder text was in the file at seed time, forever, even after the
  * real values are edited in the admin panel.
  */
+// Schema.org's DayOfWeek enumeration wants full URIs, not bare day names —
+// index matches WorkingDay.dayOfWeek's convention (0=Sunday..6=Saturday,
+// the same as JS Date#getDay(), see lib/dates.ts)
+const SCHEMA_DAY_OF_WEEK = [
+  "https://schema.org/Sunday",
+  "https://schema.org/Monday",
+  "https://schema.org/Tuesday",
+  "https://schema.org/Wednesday",
+  "https://schema.org/Thursday",
+  "https://schema.org/Friday",
+  "https://schema.org/Saturday",
+];
+
+// sameAs is for entity-identity profile pages — WhatsApp is a contact
+// channel, not a profile, so it's deliberately left out here even though
+// it's a valid SocialLink platform elsewhere in the app
+const SAME_AS_HREF_BUILDERS: Record<string, (value: string) => string> = {
+  INSTAGRAM: (v) => `https://instagram.com/${v.replace(/^@/, "")}`,
+  TELEGRAM: (v) => `https://t.me/${v.replace(/^@/, "")}`,
+  BALEH: (v) => `https://bale.ai/${v.replace(/^@/, "")}`,
+};
+
 export async function renderIndexHtml(): Promise<string> {
   let html = fs.readFileSync(indexHtmlPath, "utf8");
 
-  const [siteContentRows, contact] = await Promise.all([
+  const [siteContentRows, contact, workingDays, reviewAgg, socialLinks] = await Promise.all([
     prisma.siteContent.findMany(),
     prisma.contactInfo.findUnique({ where: { id: "singleton" } }),
+    prisma.workingDay.findMany({ where: { isOpen: true } }),
+    prisma.review.aggregate({ where: { status: "APPROVED" }, _avg: { rating: true }, _count: true }),
+    prisma.socialLink.findMany(),
   ]);
   const siteContent: Record<string, string> = {};
   siteContentRows.forEach((r) => {
@@ -75,9 +100,40 @@ export async function renderIndexHtml(): Promise<string> {
     (_match, open, jsonText, close) => {
       try {
         const ld = JSON.parse(jsonText);
+        ld.url = pageUrl;
         if (ogImage) ld.image = ogImage;
         if (contact?.phone) ld.telephone = contact.phone.startsWith("+") ? contact.phone : "+98" + contact.phone.replace(/^0/, "");
         if (contact?.address && ld.address) ld.address.streetAddress = contact.address;
+
+        // real weekly hours (WorkingDay, admin-editable — same source the
+        // "کی می‌تونید بیایید؟" section is meant to reflect) instead of no
+        // opening-hours signal at all
+        if (workingDays.length) {
+          ld.openingHoursSpecification = workingDays
+            .filter((d) => d.openTime && d.closeTime)
+            .map((d) => ({
+              "@type": "OpeningHoursSpecification",
+              dayOfWeek: SCHEMA_DAY_OF_WEEK[d.dayOfWeek],
+              opens: d.openTime,
+              closes: d.closeTime,
+            }));
+        }
+
+        // Google requires reviewCount >= 1 for AggregateRating — omit
+        // entirely rather than ever emit a zero/fake one
+        if (reviewAgg._count > 0 && reviewAgg._avg.rating) {
+          ld.aggregateRating = {
+            "@type": "AggregateRating",
+            ratingValue: Math.round(reviewAgg._avg.rating * 10) / 10,
+            reviewCount: reviewAgg._count,
+          };
+        }
+
+        const sameAs = socialLinks
+          .map((link) => SAME_AS_HREF_BUILDERS[link.platform]?.(link.value))
+          .filter((href): href is string => Boolean(href));
+        if (sameAs.length) ld.sameAs = [...new Set(sameAs)];
+
         return `${open}\n${JSON.stringify(ld)}\n${close}`;
       } catch {
         return `${open}${jsonText}${close}`; // malformed JSON-LD would already be a bug in the static markup

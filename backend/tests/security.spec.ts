@@ -41,8 +41,15 @@ test("customer-controlled names cannot inject markup into review submissions", a
   });
   expect(create.status()).toBe(201);
   const body = await create.json();
-  expect(body.review.name).toBe(payload); // stored verbatim — sanitization is a render-time concern
-  expect(body.review.status).toBe("PENDING"); // not visible publicly yet — see reviews.spec.ts
+  try {
+    expect(body.review.name).toBe(payload); // stored verbatim — sanitization is a render-time concern
+    expect(body.review.status).toBe("PENDING"); // not visible publicly yet — see reviews.spec.ts
+  } finally {
+    // stays PENDING (never public) but would otherwise sit in Ghazal's
+    // moderation queue forever
+    const adminToken = testPool().adminToken;
+    await request.delete(`/api/admin/reviews/${body.review.id}`, { headers: { Authorization: `Bearer ${adminToken}` } });
+  }
 });
 
 test("SQL-injection-shaped input is treated as literal data, not executed", async ({ request }) => {
@@ -54,9 +61,15 @@ test("SQL-injection-shaped input is treated as literal data, not executed", asyn
   });
   expect(create.status()).toBe(201);
   const body = await create.json();
-  expect(body.review.name).toBe(maliciousName); // stored as literal text — Prisma parameterizes it
+  try {
+    expect(body.review.name).toBe(maliciousName); // stored as literal text — Prisma parameterizes it
 
-  // and the database (and this request) are still alive and well afterwards
-  const health = await request.get("/api/health");
-  expect(health.ok()).toBeTruthy();
+    // and the database (and this request) are still alive and well afterwards
+    const health = await request.get("/api/health");
+    expect(health.ok()).toBeTruthy();
+  } finally {
+    // POST /api/admin/reviews creates it already APPROVED (the "add a
+    // manual/old review" endpoint) — real public visibility, must not linger
+    await request.delete(`/api/admin/reviews/${body.review.id}`, { headers: { Authorization: `Bearer ${token}` } });
+  }
 });

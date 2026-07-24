@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>غزل کرمی | خانه‌ای امن برای زیبایی</title>
 <meta name="description" content="سالن تخصصی مو غزل کرمی — هیرکات، رنگ و لایت، صافی و احیای مو، و آکادمی آموزش هیرکات. رزرو نوبت آنلاین.">
+<meta name="robots" content="index, follow">
 <meta property="og:title" content="غزل کرمی | خانه‌ای امن برای زیبایی">
 <meta property="og:description" content="سالن تخصصی مو و آکادمی هیرکات — رزرو نوبت آنلاین، خدمات تخصصی رنگ، صافی و احیای مو.">
 <meta property="og:type" content="website">
@@ -23,6 +24,7 @@
   "@type": "HairSalon",
   "name": "غزل کرمی",
   "description": "سالن تخصصی مو و آکادمی هیرکات — هیرکات، رنگ و لایت، صافی و احیای مو",
+  "url": "/",
   "image": "",
   "telephone": "+982188776655",
   "priceRange": "$$",
@@ -206,7 +208,7 @@ h1,h2,h3{font-weight:900;line-height:1.35;font-family:'Vazirmatn',sans-serif;}
 .salon-story .svc:hover .svc-ic{background:var(--must);color:var(--night);}
 .salon-story .free-note{color:rgba(251,247,238,.55);}
 .salon-story .pcard{background:rgba(255,255,255,.05);border-color:rgba(223,160,45,.18);}
-.salon-story .pcard h4{color:#fff;}
+.salon-story .pcard h3{color:#fff;}
 .salon-story .pcard .desc{color:rgba(251,247,238,.55);}
 .salon-story .pcard .amt b{color:var(--must-l);}
 .salon-story .pcard .amt span{color:rgba(251,247,238,.5);}
@@ -247,8 +249,14 @@ h1,h2,h3{font-weight:900;line-height:1.35;font-family:'Vazirmatn',sans-serif;}
 .magnetic{transition:transform .25s cubic-bezier(.2,.8,.3,1),box-shadow .25s ease,background .25s;}
 .b-gold{background:var(--must);color:var(--night);}
 .b-gold:hover{background:var(--must-l);box-shadow:0 14px 30px -10px rgba(223,160,45,.55);}
-.b-line{border-color:var(--must);color:var(--must-d);}
+.b-line{background:transparent;border-color:var(--must);color:var(--must-d);}
 .dark .b-line{color:var(--must-l);}
+/* the header sits on the dark navy background but isn't inside a .dark
+   ancestor, so its ورود/ثبت‌نام buttons were falling back to the light-theme
+   text color against that dark bg — 4.02:1 contrast, just under WCAG AA's
+   4.5:1. Same fix .dark .b-line already applies elsewhere, scoped directly
+   to the header instead of adding a broader .dark ancestor class. */
+.hb .b-line{color:var(--must-l);}
 .b-line:hover{background:rgba(223,160,45,.1);}
 .b-night{background:var(--night);color:var(--bone);}
 .b-night:hover{background:var(--night-2);}
@@ -280,8 +288,8 @@ header{position:sticky;top:0;z-index:90;background:rgba(11,21,38,.97);
 .mark{width:48px;height:52px;border-radius:999px 999px 10px 10px;overflow:hidden;
   border:1.5px solid var(--must);flex-shrink:0;background:var(--must);}
 .mark img{width:100%;height:100%;object-fit:cover;object-position:50% 12%;}
-.bw h1{font-size:17px;color:#fff;}
-.bw .lat{font-size:9px;color:rgba(255,255,255,.42);display:block;margin-top:1px;}
+.bw p{font-size:17px;color:#fff;font-weight:900;}
+.bw .lat{font-size:9px;color:rgba(255,255,255,.5);display:block;margin-top:1px;}
 nav.mn{display:flex;gap:22px;font-size:14px;color:rgba(255,255,255,.72);}
 nav.mn a{padding:5px 0;border-bottom:1px solid transparent;transition:.2s;}
 nav.mn a:hover{color:var(--must-l);border-color:var(--must);}
@@ -332,15 +340,15 @@ nav.mn a:hover{color:var(--must-l);border-color:var(--must);}
 .hero-content{}
 .h-tag{font-size:34px;color:var(--must-l);display:block;margin-bottom:6px;line-height:1.7;text-align:right;}
 .h-tag .dots{color:var(--must);letter-spacing:.2em;}
-.hero h2{font-size:29px;color:#fff;margin:14px 0 18px;text-align:right;}
-.hero h2 b{color:var(--must);}
+.hero h1{font-size:29px;color:#fff;margin:14px 0 18px;text-align:right;}
+.hero h1 b{color:var(--must);}
 @media(max-width:460px){
   .h-tag{font-size:26px;}
-  .hero h2{font-size:23px;}
+  .hero h1{font-size:23px;}
 }
 @media(min-width:900px){
   .h-tag{font-size:44px;}
-  .hero h2{font-size:37px;}
+  .hero h1{font-size:37px;}
 }
 .h-desc{font-size:16.5px;color:rgba(251,247,238,.68);max-width:480px;line-height:1.9;margin-bottom:32px;text-align:right;}
 .h-cta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:30px;}
@@ -539,7 +547,7 @@ section{padding:96px 0;}
 .pcard{background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:22px 24px;
   display:flex;justify-content:space-between;align-items:flex-start;gap:16px;transition:.25s;}
 .pcard:hover{border-color:var(--must);box-shadow:0 18px 34px -22px rgba(24,18,7,.25);}
-.pcard h4{font-size:16px;margin-bottom:5px;}
+.pcard h3{font-size:16px;margin-bottom:5px;font-weight:700;}
 .pcard .desc{font-size:12.5px;color:var(--ink-2);}
 .pcard .amt{white-space:nowrap;text-align:left;flex-shrink:0;}
 .pcard .amt b{font-size:17px;color:var(--must-d);display:block;}
@@ -676,7 +684,7 @@ section{padding:96px 0;}
 .academy .ig2 .arch{background:linear-gradient(160deg,var(--bone-2),var(--bone));}
 .academy .ph{color:var(--ink-2);}
 .academy .ct{background:#fff;border-color:var(--line);}
-.academy .ct h4{color:var(--must-d);}
+.academy .ct h3{color:var(--must-d);}
 .academy .ct p{color:var(--ink-2);}
 .academy .soon{color:var(--must-d);border-color:rgba(184,136,42,.35);}
 .academy .bp{background:var(--night);}
@@ -692,7 +700,7 @@ section{padding:96px 0;}
 .cty{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px;}
 .ct{border:1.5px solid rgba(223,160,45,.2);border-radius:13px;padding:15px 17px;background:rgba(223,160,45,.05);transition:border-color .25s,transform .25s;}
 .ct:hover{border-color:var(--must-l);transform:translateY(-3px);}
-.ct h4{font-size:14.5px;color:var(--must-l);margin-bottom:3px;}
+.ct h3{font-size:14.5px;color:var(--must-l);margin-bottom:3px;font-weight:700;}
 .ct p{font-size:12.5px;color:rgba(251,247,238,.58);margin:0;}
 .soon{display:inline-block;border:1px dashed rgba(223,160,45,.35);border-radius:13px;
   padding:12px 19px;font-size:14px;color:var(--must-l);margin-top:18px;}
@@ -767,7 +775,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
 .f-social svg{flex-shrink:0;color:var(--must-l);}
 .fc a:hover{color:var(--must-l);}
 .f-nas{font-size:21px;color:var(--must-l);margin-top:8px;}
-.fb{border-top:1px solid rgba(251,247,238,.08);padding-top:16px;text-align:center;font-size:12px;opacity:.45;}
+.fb{border-top:1px solid rgba(251,247,238,.08);padding-top:16px;text-align:center;font-size:12px;opacity:.6;}
 
 .fcta{position:fixed;bottom:22px;left:22px;z-index:80;background:var(--must);
   color:var(--night);border-radius:999px;padding:15px 24px;display:flex;align-items:center;
@@ -841,8 +849,8 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
   <div class="wrap hd">
     <div class="brand">
       <button class="tog" aria-label="منو" onclick="openMnav()">☰</button>
-      <div class="mark"><img id="logoImg" src="images/ghazal-illustration.jpg" alt="غزل کرمی"></div>
-      <div class="bw"><h1>غزل کرمی</h1><span class="lat">Ghazal Karami</span></div>
+      <div class="mark"><img id="logoImg" src="images/ghazal-illustration.jpg" alt="غزل کرمی" onerror="this.style.display='none';"></div>
+      <div class="bw"><p>غزل کرمی</p><span class="lat">Ghazal Karami</span></div>
     </div>
     <nav class="mn">
       <a href="#about">درباره غزل کرمی</a>
@@ -890,7 +898,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
   <div class="wrap hero-g">
     <div>
       <span class="h-tag slogan"><span id="heroTagline">اینجا خانه‌ای امن برای زیبایی‌ست</span><span class="dots"> …</span></span>
-      <h2>کوتاهی موی مدرن، صافی و احیای تخصصی و رنگ و لایت<br>با امضای <b>غزل کرمی</b> و <b>دنیا سلیمانی</b></h2>
+      <h1>کوتاهی موی مدرن، صافی و احیای تخصصی و رنگ و لایت<br>با امضای <b>غزل کرمی</b> و <b>دنیا سلیمانی</b></h1>
       <p class="h-desc" id="heroDesc">هر سرویس متناسب با بافت، حجم و نیاز موی شما طراحی می‌شود؛ از هیرکات مدرن تا درمان و بازسازی کامل موها با تکنیک‌های روز.</p>
       <div class="h-cta">
         <a href="#booking" class="btn b-gold magnetic">رزرو نوبت آنلاین</a>
@@ -916,7 +924,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
           <video id="heroVid" autoplay muted loop playsinline preload="metadata" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
             <source src="images/hero.mp4" type="video/mp4">
           </video>
-          <img id="heroImg" src="images/ghazal-illustration.jpg" alt="غزل کرمی">
+          <img id="heroImg" src="images/ghazal-illustration.jpg" alt="غزل کرمی" fetchpriority="high" onerror="this.style.display='none';">
         </div>
       </div>
       <div class="door-base"><span class="door-plate lat">Salon &amp; Academy</span></div>
@@ -1047,27 +1055,27 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
     <div id="priceListContainer">
       <div class="price-group-title rv"><span>هیرکات (کوتاهی مو)</span><div class="l2"></div></div>
       <div class="pg">
-        <div class="pcard rv"><div><h4>قد کوتاه</h4><div class="desc">پیکسی، اسپایکی، بازکات، فید تخصصی و…</div></div><div class="amt"><b>۱.۶۵۰.۰۰۰ تا ۲.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
-        <div class="pcard rv"><div><h4>قد تا فک / سرشانه</h4><div class="desc">باب‌ها و لیرهای کوتاه</div></div><div class="amt"><b>۱.۹۰۰.۰۰۰ تا ۲.۲۰۰.۰۰۰</b><span>تومان</span></div></div>
-        <div class="pcard rv"><div><h4>قد بلند (لانگ)</h4><div class="desc">خانواده‌ی لیرها</div></div><div class="amt"><b>۲.۲۰۰.۰۰۰ تا ۲.۸۰۰.۰۰۰</b><span>تومان</span></div></div>
-        <div class="pcard rv"><div><h4>مدل‌های آوانگارد و ترکیبی</h4><div class="desc">ولف‌کات، شگ مالت، شگی و…</div></div><div class="amt"><b>۲.۰۰۰.۰۰۰ تا ۲.۴۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>قد کوتاه</h3><div class="desc">پیکسی، اسپایکی، بازکات، فید تخصصی و…</div></div><div class="amt"><b>۱.۶۵۰.۰۰۰ تا ۲.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>قد تا فک / سرشانه</h3><div class="desc">باب‌ها و لیرهای کوتاه</div></div><div class="amt"><b>۱.۹۰۰.۰۰۰ تا ۲.۲۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>قد بلند (لانگ)</h3><div class="desc">خانواده‌ی لیرها</div></div><div class="amt"><b>۲.۲۰۰.۰۰۰ تا ۲.۸۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>مدل‌های آوانگارد و ترکیبی</h3><div class="desc">ولف‌کات، شگ مالت، شگی و…</div></div><div class="amt"><b>۲.۰۰۰.۰۰۰ تا ۲.۴۰۰.۰۰۰</b><span>تومان</span></div></div>
       </div>
 
       <div class="price-group-title rv"><span>صافی و احیای مو</span><div class="l2"></div></div>
       <div class="pg">
-        <div class="pcard rv"><div><h4>پروتئین‌تراپی مو</h4><div class="desc">بسته به حجم و قد موهای شما</div></div><div class="amt"><b>۶.۵۰۰.۰۰۰ تا ۱۲.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
-        <div class="pcard rv"><div><h4>بوتاکس مو</h4><div class="desc">بسته به حجم و قد موهای شما</div></div><div class="amt"><b>۷.۵۰۰.۰۰۰ تا ۱۴.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
-        <div class="pcard rv"><div><h4>کرابوتاکس مو</h4><div class="desc">بسته به حجم و قد موهای شما</div></div><div class="amt"><b>۸.۰۰۰.۰۰۰ تا ۱۵.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
-        <div class="pcard rv"><div><h4>کراتینه</h4><div class="desc">بسته به حجم و قد موهای شما</div></div><div class="amt"><b>۷.۵۰۰.۰۰۰ تا ۱۴.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
-        <div class="pcard rv"><div><h4>اسکراب اسکالپ</h4><div class="desc">پاک‌سازی کف سر، بسته به نیاز</div></div><div class="amt"><b>۲.۸۰۰.۰۰۰ تا ۴.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>پروتئین‌تراپی مو</h3><div class="desc">بسته به حجم و قد موهای شما</div></div><div class="amt"><b>۶.۵۰۰.۰۰۰ تا ۱۲.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>بوتاکس مو</h3><div class="desc">بسته به حجم و قد موهای شما</div></div><div class="amt"><b>۷.۵۰۰.۰۰۰ تا ۱۴.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>کرابوتاکس مو</h3><div class="desc">بسته به حجم و قد موهای شما</div></div><div class="amt"><b>۸.۰۰۰.۰۰۰ تا ۱۵.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>کراتینه</h3><div class="desc">بسته به حجم و قد موهای شما</div></div><div class="amt"><b>۷.۵۰۰.۰۰۰ تا ۱۴.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>اسکراب اسکالپ</h3><div class="desc">پاک‌سازی کف سر، بسته به نیاز</div></div><div class="amt"><b>۲.۸۰۰.۰۰۰ تا ۴.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
       </div>
 
       <div class="price-group-title rv"><span>رنگ و دکلره</span><div class="l2"></div></div>
       <div class="pg">
-        <div class="pcard rv"><div><h4>دکلره و رنگ موی پیکسی</h4><div class="desc">خانواده‌ی پیکسی — با بهترین متریال، بدون آسیب به کف سر و مو</div></div><div class="amt"><b>۷.۰۰۰.۰۰۰ تا ۱۰.۵۰۰.۰۰۰</b><span>تومان</span></div></div>
-        <div class="pcard rv"><div><h4>رنگ ریشه (رشد یک ماه)</h4><div class="desc">تثبیت رنگ ریشه‌ی تازه رشد کرده</div></div><div class="amt"><b>۱.۷۰۰.۰۰۰</b><span>تومان</span></div></div>
-        <div class="pcard rv"><div><h4>رنگ کامل مو</h4><div class="desc">بسته به قد و حجم موهای شما</div></div><div class="amt"><b>۲.۵۰۰.۰۰۰ تا ۴.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
-        <div class="pcard rv"><div><h4>رنگ و لایت موی بلند</h4><div class="desc">نیازمند مشاوره‌ی تخصصی پیش از رزرو</div></div><div class="amt"><b>با مشاوره</b><span>تعیین قیمت</span></div></div>
+        <div class="pcard rv"><div><h3>دکلره و رنگ موی پیکسی</h3><div class="desc">خانواده‌ی پیکسی — با بهترین متریال، بدون آسیب به کف سر و مو</div></div><div class="amt"><b>۷.۰۰۰.۰۰۰ تا ۱۰.۵۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>رنگ ریشه (رشد یک ماه)</h3><div class="desc">تثبیت رنگ ریشه‌ی تازه رشد کرده</div></div><div class="amt"><b>۱.۷۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>رنگ کامل مو</h3><div class="desc">بسته به قد و حجم موهای شما</div></div><div class="amt"><b>۲.۵۰۰.۰۰۰ تا ۴.۰۰۰.۰۰۰</b><span>تومان</span></div></div>
+        <div class="pcard rv"><div><h3>رنگ و لایت موی بلند</h3><div class="desc">نیازمند مشاوره‌ی تخصصی پیش از رزرو</div></div><div class="amt"><b>با مشاوره</b><span>تعیین قیمت</span></div></div>
       </div>
     </div>
 
@@ -1197,7 +1205,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
   </div>
   <div class="wrap ig2">
     <div class="rv"><div class="arch-rim"><div class="arch">
-      <img src="images/instructor.jpg" alt="" loading="lazy" onerror="this.style.display='none';">
+      <img src="images/instructor.jpg" alt="غزل کرمی در حال تدریس کلاس آموزش هیرکات" loading="lazy" onerror="this.style.display='none';">
       <div class="ph">قاب ویدئوی تدریس<br>(به‌زودی)</div>
     </div></div></div>
     <div class="it2 rv">
@@ -1209,10 +1217,10 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
       </div>
       <p>غزل کرمی مدرس هیرکات تخصصی و دارای مدارک حرفه‌ای در این حوزه، با هدف آموزش اصولی و تکنیک‌های به‌روز هیرکات فعالیت می‌کند. کلاس‌ها به‌صورت دوره‌ای برگزار می‌شود و زمان‌بندی دقیق پس از هماهنگی مشخص می‌شود.</p>
       <div class="cty">
-        <div class="ct"><h4>کلاس خصوصی</h4><p>آموزش فشرده یک‌به‌یک</p></div>
-        <div class="ct"><h4>نیمه‌خصوصی</h4><p>گروه کوچک با آموزش شخصی</p></div>
-        <div class="ct"><h4>گروهی</h4><p>دوره‌های جامع صفر تا صد</p></div>
-        <div class="ct"><h4>آپدیت مهارت</h4><p>تک‌روزه برای متخصصین</p></div>
+        <div class="ct"><h3>کلاس خصوصی</h3><p>آموزش فشرده یک‌به‌یک</p></div>
+        <div class="ct"><h3>نیمه‌خصوصی</h3><p>گروه کوچک با آموزش شخصی</p></div>
+        <div class="ct"><h3>گروهی</h3><p>دوره‌های جامع صفر تا صد</p></div>
+        <div class="ct"><h3>آپدیت مهارت</h3><p>تک‌روزه برای متخصصین</p></div>
       </div>
       <span class="soon">نمونه تدریس‌ها به‌زودی اضافه می‌شود</span>
     </div>
@@ -1520,10 +1528,10 @@ async function loadPriceList(){
         } else {
           amtB.textContent='تماس بگیرید'; amtSpan.textContent='تعیین قیمت';
         }
-        card.innerHTML=`<div><h4></h4><div class="desc"></div></div><div class="amt"></div>`;
+        card.innerHTML=`<div><h3></h3><div class="desc"></div></div><div class="amt"></div>`;
         card.querySelector('.amt').appendChild(amtB);
         card.querySelector('.amt').appendChild(amtSpan);
-        card.querySelector('h4').textContent=r.name;
+        card.querySelector('h3').textContent=r.name;
         card.querySelector('.desc').textContent=r.description||'';
         pg.appendChild(card);
       });
@@ -2070,6 +2078,7 @@ function updateClassSummary(){
 })();
 
 /* gallery: single-frame slideshow with category filters */
+const GALLERY_CAT_FA={haircut:'کوتاهی مو',color:'رنگ و لایت مو',treat:'ترمیم و احیای مو'};
 const gs=document.getElementById('gs');
 const gd=document.getElementById('gd');
 const gEmptyMsg=document.getElementById('gempty');
@@ -2087,7 +2096,8 @@ function gBuild(){
     const img=document.createElement('img');
     img.className='blur-up loaded';
     img.loading='lazy';
-    img.src=item.src;img.alt='نمونه کار '+(i+1);
+    img.src=item.src;
+    img.alt='نمونه کار '+(GALLERY_CAT_FA[item.cat]||'انجام‌شده')+' — سالن غزل کرمی';
     sl.appendChild(img);
     gs.appendChild(sl);
     const dot=document.createElement('div');
