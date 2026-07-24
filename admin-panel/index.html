@@ -134,11 +134,61 @@ table.simple td{padding:9px 6px;border-bottom:1px solid var(--gline);}
 .slot-pill.off{opacity:.4;text-decoration:line-through;}
 .slot-pill button{background:none;border:none;cursor:pointer;color:#FF9A90;font-size:13px;padding:0;line-height:1;}
 
+/* ---- visual hierarchy: primary (frequent) vs advanced (technical/rare) ---- */
+.card.primary{border-color:rgba(223,160,45,.4);box-shadow:0 0 0 1px rgba(223,160,45,.1) inset;}
+.section-title{display:flex;align-items:center;gap:10px;}
+.section-title::after{content:"";flex:1;height:1px;background:var(--gline);}
+
+.day-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;padding:14px 4px;border-radius:12px;transition:background .2s ease;}
+.day-row:hover{background:rgba(255,255,255,.025);}
+.day-row + .day-row{border-top:1px solid var(--gline);}
+.day-row .day-main{display:flex;align-items:center;gap:14px;}
+.day-row .name{min-width:78px;font-size:15.5px;font-weight:900;color:#fff;}
+.day-row .day-hours{display:flex;gap:12px;flex-wrap:wrap;}
+.switch.lg{width:52px;height:30px;}
+.switch.lg .slider::before{height:24px;width:24px;}
+.switch.lg input:checked + .slider::before{transform:translateX(-22px);}
+
+.slot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;}
+.slot-cell{display:flex;flex-direction:column;align-items:center;gap:7px;padding:13px 8px;border-radius:13px;
+  border:1.5px solid var(--gline);background:rgba(255,255,255,.03);transition:border-color .2s ease,opacity .2s ease;}
+.slot-cell:hover{border-color:rgba(223,160,45,.35);}
+.slot-cell.off{opacity:.4;}
+.slot-cell .t{font-size:14.5px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;}
+.slot-cell .actions{display:flex;gap:4px;}
+.slot-cell .actions button{background:none;border:none;cursor:pointer;font-size:13px;padding:3px 6px;color:rgba(251,247,238,.6);border-radius:6px;transition:.15s;}
+.slot-cell .actions button:hover{color:var(--must-l);background:rgba(223,160,45,.1);}
+.slot-cell .actions button.del:hover{color:#FF9A90;background:rgba(192,57,43,.12);}
+
+details.adv{border:1.5px dashed var(--gline);border-radius:14px;margin-top:20px;overflow:hidden;}
+details.adv summary{list-style:none;cursor:pointer;padding:15px 18px;display:flex;align-items:center;gap:10px;
+  font-size:13px;font-weight:700;color:rgba(251,247,238,.72);user-select:none;}
+details.adv summary::-webkit-details-marker{display:none;}
+details.adv summary::before{content:"⌄";display:inline-block;transition:transform .2s ease;color:var(--must-l);font-size:16px;line-height:1;}
+details.adv[open] summary::before{transform:rotate(-180deg);}
+details.adv summary:hover{color:#fff;}
+details.adv .adv-body{padding:2px 18px 22px;border-top:1px solid var(--gline);}
+details.adv .adv-body .section-title:first-child{margin-top:20px;}
+
+/* same collapsible mechanics as .adv, but a solid gold-tinted border and a
+   "+" summary icon — this signals "an action you can take, tucked away to
+   save space" rather than .adv's dashed "rarely-touched technical setting" */
+details.add-form{border:1.5px solid var(--gline);border-radius:14px;margin-bottom:22px;overflow:hidden;background:rgba(255,255,255,.015);}
+details.add-form summary{list-style:none;cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:11px;
+  font-size:14px;font-weight:700;color:var(--must-l);user-select:none;}
+details.add-form summary::-webkit-details-marker{display:none;}
+details.add-form summary::before{content:"+";display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+  width:22px;height:22px;border-radius:50%;background:rgba(223,160,45,.15);color:var(--must-l);font-size:15px;line-height:1;transition:transform .2s ease;}
+details.add-form[open] summary::before{transform:rotate(45deg);}
+details.add-form summary:hover{color:#fff;}
+
 /* ---- dashboard ---- */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:18px;}
 .stat-tile{background:var(--night-2);border:1px solid var(--gline);border-radius:16px;padding:20px;
   transition:border-color .2s ease,transform .2s ease;}
 .stat-tile:hover{border-color:rgba(223,160,45,.32);transform:translateY(-2px);}
+.stat-tile.hero{border-color:rgba(223,160,45,.45);box-shadow:0 0 0 1px rgba(223,160,45,.1) inset;}
+.stat-tile.hero .n{font-size:36px;}
 .stat-tile .n{font-size:28px;font-weight:900;color:var(--must-l);display:block;line-height:1.25;}
 .stat-tile .l{font-size:12px;color:rgba(251,247,238,.55);margin-top:5px;}
 .stat-tile .rev{font-size:12.5px;color:rgba(251,247,238,.7);margin-top:8px;padding-top:8px;border-top:1px solid var(--gline);}
@@ -155,7 +205,6 @@ table.simple td{padding:9px 6px;border-bottom:1px solid var(--gline);}
 .popular-row .bar-fill{height:100%;background:linear-gradient(90deg,var(--must-d),var(--must-l));border-radius:999px;transition:width .7s cubic-bezier(.2,.8,.3,1);}
 .popular-row .name{width:140px;flex-shrink:0;font-size:13px;color:#fff;}
 .popular-row .count{width:26px;flex-shrink:0;text-align:left;font-size:12.5px;color:var(--must-l);font-weight:700;}
-.recent-row{padding:16px 20px;margin-bottom:10px;}
 
 @media(max-width:760px){
   #app.on{flex-direction:column;}
@@ -171,6 +220,9 @@ table.simple td{padding:9px 6px;border-bottom:1px solid var(--gline);}
   input[type=text].wide,input[type=tel].wide{width:100%;}
   .stat-tile .n{font-size:24px;}
   .popular-row .name{width:100px;font-size:12.5px;}
+  .day-row{padding:12px 2px;}
+  .day-row .name{min-width:64px;font-size:14px;}
+  .slot-grid{grid-template-columns:repeat(auto-fill,minmax(92px,1fr));}
 }
 </style>
 </head>
@@ -299,7 +351,7 @@ tabs.dashboard = async () => {
   let html = `<h1>داشبورد</h1>`;
 
   html += `<div class="stat-grid">
-    <div class="stat-tile"><span class="n">${d.today.count}</span><div class="l">رزرو امروز</div>
+    <div class="stat-tile hero"><span class="n">${d.today.count}</span><div class="l">رزرو امروز</div>
       <div class="rev">بیعانه‌ی دریافتی: <b>${toman(d.today.revenue)}</b></div></div>
     <div class="stat-tile"><span class="n">${d.week.count}</span><div class="l">رزرو این هفته</div>
       <div class="rev">بیعانه‌ی دریافتی: <b>${toman(d.week.revenue)}</b></div></div>
@@ -308,6 +360,25 @@ tabs.dashboard = async () => {
     <div class="stat-tile"><span class="n" style="font-size:18px;">${d.popularServices[0]?esc(d.popularServices[0].name):'—'}</span><div class="l">محبوب‌ترین سرویس</div></div>
   </div>
   <p class="muted" style="margin:-6px 0 18px;">درآمد فقط شامل بیعانه‌های واقعاً پرداخت‌شده از طریق زرین‌پال است؛ نوبت‌های ثبت‌دستی/حضوری در این عدد حساب نمی‌شوند.</p>`;
+
+  // most-actionable, most-checked list first — the two analytical/read-only
+  // sections (trend chart, popularity ranking) are a lower-priority glance,
+  // not something Ghazal needs to act on day to day, so they follow below
+  html += `<div class="section-title">آخرین رزروهای ثبت‌شده</div>`;
+  const statusFa = {PENDING_PAYMENT:"در انتظار پرداخت",CONFIRMED:"تاییدشده",CANCELLED:"لغوشده",EXPIRED:"منقضی",COMPLETED:"انجام‌شده",NO_SHOW:"مشتری نیامد"};
+  const statusTagClass = {PENDING_PAYMENT:"tag-pending",CONFIRMED:"tag-open",CANCELLED:"tag-closed",EXPIRED:"tag-muted",COMPLETED:"tag-open",NO_SHOW:"tag-closed"};
+  if(!d.recentBookings.length){
+    html += `<div class="card muted">هنوز رزروی ثبت نشده.</div>`;
+  } else {
+    html += `<div class="card">` + d.recentBookings.map(b=>`
+      <div class="row">
+        <div>
+          <b>${esc(b.customerName)}</b> — ${esc(b.serviceName)}
+          <div class="muted">${b.date.slice(0,10)} ساعت ${b.time}</div>
+        </div>
+        <span class="tag ${statusTagClass[b.status]||'tag-muted'}">${statusFa[b.status]||b.status}</span>
+      </div>`).join("") + `</div>`;
+  }
 
   const maxDay = Math.max(1, ...d.last7Days.map(x=>x.count));
   html += `<div class="section-title">رزروهای ۷ روز گذشته</div><div class="card">
@@ -335,22 +406,6 @@ tabs.dashboard = async () => {
   }
   html += `</div>`;
 
-  html += `<div class="section-title">آخرین رزروهای ثبت‌شده</div>`;
-  if(!d.recentBookings.length) html += `<div class="card muted">هنوز رزروی ثبت نشده.</div>`;
-  const statusFa = {PENDING_PAYMENT:"در انتظار پرداخت",CONFIRMED:"تاییدشده",CANCELLED:"لغوشده",EXPIRED:"منقضی",COMPLETED:"انجام‌شده",NO_SHOW:"مشتری نیامد"};
-  const statusTagClass = {PENDING_PAYMENT:"tag-pending",CONFIRMED:"tag-open",CANCELLED:"tag-closed",EXPIRED:"tag-muted",COMPLETED:"tag-open",NO_SHOW:"tag-closed"};
-  d.recentBookings.forEach(b=>{
-    html += `<div class="card recent-row">
-      <div class="row" style="border:none;padding:0;">
-        <div>
-          <b>${esc(b.customerName)}</b> — ${esc(b.serviceName)}
-          <div class="muted">${b.date.slice(0,10)} ساعت ${b.time}</div>
-        </div>
-        <span class="tag ${statusTagClass[b.status]||'tag-muted'}">${statusFa[b.status]||b.status}</span>
-      </div>
-    </div>`;
-  });
-
   setMainContent(html);
 };
 
@@ -364,13 +419,18 @@ tabs.schedule = async () => {
 
   let html = `<h1>زمان‌بندی سالن</h1>`;
 
-  html += `<div class="section-title">الگوی هفتگی پیش‌فرض</div><div class="card">`;
+  html += `<div class="section-title">الگوی هفتگی پیش‌فرض</div><div class="card primary">`;
   days.sort((a,b)=>a.dayOfWeek-b.dayOfWeek).forEach(d=>{
-    html += `<div class="row">
-      <div style="min-width:100px;"><b>${DOW_NAMES[d.dayOfWeek]}</b></div>
-      <label class="switch"><input type="checkbox" ${d.isOpen?"checked":""} onchange="toggleDay(${d.dayOfWeek}, this.checked)"><span class="slider"></span></label>
-      <label class="field">از ساعت<input type="time" value="${d.openTime||''}" onchange="updateDayHours(${d.dayOfWeek},'openTime',this.value)"></label>
-      <label class="field">تا ساعت<input type="time" value="${d.closeTime||''}" onchange="updateDayHours(${d.dayOfWeek},'closeTime',this.value)"></label>
+    html += `<div class="day-row">
+      <div class="day-main">
+        <span class="name">${DOW_NAMES[d.dayOfWeek]}</span>
+        <label class="switch lg"><input type="checkbox" ${d.isOpen?"checked":""} onchange="toggleDay(${d.dayOfWeek}, this.checked)"><span class="slider"></span></label>
+        <span class="tag ${d.isOpen?'tag-open':'tag-closed'}" id="dayTag-${d.dayOfWeek}">${d.isOpen?'باز':'تعطیل'}</span>
+      </div>
+      <div class="day-hours" id="dayHours-${d.dayOfWeek}" style="display:${d.isOpen?'flex':'none'};">
+        <label class="field">از ساعت<input type="time" value="${d.openTime||''}" onchange="updateDayHours(${d.dayOfWeek},'openTime',this.value)"></label>
+        <label class="field">تا ساعت<input type="time" value="${d.closeTime||''}" onchange="updateDayHours(${d.dayOfWeek},'closeTime',this.value)"></label>
+      </div>
     </div>`;
   });
   html += `<p class="muted" style="margin-top:14px;">این ساعت‌ها فقط نمایشی‌اند؛ اسلات‌های واقعی رزرو را پایین‌تر برای هر سرویس می‌سازید.</p></div>`;
@@ -416,23 +476,30 @@ tabs.schedule = async () => {
       </select></label>
     </div>
     <div id="slotDayList"></div>
-    <div class="section-title" style="margin-top:22px;">بستن/بازکردن یک بازه‌ی کوتاه (مثلاً استراحت وسط روز)</div>
-    <div class="form-grid">
-      <label class="field">از ساعت<input type="time" id="rangeStart"></label>
-      <label class="field">تا ساعت<input type="time" id="rangeEnd"></label>
-      <button id="rangeDisableBtn" class="btn btn-danger btn-sm" onclick="closeSlotRange(false)">غیرفعال کردن این بازه</button>
-      <button id="rangeEnableBtn" class="btn btn-ghost btn-sm" onclick="closeSlotRange(true)">فعال کردن این بازه</button>
-    </div>
-    <p class="muted" style="margin-top:10px;">برای همون دسته‌بندی و روز هفته‌ای که بالا انتخاب کردی؛ فقط اسلات‌های داخل این بازه غیرفعال/فعال می‌شن، بقیه‌ی روز دست‌نخورده می‌مونه.</p>
-    <div class="section-title" style="margin-top:22px;">تولید خودکار اسلات (بازه‌ی ساعتی + مدت هر نوبت)</div>
-    <div class="form-grid">
-      <label class="field">از ساعت<input type="time" id="genStart" value="10:00"></label>
-      <label class="field">تا ساعت<input type="time" id="genEnd" value="19:00"></label>
-      <label class="field">مدت هر نوبت (دقیقه)<input type="number" id="genDuration" value="60" style="width:100px;"></label>
-      <label class="field">فاصله بین نوبت‌ها (دقیقه)<input type="number" id="genGap" value="0" style="width:100px;"></label>
-      <button class="btn btn-gold btn-sm" onclick="generateSlots()">ساخت اسلات‌ها برای این روز</button>
-    </div>
-    <p class="muted" style="margin-top:10px;">اسلات‌های تکراری نادیده گرفته می‌شوند؛ می‌تونی چند بار برای روزهای مختلف بزنی.</p>
+
+    <details class="adv">
+      <summary>تنظیمات پیشرفته‌ی اسلات‌ها — بستن بازه‌ی کوتاه، تولید خودکار</summary>
+      <div class="adv-body">
+        <div class="section-title">بستن/بازکردن یک بازه‌ی کوتاه (مثلاً استراحت وسط روز)</div>
+        <div class="form-grid">
+          <label class="field">از ساعت<input type="time" id="rangeStart"></label>
+          <label class="field">تا ساعت<input type="time" id="rangeEnd"></label>
+          <button id="rangeDisableBtn" class="btn btn-danger btn-sm" onclick="closeSlotRange(false)">غیرفعال کردن این بازه</button>
+          <button id="rangeEnableBtn" class="btn btn-ghost btn-sm" onclick="closeSlotRange(true)">فعال کردن این بازه</button>
+        </div>
+        <p class="muted" style="margin-top:10px;">برای همون دسته‌بندی و روز هفته‌ای که بالا انتخاب کردی؛ فقط اسلات‌های داخل این بازه غیرفعال/فعال می‌شن، بقیه‌ی روز دست‌نخورده می‌مونه.</p>
+
+        <div class="section-title" style="margin-top:22px;">تولید خودکار اسلات (بازه‌ی ساعتی + مدت هر نوبت)</div>
+        <div class="form-grid">
+          <label class="field">از ساعت<input type="time" id="genStart" value="10:00"></label>
+          <label class="field">تا ساعت<input type="time" id="genEnd" value="19:00"></label>
+          <label class="field">مدت هر نوبت (دقیقه)<input type="number" id="genDuration" value="60" style="width:100px;"></label>
+          <label class="field">فاصله بین نوبت‌ها (دقیقه)<input type="number" id="genGap" value="0" style="width:100px;"></label>
+          <button class="btn btn-gold btn-sm" onclick="generateSlots()">ساخت اسلات‌ها برای این روز</button>
+        </div>
+        <p class="muted" style="margin-top:10px;">اسلات‌های تکراری نادیده گرفته می‌شوند؛ می‌تونی چند بار برای روزهای مختلف بزنی.</p>
+      </div>
+    </details>
   </div>`;
 
   setMainContent(html);
@@ -451,6 +518,12 @@ function renderExHoursVisibility(){
 window.renderExHoursVisibility = renderExHoursVisibility;
 
 window.toggleDay = async (dayOfWeek, isOpen) => {
+  // instant feedback — the hour inputs and open/closed tag update as soon as
+  // the switch flips, without waiting for the PATCH round-trip
+  const hours=document.getElementById(`dayHours-${dayOfWeek}`);
+  const tag=document.getElementById(`dayTag-${dayOfWeek}`);
+  if(hours) hours.style.display=isOpen?"flex":"none";
+  if(tag){ tag.textContent=isOpen?"باز":"تعطیل"; tag.className=`tag ${isOpen?'tag-open':'tag-closed'}`; }
   try{ await api(`/admin/working-days/${dayOfWeek}`,{method:"PATCH",body:JSON.stringify({isOpen})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }
 };
@@ -493,12 +566,14 @@ function renderSlotDay(){
   if(!category){ list.innerHTML=""; return; }
   const slots=category.timeSlots.filter(s=>s.dayOfWeek===dow).sort((a,b)=>a.time.localeCompare(b.time));
   if(!slots.length){ list.innerHTML='<p class="muted">هنوز اسلاتی برای این روز/دسته ثبت نشده.</p>'; return; }
-  list.innerHTML = slots.map(s=>`
-    <span class="slot-pill ${s.isActive?'':'off'}">
-      ${s.time}
-      <button title="${s.isActive?'غیرفعال کردن':'فعال کردن'}" aria-label="${s.isActive?'غیرفعال کردن':'فعال کردن'}" onclick="toggleSlot('${s.id}', ${!s.isActive})">${s.isActive?'⏸':'▶'}</button>
-      <button title="حذف" aria-label="حذف این اسلات" onclick="deleteSlot('${s.id}')">✕</button>
-    </span>`).join("");
+  list.innerHTML = `<div class="slot-grid">` + slots.map(s=>`
+    <div class="slot-cell ${s.isActive?'':'off'}">
+      <span class="t">${s.time}</span>
+      <div class="actions">
+        <button title="${s.isActive?'غیرفعال کردن':'فعال کردن'}" aria-label="${s.isActive?'غیرفعال کردن':'فعال کردن'}" onclick="toggleSlot('${s.id}', ${!s.isActive})">${s.isActive?'⏸':'▶'}</button>
+        <button class="del" title="حذف" aria-label="حذف این اسلات" onclick="deleteSlot('${s.id}')">✕</button>
+      </div>
+    </div>`).join("") + `</div>`;
 }
 window.renderSlotDay = renderSlotDay;
 /* re-fetches just the categories/timeSlots data and redraws the slot list —
@@ -574,32 +649,30 @@ function bookingFilterKey(b){
 function renderBookingsList(bookings, filter){
   const filtered = filter==="ALL" ? bookings : bookings.filter(b=>bookingFilterKey(b)===filter);
   if(!filtered.length) return `<div class="card muted">نوبتی با این فیلتر پیدا نشد.</div>`;
-  return filtered.map(b=>{
+  return `<div class="card">` + filtered.map(b=>{
     const who = b.user ? esc(`${b.user.firstName} ${b.user.lastName} (${b.user.phone})`) : "بدون مشتری (قفل دستی)";
     const svc = b.service ? b.service.name : (b.blockReason || "بدون سرویس");
     const showRefund = b.status==="CANCELLED" && b.payment && b.payment.status==="PAID";
-    return `<div class="card">
-      <div class="row" style="border:none;padding:0;">
-        <div>
-          <b>${esc(svc)}</b> ${b.source!=="ONLINE"?`<span class="tag tag-muted">${b.source==='ADMIN_BLOCK'?'قفل دستی':'ثبت دستی'}</span>`:''}
-          <div class="muted">${who}</div>
-          <div class="muted">${b.date.slice(0,10)} ساعت ${b.time} — بیعانه ${toman(b.depositAmount)}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <span class="tag ${BOOKING_STATUS_TAG_CLASS[b.status]||'tag-muted'}">${BOOKING_STATUS_FA[b.status]||b.status}</span>
-          ${showRefund?`<span class="tag ${REFUND_STATUS_TAG_CLASS[b.payment.refundStatus]||'tag-muted'}">${REFUND_STATUS_FA[b.payment.refundStatus]||b.payment.refundStatus}</span>`:''}
-          ${showRefund && b.payment.refundStatus==="NEEDS_MANUAL_FOLLOWUP"?`<button class="btn btn-ghost btn-sm" onclick="resolveRefund('${b.payment.id}')">علامت‌گذاری به‌عنوان بازگشت داده‌شده</button>`:''}
-          ${["CONFIRMED","PENDING_PAYMENT"].includes(b.status)?`
-            <select onchange="setBookingStatus('${b.id}', this.value)">
-              <option value="">تغییر وضعیت…</option>
-              <option value="COMPLETED">انجام‌شده</option>
-              <option value="NO_SHOW">مشتری نیامد</option>
-              <option value="CANCELLED">لغو</option>
-            </select>`:''}
-        </div>
+    return `<div class="row">
+      <div>
+        <b>${esc(svc)}</b> ${b.source!=="ONLINE"?`<span class="tag tag-muted">${b.source==='ADMIN_BLOCK'?'قفل دستی':'ثبت دستی'}</span>`:''}
+        <div class="muted">${who}</div>
+        <div class="muted">${b.date.slice(0,10)} ساعت ${b.time} — بیعانه ${toman(b.depositAmount)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="tag ${BOOKING_STATUS_TAG_CLASS[b.status]||'tag-muted'}">${BOOKING_STATUS_FA[b.status]||b.status}</span>
+        ${showRefund?`<span class="tag ${REFUND_STATUS_TAG_CLASS[b.payment.refundStatus]||'tag-muted'}">${REFUND_STATUS_FA[b.payment.refundStatus]||b.payment.refundStatus}</span>`:''}
+        ${showRefund && b.payment.refundStatus==="NEEDS_MANUAL_FOLLOWUP"?`<button class="btn btn-ghost btn-sm" onclick="resolveRefund('${b.payment.id}')">علامت‌گذاری به‌عنوان بازگشت داده‌شده</button>`:''}
+        ${["CONFIRMED","PENDING_PAYMENT"].includes(b.status)?`
+          <select onchange="setBookingStatus('${b.id}', this.value)">
+            <option value="">تغییر وضعیت…</option>
+            <option value="COMPLETED">انجام‌شده</option>
+            <option value="NO_SHOW">مشتری نیامد</option>
+            <option value="CANCELLED">لغو</option>
+          </select>`:''}
       </div>
     </div>`;
-  }).join("");
+  }).join("") + `</div>`;
 }
 
 window.filterBookings = () => {
@@ -624,22 +697,10 @@ tabs.bookings = async () => {
 
   let html = `<h1>رزروها</h1>`;
 
-  html += `<div class="section-title">ثبت دستی نوبت / قفل کردن یک تایم</div><div class="card">
-    <p class="muted" style="margin-bottom:14px;">برای نوبت‌های هماهنگ‌شده در دایرکت (مثل رنگ و لایت) یا بستن یک تایم برای مشتری حضوری. اگر شماره مشتری وارد شود، حساب کاربری او خودکار ساخته/پیدا می‌شود — و اگر سرویس از گروه هم‌خط باشد، همان تایم برای بقیه‌ی گروه هم قفل می‌شود.</p>
-    <div class="form-grid">
-      <label class="field">دسته‌بندی<select id="mbCat" onchange="renderManualServiceOptions()">
-        ${categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}
-      </select></label>
-      <label class="field">سرویس (اختیاری — خالی=فقط قفل تایم)<select id="mbService"></select></label>
-      <label class="field">تاریخ<input type="date" id="mbDate"></label>
-      <label class="field">ساعت<input type="text" id="mbTime" placeholder="مثلاً 14:30" style="width:100px;"></label>
-      <label class="field">نام مشتری<input type="text" id="mbName"></label>
-      <label class="field">موبایل مشتری<input type="tel" id="mbPhone" placeholder="09xxxxxxxxx"></label>
-      <label class="field">دلیل/توضیح<input type="text" class="wide" id="mbReason"></label>
-      <button class="btn btn-gold btn-sm" onclick="createManualBooking()">ثبت</button>
-    </div>
-  </div>`;
-
+  // the list is what Ghazal actually opens this tab to check/act on every
+  // day — it comes first; adding a walk-in/phone booking is a deliberate,
+  // occasional action, so its form is tucked into a collapsed "+" section
+  // below instead of sitting above the list she came here to see
   html += `<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
     <span>نوبت‌های آینده</span>
     <select id="bookingsFilter" onchange="filterBookings()" style="width:auto;">
@@ -656,6 +717,25 @@ tabs.bookings = async () => {
     </select>
   </div>`;
   html += `<div id="bookingsList">${renderBookingsList(bookings, "ALL")}</div>`;
+
+  html += `<details class="add-form" style="margin-top:26px;">
+    <summary>ثبت دستی نوبت جدید / قفل کردن یک تایم</summary>
+    <div class="adv-body">
+      <p class="muted" style="margin:14px 0;">برای نوبت‌های هماهنگ‌شده در دایرکت (مثل رنگ و لایت) یا بستن یک تایم برای مشتری حضوری. اگر شماره مشتری وارد شود، حساب کاربری او خودکار ساخته/پیدا می‌شود — و اگر سرویس از گروه هم‌خط باشد، همان تایم برای بقیه‌ی گروه هم قفل می‌شود.</p>
+      <div class="form-grid">
+        <label class="field">دسته‌بندی<select id="mbCat" onchange="renderManualServiceOptions()">
+          ${categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}
+        </select></label>
+        <label class="field">سرویس (اختیاری — خالی=فقط قفل تایم)<select id="mbService"></select></label>
+        <label class="field">تاریخ<input type="date" id="mbDate"></label>
+        <label class="field">ساعت<input type="text" id="mbTime" placeholder="مثلاً 14:30" style="width:100px;"></label>
+        <label class="field">نام مشتری<input type="text" id="mbName"></label>
+        <label class="field">موبایل مشتری<input type="tel" id="mbPhone" placeholder="09xxxxxxxxx"></label>
+        <label class="field">دلیل/توضیح<input type="text" class="wide" id="mbReason"></label>
+        <button class="btn btn-gold btn-sm" onclick="createManualBooking()">ثبت</button>
+      </div>
+    </div>
+  </details>`;
 
   setMainContent(html);
   window._bookingsCategories = categories;
@@ -804,24 +884,18 @@ tabs.reviews = async () => {
   const {reviews} = await api("/admin/reviews");
   let html = `<h1>نظرات مشتریان</h1>`;
 
-  html += `<div class="section-title">افزودن دستی نظر قدیمی (مثلاً از اینستاگرام)</div><div class="card">
-    <div class="form-grid">
-      <label class="field">نام<input type="text" id="rvName"></label>
-      <label class="field">امتیاز<select id="rvRating"><option value="5">۵</option><option value="4">۴</option><option value="3">۳</option><option value="2">۲</option><option value="1">۱</option></select></label>
-      <label class="field">تاریخ (اختیاری)<input type="date" id="rvDate"></label>
-      <button class="btn btn-gold btn-sm" onclick="addManualReview()">ثبت (به‌صورت تاییدشده)</button>
-    </div>
-    <label class="field" style="margin-top:12px;">متن نظر<textarea id="rvText" rows="2"></textarea></label>
-  </div>`;
-
+  // the moderation queue (approve/reject) is what Ghazal opens this tab
+  // for — it comes first; backfilling an old Instagram-era review is a rare,
+  // deliberate action, tucked below behind a collapsed "+" section
   html += `<div class="section-title">نظرات ثبت‌شده</div>`;
-  if(!reviews.length) html += `<div class="card muted">هنوز نظری ثبت نشده.</div>`;
-  reviews.forEach(r=>{
-    const statusTag = r.status==="APPROVED"?`<span class="tag tag-open">تاییدشده</span>`
-      : r.status==="REJECTED"?`<span class="tag tag-closed">ردشده</span>`
-      : `<span class="tag tag-pending">در انتظار تایید</span>`;
-    html += `<div class="card">
-      <div class="row" style="border:none;padding:0;">
+  if(!reviews.length){
+    html += `<div class="card muted">هنوز نظری ثبت نشده.</div>`;
+  } else {
+    html += `<div class="card">` + reviews.map(r=>{
+      const statusTag = r.status==="APPROVED"?`<span class="tag tag-open">تاییدشده</span>`
+        : r.status==="REJECTED"?`<span class="tag tag-closed">ردشده</span>`
+        : `<span class="tag tag-pending">در انتظار تایید</span>`;
+      return `<div class="row">
         <div>
           <b>${esc(r.name)}</b> ${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)} ${statusTag}
           <p style="margin-top:8px;">${esc(r.text)}</p>
@@ -832,9 +906,23 @@ tabs.reviews = async () => {
           ${r.status!=="REJECTED"?`<button class="btn btn-ghost btn-sm" onclick="setReviewStatus('${r.id}','REJECTED')">رد</button>`:''}
           <button class="btn btn-danger btn-sm" onclick="deleteReview('${r.id}')">حذف</button>
         </div>
+      </div>`;
+    }).join("") + `</div>`;
+  }
+
+  html += `<details class="add-form" style="margin-top:26px;">
+    <summary>افزودن دستی نظر قدیمی (مثلاً از اینستاگرام)</summary>
+    <div class="adv-body">
+      <div class="form-grid" style="margin-top:14px;">
+        <label class="field">نام<input type="text" id="rvName"></label>
+        <label class="field">امتیاز<select id="rvRating"><option value="5">۵</option><option value="4">۴</option><option value="3">۳</option><option value="2">۲</option><option value="1">۱</option></select></label>
+        <label class="field">تاریخ (اختیاری)<input type="date" id="rvDate"></label>
+        <button class="btn btn-gold btn-sm" onclick="addManualReview()">ثبت (به‌صورت تاییدشده)</button>
       </div>
-    </div>`;
-  });
+      <label class="field" style="margin-top:12px;">متن نظر<textarea id="rvText" rows="2"></textarea></label>
+    </div>
+  </details>`;
+
   setMainContent(html);
 };
 window.setReviewStatus = async (id, status) => {
@@ -950,18 +1038,9 @@ tabs.services = async () => {
   const [{services}, {categories}] = await Promise.all([api("/admin/services"), api("/admin/categories")]);
   let html = `<h1>خدمات</h1>`;
 
-  html += `<div class="section-title">افزودن سرویس جدید</div><div class="card">
-    <div class="form-grid">
-      <label class="field">شناسه (key، انگلیسی و یکتا)<input type="text" id="nsKey" placeholder="مثلاً hair_spa"></label>
-      <label class="field">نام<input type="text" id="nsName"></label>
-      <label class="field">دسته‌بندی<select id="nsCat">${categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></label>
-      <label class="field">مدت (دقیقه)<input type="number" id="nsDuration" style="width:90px;"></label>
-      <label class="field">بیعانه (تومان)<input type="number" id="nsDeposit" style="width:120px;"></label>
-      <label class="field">رزرو آنلاین<label class="switch"><input type="checkbox" id="nsOnline" checked><span class="slider"></span></label></label>
-      <button class="btn btn-gold btn-sm" onclick="createService()">افزودن</button>
-    </div>
-  </div>`;
-
+  // the catalog Ghazal actually checks/edits (prices, deposit, active toggle)
+  // comes first; adding a brand-new service is a rare, deliberate setup
+  // action, tucked below behind a collapsed "+" section
   html += `<div class="section-title">سرویس‌های موجود</div>`;
   services.forEach(s=>{
     html += `<div class="card">
@@ -998,6 +1077,22 @@ tabs.services = async () => {
       </div>
     </div>`;
   });
+
+  html += `<details class="add-form" style="margin-top:26px;">
+    <summary>افزودن سرویس جدید</summary>
+    <div class="adv-body">
+      <div class="form-grid" style="margin-top:14px;">
+        <label class="field">شناسه (key، انگلیسی و یکتا)<input type="text" id="nsKey" placeholder="مثلاً hair_spa"></label>
+        <label class="field">نام<input type="text" id="nsName"></label>
+        <label class="field">دسته‌بندی<select id="nsCat">${categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></label>
+        <label class="field">مدت (دقیقه)<input type="number" id="nsDuration" style="width:90px;"></label>
+        <label class="field">بیعانه (تومان)<input type="number" id="nsDeposit" style="width:120px;"></label>
+        <label class="field">رزرو آنلاین<label class="switch"><input type="checkbox" id="nsOnline" checked><span class="slider"></span></label></label>
+        <button class="btn btn-gold btn-sm" onclick="createService()">افزودن</button>
+      </div>
+    </div>
+  </details>`;
+
   setMainContent(html);
 };
 window.updateService = async (id, field, value) => {
