@@ -57,30 +57,36 @@ const SAME_AS_HREF_BUILDERS: Record<string, (value: string) => string> = {
 export async function renderIndexHtml(): Promise<string> {
   let html = fs.readFileSync(indexHtmlPath, "utf8");
 
-  const [siteContentRows, contact, workingDays, reviewAgg, socialLinks] = await Promise.all([
-    prisma.siteContent.findMany(),
+  const [contact, workingDays, reviewAgg, socialLinks] = await Promise.all([
     prisma.contactInfo.findUnique({ where: { id: "singleton" } }),
     prisma.workingDay.findMany({ where: { isOpen: true } }),
     prisma.review.aggregate({ where: { status: "APPROVED" }, _avg: { rating: true }, _count: true }),
     prisma.socialLink.findMany(),
   ]);
-  const siteContent: Record<string, string> = {};
-  siteContentRows.forEach((r) => {
-    siteContent[r.key] = r.value;
-  });
 
-  // same fallback order as the client-side loadSiteContent()
-  const rawOgImage = siteContent.ghazal_photo_url || siteContent.logo_url || "";
-  const ogImage = rawOgImage ? new URL(rawOgImage, env.frontendBaseUrl).href : "";
+  // a dedicated, fixed 1200x630 asset (public/og-image.png — see
+  // backend/og-card.html + render-og.mjs for how it's generated) rather than
+  // whatever the admin last uploaded as the About-section profile/logo photo:
+  // those are uncontrolled aspect ratios and were previously left blank
+  // whenever site_content simply had no ghazal_photo_url/logo_url row yet,
+  // which is exactly why link previews on Telegram/WhatsApp/Instagram were
+  // showing no image at all — this is always resolvable, never empty
+  const ogImage = new URL("/og-image.png", env.frontendBaseUrl).href;
   const pageUrl = `${env.frontendBaseUrl}/`;
   const siteName = "غزل کرمی";
 
-  if (ogImage) {
-    html = html.replace(
-      '<meta property="og:image" content="" id="ogImageMeta">',
-      `<meta property="og:image" content="${escapeAttr(ogImage)}" id="ogImageMeta">`
-    );
-  }
+  // regex (not an exact-string match on the placeholder) so this keeps
+  // working even if the static markup's default content ever changes —
+  // an exact-match replace that silently no-ops is how the previous version
+  // of this tag could go stale without anyone noticing
+  html = html.replace(
+    /<meta property="og:image" content="[^"]*" id="ogImageMeta">/,
+    `<meta property="og:image" content="${escapeAttr(ogImage)}" id="ogImageMeta">`
+  );
+  html = html.replace(
+    /<meta name="twitter:image" content="[^"]*" id="twitterImageMeta">/,
+    `<meta name="twitter:image" content="${escapeAttr(ogImage)}" id="twitterImageMeta">`
+  );
   html = html.replace(
     '<meta property="og:locale" content="fa_IR">',
     `<meta property="og:locale" content="fa_IR">\n<meta property="og:url" content="${escapeAttr(pageUrl)}">\n<meta property="og:site_name" content="${escapeAttr(siteName)}">`
@@ -101,7 +107,7 @@ export async function renderIndexHtml(): Promise<string> {
       try {
         const ld = JSON.parse(jsonText);
         ld.url = pageUrl;
-        if (ogImage) ld.image = ogImage;
+        ld.image = ogImage;
         if (contact?.phone) ld.telephone = contact.phone.startsWith("+") ? contact.phone : "+98" + contact.phone.replace(/^0/, "");
         if (contact?.address && ld.address) ld.address.streetAddress = contact.address;
 

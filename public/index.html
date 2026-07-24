@@ -10,7 +10,19 @@
 <meta property="og:description" content="سالن تخصصی مو و آکادمی هیرکات — رزرو نوبت آنلاین، خدمات تخصصی رنگ، صافی و احیای مو.">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fa_IR">
-<meta property="og:image" content="" id="ogImageMeta">
+<!-- relative path is just the static-file fallback, same as the canonical
+     link below; renderIndexHtml() rewrites this to an absolute
+     FRONTEND_BASE_URL URL on every real request — link-preview bots need an
+     absolute og:image URL, a relative one is not spec-valid -->
+<meta property="og:image" content="/og-image.png" id="ogImageMeta">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="غزل کرمی — سالن تخصصی مو و آکادمی هیرکات">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="غزل کرمی | خانه‌ای امن برای زیبایی">
+<meta name="twitter:description" content="سالن تخصصی مو و آکادمی هیرکات — رزرو نوبت آنلاین، خدمات تخصصی رنگ، صافی و احیای مو.">
+<meta name="twitter:image" content="/og-image.png" id="twitterImageMeta">
 <meta name="theme-color" content="#0B1526">
 <!-- relative href is just the static-file fallback (e.g. viewing this file
      without the server); renderIndexHtml() (backend/src/lib/renderIndex.ts)
@@ -25,7 +37,7 @@
   "name": "غزل کرمی",
   "description": "سالن تخصصی مو و آکادمی هیرکات — هیرکات، رنگ و لایت، صافی و احیای مو",
   "url": "/",
-  "image": "",
+  "image": "/og-image.png",
   "telephone": "+982188776655",
   "priceRange": "$$",
   "address": {
@@ -1568,13 +1580,11 @@ async function loadSiteContent(){
     const img=document.getElementById(elId);
     if(url && img){ img.style.display=''; img.src=url; }
   });
-
-  /* og:image for link previews (WhatsApp/Telegram/social shares) — only once
-     a real photo exists; before that, no preview image is better than a
-     broken/placeholder one */
-  const ogImage=window.SITE_CONTENT.ghazal_photo_url||window.SITE_CONTENT.logo_url;
-  const ogImageEl=document.getElementById('ogImageMeta');
-  if(ogImage && ogImageEl) ogImageEl.setAttribute('content', new URL(ogImage, location.origin).href);
+  // og:image/twitter:image are NOT patched here on purpose — they're a fixed
+  // 1200x630 asset (public/og-image.png) set server-side on every request by
+  // renderIndexHtml(), which link-preview bots (they never run this JS) rely
+  // on; patching them here from an admin-uploaded photo of unknown aspect
+  // ratio would only reintroduce a broken/inconsistent preview image
 }
 loadSiteContent();
 

@@ -15,7 +15,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "og-image": "node render-og.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

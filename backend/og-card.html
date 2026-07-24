@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<!-- source markup for public/og-image.png (the 1200x630 social-share preview
+     image) — regenerate with `npm run og-image` after editing this file.
+     Loaded directly via file:// by render-og.mjs, which intercepts the
+     root-relative /fonts/* requests below and serves them straight from
+     ../public/fonts/ — no running dev server needed to regenerate this. -->
+<meta charset="UTF-8">
+<link rel="stylesheet" href="/fonts/fonts.css">
+<style>
+  :root{
+    --must:#DFA02D;--must-l:#F3C766;--must-d:#A87310;
+    --night:#0B1526;--night-2:#12203A;
+    --bone:#FBF7EE;--line:#E3D5B2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{width:1200px;height:630px;overflow:hidden;}
+  body{
+    font-family:'Vazirmatn',sans-serif;
+    background:var(--night);
+    background-image:radial-gradient(rgba(223,160,45,.14) 1.5px,transparent 1.5px);
+    background-size:34px 34px;
+    display:flex;align-items:center;justify-content:center;
+    position:relative;
+  }
+  body::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(ellipse 620px 460px at 50% 46%, rgba(223,160,45,.16), transparent 70%);
+  }
+  .frame{
+    position:absolute;inset:28px;
+    border:1.5px solid rgba(223,160,45,.35);
+    border-radius:28px;
+  }
+  .wrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:26px;}
+  .mark{
+    width:132px;height:132px;border-radius:30px;
+    background:var(--night-2);
+    border:2px solid rgba(223,160,45,.55);
+    box-shadow:0 0 0 10px rgba(223,160,45,.06), 0 30px 60px -20px rgba(0,0,0,.6);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .mark svg{width:74px;height:74px;}
+  h1{
+    color:var(--bone);
+    font-size:64px;
+    font-weight:900;
+    letter-spacing:-.01em;
+  }
+  .tagline{
+    color:var(--must-l);
+    font-size:27px;
+    font-weight:500;
+  }
+  .divider{width:64px;height:3px;background:var(--must);border-radius:999px;opacity:.7;}
+  .services{
+    color:rgba(251,247,238,.55);
+    font-size:19px;
+    font-weight:400;
+    letter-spacing:.02em;
+  }
+  .url{
+    position:absolute;bottom:52px;left:0;right:0;
+    text-align:center;
+    color:rgba(251,247,238,.4);
+    font-size:16px;
+    font-weight:500;
+    letter-spacing:.05em;
+    direction:ltr;
+  }
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wrap">
+    <div class="mark">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 18a24 24 0 0 1 24 24v40H26V42a24 24 0 0 1 24-24z" fill="#DFA02D"/>
+      </svg>
+    </div>
+    <h1>غزل کرمی</h1>
+    <div class="tagline">خانه‌ای امن برای زیبایی</div>
+    <div class="divider"></div>
+    <div class="services">سالن تخصصی مو و آکادمی هیرکات · رزرو نوبت آنلاین</div>
+  </div>
+  <div class="url">ghazalkarami.ir</div>
+</body>
+</html>
