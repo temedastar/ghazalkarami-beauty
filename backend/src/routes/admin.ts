@@ -646,6 +646,18 @@ router.post("/bookings/manual", async (req, res) => {
   const date = parseDateOnly(parsed.data.date);
   if (!date) return res.status(400).json({ error: "تاریخ نامعتبر است." });
 
+  // the admin panel's own service dropdown is populated from the selected
+  // category, so this mismatch can't happen through normal UI use — but
+  // nothing stops a direct API call from sending them out of sync, which
+  // would silently lock the wrong shared-line group (SlotHold keys off
+  // categoryId, not serviceId) for the requested time
+  if (parsed.data.serviceId) {
+    const service = await prisma.service.findUnique({ where: { id: parsed.data.serviceId } });
+    if (!service || service.categoryId !== parsed.data.categoryId) {
+      return res.status(400).json({ error: "سرویس انتخاب‌شده متعلق به این دسته‌بندی نیست." });
+    }
+  }
+
   let userId: string | null = null;
   if (parsed.data.customerPhone) {
     const phone = normalizePhone(parsed.data.customerPhone);

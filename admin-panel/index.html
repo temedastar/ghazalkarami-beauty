@@ -416,6 +416,14 @@ tabs.schedule = async () => {
       </select></label>
     </div>
     <div id="slotDayList"></div>
+    <div class="section-title" style="margin-top:22px;">بستن/بازکردن یک بازه‌ی کوتاه (مثلاً استراحت وسط روز)</div>
+    <div class="form-grid">
+      <label class="field">از ساعت<input type="time" id="rangeStart"></label>
+      <label class="field">تا ساعت<input type="time" id="rangeEnd"></label>
+      <button id="rangeDisableBtn" class="btn btn-danger btn-sm" onclick="closeSlotRange(false)">غیرفعال کردن این بازه</button>
+      <button id="rangeEnableBtn" class="btn btn-ghost btn-sm" onclick="closeSlotRange(true)">فعال کردن این بازه</button>
+    </div>
+    <p class="muted" style="margin-top:10px;">برای همون دسته‌بندی و روز هفته‌ای که بالا انتخاب کردی؛ فقط اسلات‌های داخل این بازه غیرفعال/فعال می‌شن، بقیه‌ی روز دست‌نخورده می‌مونه.</p>
     <div class="section-title" style="margin-top:22px;">تولید خودکار اسلات (بازه‌ی ساعتی + مدت هر نوبت)</div>
     <div class="form-grid">
       <label class="field">از ساعت<input type="time" id="genStart" value="10:00"></label>
@@ -505,6 +513,26 @@ window.toggleSlot = async (id, isActive) => {
   try{ await api(`/admin/time-slots/${id}`,{method:"PATCH",body:JSON.stringify({isActive})}); await refreshScheduleSlots(); }
   catch(e){ toast(e.message,true); }
 };
+/* batches the same PATCH toggleSlot() already does for one slot, across
+   every slot in [start,end) for the currently-selected category/day — same
+   "reopen" button just runs it again with isActive:true, so nothing needs
+   to be remembered between closing and reopening a range */
+window.closeSlotRange = withSubmitGuard(async (enable) => {
+  const start=document.getElementById("rangeStart").value;
+  const end=document.getElementById("rangeEnd").value;
+  if(!start||!end) return toast("ساعت شروع و پایان بازه را وارد کنید.",true);
+  if(end<=start) return toast("ساعت پایان باید بعد از ساعت شروع باشد.",true);
+  const catId=document.getElementById("slotCat").value;
+  const dow=Number(document.getElementById("slotDow").value);
+  const category=(window._scheduleCategories||[]).find(c=>c.id===catId);
+  const slots=(category?.timeSlots||[]).filter(s=>s.dayOfWeek===dow && s.time>=start && s.time<end);
+  if(!slots.length) return toast("اسلاتی در این بازه برای این روز/دسته یافت نشد.",true);
+  try{
+    await Promise.all(slots.map(s=>api(`/admin/time-slots/${s.id}`,{method:"PATCH",body:JSON.stringify({isActive:enable})})));
+    toast(enable?`${slots.length} اسلات باز شد.`:`${slots.length} اسلات بسته شد.`);
+    await refreshScheduleSlots();
+  }catch(e){ toast(e.message,true); }
+});
 window.deleteSlot = async (id) => {
   if(!confirm("این اسلات حذف شود؟")) return;
   try{ await api(`/admin/time-slots/${id}`,{method:"DELETE"}); toast("حذف شد."); await refreshScheduleSlots(); }
