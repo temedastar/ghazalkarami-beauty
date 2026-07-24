@@ -20,9 +20,16 @@ router.get("/", async (req, res) => {
   if (!dayInfo.open) return res.json({ dayOpen: false, slots: [] });
 
   const dow = dayOfWeekUTC(date);
+  // chronological order by time, not sortOrder — sortOrder only reflects
+  // generation sequence for slots created together via the bulk generator
+  // (POST /admin/time-slots/generate), and defaults to 0 for anything added
+  // individually (POST /admin/time-slots, the admin panel's "+ افزودن اسلات"
+  // button), so a mix of the two sorted scrambled instead of by actual time.
+  // "time" is always a zero-padded "HH:MM" string, so a plain string sort
+  // is already correct chronological order — no parsing needed.
   const timeSlots = await prisma.timeSlot.findMany({
     where: { categoryId: category.id, dayOfWeek: dow, isActive: true },
-    orderBy: [{ sortOrder: "asc" }, { time: "asc" }],
+    orderBy: { time: "asc" },
   });
 
   // release any holds whose payment window has expired, so they show as free again
