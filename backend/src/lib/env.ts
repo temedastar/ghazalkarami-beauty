@@ -8,11 +8,23 @@ function required(name: string, fallback?: string): string {
   return v;
 }
 
+// a base URL filled into a PaaS dashboard field missing its protocol (e.g.
+// "ghazalkarami.ir" instead of "https://ghazalkarami.ir") is an easy typo,
+// and most uses of these two values here are plain string concatenation, so
+// it stayed invisible — until renderIndex.ts's `new URL(path, frontendBaseUrl)`
+// started throwing outright on one and took down every request to "/".
+// Normalizing once here means every consumer gets a well-formed value,
+// whether it does its own URL parsing or just concatenates a path onto it.
+function normalizeBaseUrl(value: string): string {
+  const trimmed = value.replace(/\/+$/, "");
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 export const env = {
   port: Number(process.env.PORT ?? 4000),
   nodeEnv: process.env.NODE_ENV ?? "development",
-  appBaseUrl: required("APP_BASE_URL", "http://localhost:4000"),
-  frontendBaseUrl: required("FRONTEND_BASE_URL", "http://localhost:4000"),
+  appBaseUrl: normalizeBaseUrl(required("APP_BASE_URL", "http://localhost:4000")),
+  frontendBaseUrl: normalizeBaseUrl(required("FRONTEND_BASE_URL", "http://localhost:4000")),
 
   jwtSecret: required("JWT_SECRET"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "30d",

@@ -70,9 +70,22 @@ export async function renderIndexHtml(): Promise<string> {
   // those are uncontrolled aspect ratios and were previously left blank
   // whenever site_content simply had no ghazal_photo_url/logo_url row yet,
   // which is exactly why link previews on Telegram/WhatsApp/Instagram were
-  // showing no image at all — this is always resolvable, never empty
-  const ogImage = new URL("/og-image.png", env.frontendBaseUrl).href;
-  const pageUrl = `${env.frontendBaseUrl}/`;
+  // showing no image at all — this is always resolvable, never empty.
+  //
+  // env.ts already normalizes frontendBaseUrl to always include a protocol,
+  // but a page that exists to serve the whole site's homepage must not be
+  // able to hard-crash over an SEO tag's URL construction regardless — a
+  // missing/wrong og:image is a worse-looking share card, not a 500 for
+  // every visitor, so this falls back to a relative path (still valid
+  // HTML, just not spec-ideal for link-preview bots) rather than throwing
+  let ogImage = "/og-image.png";
+  let pageUrl = "/";
+  try {
+    ogImage = new URL("/og-image.png", env.frontendBaseUrl).href;
+    pageUrl = new URL("/", env.frontendBaseUrl).href;
+  } catch (err) {
+    console.error("renderIndexHtml: FRONTEND_BASE_URL produced an invalid URL, falling back to relative paths:", err);
+  }
   const siteName = "غزل کرمی";
 
   // regex (not an exact-string match on the placeholder) so this keeps
