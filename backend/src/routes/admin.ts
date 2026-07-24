@@ -18,6 +18,20 @@ import { cancelBookingAndMaybeRefund } from "../services/bookingCancellation";
 const router = Router();
 router.use(requireAuth, requireAdmin);
 
+// Prisma's `include: { user: true }` (or a plain `prisma.user.findMany()`
+// with no `select`) returns every column, including passwordHash — a bcrypt
+// hash, but still not something that should ever leave the server, admin
+// panel or not. Every place this route file reads a User for an API
+// response goes through this instead.
+const SAFE_USER_SELECT = {
+  id: true,
+  phone: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+  createdAt: true,
+} as const;
+
 /* ---------- dashboard (real aggregates only — no placeholder/fake numbers) ---------- */
 
 router.get("/dashboard", async (_req, res) => {
@@ -92,7 +106,7 @@ router.get("/dashboard", async (_req, res) => {
     prisma.booking.findMany({
       orderBy: { createdAt: "desc" },
       take: 8,
-      include: { service: true, user: true },
+      include: { service: true, user: { select: SAFE_USER_SELECT } },
     }),
   ]);
 
@@ -596,7 +610,7 @@ router.get("/bookings", async (req, res) => {
       ...(date ? { date } : {}),
       ...(upcoming ? { date: { gte: new Date(new Date().toISOString().slice(0, 10)) } } : {}),
     },
-    include: { service: true, category: true, user: true, payment: true },
+    include: { service: true, category: true, user: { select: SAFE_USER_SELECT }, payment: true },
     orderBy: [{ date: "asc" }, { time: "asc" }],
   });
   res.json({ bookings });
@@ -686,7 +700,7 @@ router.patch("/bookings/:id/status", async (req, res) => {
 
   const booking = await prisma.booking.findUnique({
     where: { id: req.params.id },
-    include: { service: true, user: true, payment: true },
+    include: { service: true, user: { select: SAFE_USER_SELECT }, payment: true },
   });
   if (!booking) return res.status(404).json({ error: "رزرو یافت نشد." });
 
@@ -707,7 +721,7 @@ router.patch("/bookings/:id/status", async (req, res) => {
 
   const updated = await prisma.booking.findUnique({
     where: { id: booking.id },
-    include: { service: true, category: true, user: true, payment: true },
+    include: { service: true, category: true, user: { select: SAFE_USER_SELECT }, payment: true },
   });
   res.json({ booking: updated });
 });
@@ -741,7 +755,7 @@ router.get("/customers", async (_req, res) => {
   const customers = await prisma.user.findMany({
     where: { role: "CUSTOMER" },
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { bookings: true } } },
+    select: { ...SAFE_USER_SELECT, _count: { select: { bookings: true } } },
   });
   res.json({ customers });
 });
@@ -749,7 +763,8 @@ router.get("/customers", async (_req, res) => {
 router.get("/customers/:id", async (req, res) => {
   const customer = await prisma.user.findUnique({
     where: { id: req.params.id },
-    include: {
+    select: {
+      ...SAFE_USER_SELECT,
       bookings: {
         include: { service: true, category: true, payment: true },
         orderBy: { date: "desc" },
@@ -906,7 +921,7 @@ router.delete("/social-links/:id", async (req, res) => {
 
 router.get("/class-requests", async (_req, res) => {
   const requests = await prisma.classRequest.findMany({
-    include: { user: true },
+    include: { user: { select: SAFE_USER_SELECT } },
     orderBy: { createdAt: "desc" },
   });
   res.json({ requests });

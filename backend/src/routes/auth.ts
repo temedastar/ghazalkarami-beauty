@@ -29,6 +29,18 @@ const loginLimiter = rateLimit({
   message: { error: "تعداد تلاش‌های ورود بیش از حد مجاز است. چند دقیقه دیگر دوباره تلاش کنید." },
 });
 
+// not brute-forceable in the traditional sense (no prior password to guess —
+// it's an authenticated "set my password" call), but bcrypt's cost factor
+// is deliberately expensive, so an unbounded loop here is still a real CPU
+// exhaustion vector for anyone holding a valid token
+const setPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "درخواست‌های زیاد. کمی صبر کنید." },
+});
+
 const requestOtpSchema = z.object({
   phone: z.string(),
   purpose: z.enum(["REGISTER", "LOGIN"]),
@@ -162,7 +174,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 
 const setPasswordSchema = z.object({ password: strongPasswordSchema });
 
-router.post("/set-password", requireAuth, async (req, res) => {
+router.post("/set-password", setPasswordLimiter, requireAuth, async (req, res) => {
   const parsed = setPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: PASSWORD_POLICY_MESSAGE });

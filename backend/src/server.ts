@@ -13,6 +13,7 @@ import helmet from "helmet";
 import path from "path";
 import { env } from "./lib/env";
 import { prisma } from "./lib/prisma";
+import { assertProductionSafety } from "./lib/productionGuards";
 import { errorHandler } from "./middleware/errorHandler";
 import { renderIndexHtml } from "./lib/renderIndex";
 import { startExpireHoldsJob } from "./jobs/expireHolds";
@@ -26,6 +27,11 @@ import paymentRoutes from "./routes/payments";
 import reviewRoutes from "./routes/reviews";
 import classRequestRoutes from "./routes/classRequests";
 import adminRoutes from "./routes/admin";
+
+// before anything else — refuses to even build the app if production is
+// misconfigured in a way that would silently degrade into an insecure
+// fallback (see lib/productionGuards.ts)
+assertProductionSafety();
 
 const app = express();
 

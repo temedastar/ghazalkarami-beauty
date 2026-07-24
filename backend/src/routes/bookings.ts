@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
@@ -11,6 +12,18 @@ const router = Router();
 
 const HOLD_MINUTES = 15;
 
+// each successful create holds a real slot for 15 minutes — without a
+// limit, one authenticated account could loop over every open slot in a
+// day/week and grief every other customer's availability, well within a
+// single hold window
+const createLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "تعداد درخواست رزرو زیاد بوده، کمی بعد دوباره تلاش کنید." },
+});
+
 const createSchema = z.object({
   serviceKey: z.string(),
   date: z.string(),
@@ -18,7 +31,7 @@ const createSchema = z.object({
   note: z.string().max(300).optional(),
 });
 
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", createLimiter, requireAuth, async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
 

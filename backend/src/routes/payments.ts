@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { env } from "../lib/env";
@@ -9,9 +10,29 @@ import { toDateOnlyString } from "../lib/dates";
 
 const router = Router();
 
+const requestLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "درخواست‌های زیاد. کمی صبر کنید." },
+});
+
+// hit by ZarinPal's own redirect, not a form submit — a real customer only
+// ever lands here once or twice per booking (initial + maybe a manual
+// refresh), so this stays generous; it exists purely so a replay/guessing
+// loop can't hammer the real ZarinPal verify API or the DB indefinitely
+const callbackLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "درخواست‌های زیاد. کمی صبر کنید." },
+});
+
 const requestSchema = z.object({ bookingId: z.string() });
 
-router.post("/zarinpal/request", requireAuth, async (req, res) => {
+router.post("/zarinpal/request", requestLimiter, requireAuth, async (req, res) => {
   const parsed = requestSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
 
@@ -49,7 +70,7 @@ router.post("/zarinpal/request", requireAuth, async (req, res) => {
   res.json({ paymentUrl });
 });
 
-router.get("/zarinpal/callback", async (req, res) => {
+router.get("/zarinpal/callback", callbackLimiter, async (req, res) => {
   const bookingId = typeof req.query.bookingId === "string" ? req.query.bookingId : "";
   const authority = typeof req.query.Authority === "string" ? req.query.Authority : "";
   const status = typeof req.query.Status === "string" ? req.query.Status : "";
@@ -67,6 +88,13 @@ router.get("/zarinpal/callback", async (req, res) => {
   // would let anyone who learns/guesses a bookingId force-cancel someone
   // else's pending booking just by hitting this URL with Status=NOK.
   if (booking.payment.authority !== authority) return redirect("/?payment=not_found");
+
+  // replaying a past successful callback (bookmarked/shared URL, browser
+  // back-button, or a deliberate replay attempt) must not re-run
+  // verification, re-send the confirmation SMS, or rewrite already-correct
+  // state — ZarinPal itself would just report "already verified" (code 101)
+  // and let this fall through to the same side effects every time otherwise
+  if (booking.payment.status === "PAID") return redirect(`/?payment=success&bookingId=${booking.id}`);
 
   if (status !== "OK") {
     await prisma.$transaction([
