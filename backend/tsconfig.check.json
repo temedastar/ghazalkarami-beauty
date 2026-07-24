@@ -10,13 +10,19 @@
   // until it crashed the seed step in production and took the whole app down
   // with it (the Dockerfile chains migrate deploy && db seed && start).
   //
+  // tests/ and playwright.config.ts had the exact same blind spot (real code
+  // that runs on every `npm run test:e2e`, invisible to this check) until it
+  // nearly repeated the same mistake: tests/dbSafety.ts and
+  // tests/global-teardown.ts were added with zero static verification.
+  //
   // Run this one via `npm run typecheck` before every push.
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    // overridden so files under prisma/ aren't rejected as "outside rootDir" —
-    // irrelevant anyway since noEmit means nothing is ever written to outDir
+    // overridden so files under prisma/ and tests/ aren't rejected as
+    // "outside rootDir" — irrelevant anyway since noEmit means nothing is
+    // ever written to outDir
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["src", "prisma/**/*.ts"]
+  "include": ["src", "prisma/**/*.ts", "tests/**/*.ts", "playwright.config.ts"]
 }

@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { request as playwrightRequest } from "@playwright/test";
 import { lastOtpCodeForPhone, randomPhone } from "./helpers";
+import { connectToTestDatabase } from "./dbSafety";
 
 export const POOL_PATH = path.join(__dirname, ".test-pool.json");
 const POOL_SIZE = 8;
@@ -18,6 +19,13 @@ const POOL_SIZE = 8;
  * which runs last for exactly this reason.
  */
 export default async function globalSetup() {
+  // independent of the DATABASE_URL override in playwright.config.ts's
+  // webServer.command — if that override were ever bypassed (a manually
+  // started server, reuseExistingServer picking up an unrelated process),
+  // this still refuses to run against anything but the isolated test DB
+  const dbCheck = await connectToTestDatabase();
+  await dbCheck.$disconnect();
+
   const ctx = await playwrightRequest.newContext({ baseURL: "http://localhost:4000" });
 
   const adminRes = await ctx.post("/api/auth/login", {
