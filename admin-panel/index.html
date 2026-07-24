@@ -475,6 +475,10 @@ tabs.schedule = async () => {
         ${DOW_NAMES.map((n,i)=>`<option value="${i}">${n}</option>`).join("")}
       </select></label>
     </div>
+    <div class="form-grid" style="margin-bottom:14px;">
+      <label class="field">افزودن اسلات تکی (ساعت)<input type="time" id="addSlotTime" style="width:130px;"></label>
+      <button class="btn btn-gold btn-sm" onclick="addSingleSlot()">+ افزودن اسلات</button>
+    </div>
     <div id="slotDayList"></div>
 
     <details class="adv">
@@ -588,6 +592,22 @@ window.toggleSlot = async (id, isActive) => {
   try{ await api(`/admin/time-slots/${id}`,{method:"PATCH",body:JSON.stringify({isActive})}); await refreshScheduleSlots(); }
   catch(e){ toast(e.message,true); }
 };
+/* the direct single-slot create endpoint (POST /admin/time-slots) already
+   existed server-side but had no UI wired to it — this was the only way to
+   add just one specific time without going through "تولید خودکار"'s
+   whole-range generator */
+window.addSingleSlot = withSubmitGuard(async () => {
+  const time=document.getElementById("addSlotTime").value;
+  if(!time) return toast("ساعت را وارد کنید.",true);
+  const categoryId=document.getElementById("slotCat").value;
+  const dayOfWeek=Number(document.getElementById("slotDow").value);
+  try{
+    await api("/admin/time-slots",{method:"POST",body:JSON.stringify({categoryId,dayOfWeek,time})});
+    toast("اسلات اضافه شد.");
+    document.getElementById("addSlotTime").value="";
+    await refreshScheduleSlots();
+  }catch(e){ toast(e.message,true); }
+});
 /* batches the same PATCH toggleSlot() already does for one slot, across
    every slot in [start,end) for the currently-selected category/day — same
    "reopen" button just runs it again with isActive:true, so nothing needs

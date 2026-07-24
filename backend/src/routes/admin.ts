@@ -347,8 +347,15 @@ const timeSlotSchema = z.object({
 router.post("/time-slots", async (req, res) => {
   const parsed = timeSlotSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
-  const slot = await prisma.timeSlot.create({ data: parsed.data });
-  res.status(201).json({ slot });
+  try {
+    const slot = await prisma.timeSlot.create({ data: parsed.data });
+    res.status(201).json({ slot });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return res.status(409).json({ error: "این ساعت از قبل برای این دسته‌بندی و روز ثبت شده است." });
+    }
+    throw err;
+  }
 });
 
 const timeSlotPatchSchema = z.object({
