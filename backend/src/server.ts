@@ -118,6 +118,24 @@ app.get("/robots.txt", (_req, res) => {
   );
 });
 
+// Enamad domain-ownership verification file. Originally shipped as a plain
+// static file (public/48471710.txt) — worked locally, but 404'd ("Cannot
+// GET") in production even after a deploy that should have included it. The
+// repo/build side all checked out (file is git-tracked, not excluded by
+// .gitignore/.dockerignore, and the Dockerfile's `COPY public /app/public`
+// copies the whole directory), so the most likely explanation was a stale
+// container image or an intermediate cache still serving the pre-existing
+// 404 for that exact path. An explicit route removes that dependency
+// entirely — same reasoning as /robots.txt and /sitemap.xml below being
+// generated instead of static files: this is now compiled straight into
+// dist/server.js, so it's guaranteed current the moment the app itself
+// redeploys, with no separate static-file-copy step to go stale.
+// no-store so a CDN/proxy in front of the app can't keep serving a
+// previously-cached 404 for this exact path either.
+app.get("/48471710.txt", (_req, res) => {
+  res.set("Cache-Control", "no-store").type("text/plain").send("");
+});
+
 // generated (not a static file) so it always reflects FRONTEND_BASE_URL —
 // once the real domain is set in .env this is automatically correct, no
 // separate file to remember to update
