@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { prisma } from "../lib/prisma";
 import { sendBookingReminderSms } from "../services/kavenegar";
-import { toDateOnlyString } from "../lib/dates";
+import { toJalaliDateLabel } from "../lib/dates";
 
 async function sendDueReminders() {
   const settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
@@ -30,7 +30,7 @@ async function sendDueReminders() {
     try {
       await sendBookingReminderSms(booking.user.phone, {
         serviceName: booking.service.name,
-        dateLabel: toDateOnlyString(booking.date),
+        dateLabel: toJalaliDateLabel(booking.date),
         time: booking.time,
       });
       await prisma.booking.update({ where: { id: booking.id }, data: { reminderSentAt: new Date() } });

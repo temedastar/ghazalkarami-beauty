@@ -279,6 +279,32 @@ function toast(msg, isErr){
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
 function toman(n){ return Number(n||0).toLocaleString("fa-IR")+" تومان"; }
 
+const jalaliMonths=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+function pd(n){ return String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]); }
+/* تبدیل میلادی به جلالی (شمسی) — همون الگوریتم استاندارد که تو public/index.html
+   برای تاریخ نظرات و نوبت‌های مشتری استفاده و تست شده */
+function toJalali(gy,gm,gd){
+  const g_d_m=[0,31,59,90,120,151,181,212,243,273,304,334];
+  let jy=(gy<=1600)?0:979;
+  gy-=(gy<=1600)?621:1600;
+  const gy2=(gm>2)?(gy+1):gy;
+  let days=(365*gy)+(Math.floor((gy2+3)/4))-(Math.floor((gy2+99)/100))+(Math.floor((gy2+399)/400))-80+gd+g_d_m[gm-1];
+  jy+=33*(Math.floor(days/12053));days%=12053;
+  jy+=4*(Math.floor(days/1461));days%=1461;
+  if(days>365){jy+=Math.floor((days-1)/365);days=(days-1)%365;}
+  const jm=(days<186)?1+Math.floor(days/31):7+Math.floor((days-186)/30);
+  const jd=1+((days<186)?(days%31):((days-186)%30));
+  return [jy,jm,jd];
+}
+/* تنها تابع مشترک برای نمایش تاریخ به ادمین — هرجای پنل که تاریخ نشون داده
+   می‌شه باید از همین رد بشه، نه slice(0,10) خام میلادی یا toLocaleDateString
+   عددی؛ ورودی هم رشته‌ی ISO و هم شیء Date رو قبول می‌کنه */
+function fmtJalaliDate(dateInput){
+  const d=new Date(dateInput);
+  const [jy,jm,jd]=toJalali(d.getFullYear(),d.getMonth()+1,d.getDate());
+  return `${pd(jd)} ${jalaliMonths[jm-1]} ${pd(jy)}`;
+}
+
 /* every tab render goes through this instead of a raw innerHTML assignment,
    so switching tabs gets a consistent subtle fade instead of an abrupt swap */
 function setMainContent(html){
@@ -374,7 +400,7 @@ tabs.dashboard = async () => {
       <div class="row">
         <div>
           <b>${esc(b.customerName)}</b> — ${esc(b.serviceName)}
-          <div class="muted">${b.date.slice(0,10)} ساعت ${b.time}</div>
+          <div class="muted">${fmtJalaliDate(b.date)} ساعت ${b.time}</div>
         </div>
         <span class="tag ${statusTagClass[b.status]||'tag-muted'}">${statusFa[b.status]||b.status}</span>
       </div>`).join("") + `</div>`;
@@ -449,7 +475,7 @@ tabs.schedule = async () => {
     <div style="margin-top:16px;">
       ${exceptions.length? exceptions.map(e=>`
         <div class="row">
-          <div>${e.date.slice(0,10)} — <span class="tag ${e.isOpen?'tag-open':'tag-closed'}">${e.isOpen?'باز':'تعطیل'}</span>
+          <div>${fmtJalaliDate(e.date)} — <span class="tag ${e.isOpen?'tag-open':'tag-closed'}">${e.isOpen?'باز':'تعطیل'}</span>
             ${e.isOpen && (e.openTime||e.closeTime)? ` (${e.openTime||'—'} تا ${e.closeTime||'—'})`:''}
             ${e.reason? '— '+esc(e.reason):''}</div>
           <button class="btn btn-ghost btn-sm" onclick="deleteDayException('${e.id}')">حذف</button>
@@ -677,7 +703,7 @@ function renderBookingsList(bookings, filter){
       <div>
         <b>${esc(svc)}</b> ${b.source!=="ONLINE"?`<span class="tag tag-muted">${b.source==='ADMIN_BLOCK'?'قفل دستی':'ثبت دستی'}</span>`:''}
         <div class="muted">${who}</div>
-        <div class="muted">${b.date.slice(0,10)} ساعت ${b.time} — بیعانه ${toman(b.depositAmount)}</div>
+        <div class="muted">${fmtJalaliDate(b.date)} ساعت ${b.time} — بیعانه ${toman(b.depositAmount)}</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span class="tag ${BOOKING_STATUS_TAG_CLASS[b.status]||'tag-muted'}">${BOOKING_STATUS_FA[b.status]||b.status}</span>
@@ -919,7 +945,7 @@ tabs.reviews = async () => {
         <div>
           <b>${esc(r.name)}</b> ${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)} ${statusTag}
           <p style="margin-top:8px;">${esc(r.text)}</p>
-          <div class="muted" style="margin-top:6px;">${new Date(r.createdAt).toLocaleDateString("fa-IR")}</div>
+          <div class="muted" style="margin-top:6px;">${fmtJalaliDate(r.createdAt)}</div>
         </div>
         <div style="display:flex;gap:8px;flex-shrink:0;">
           ${r.status!=="APPROVED"?`<button class="btn btn-gold btn-sm" onclick="setReviewStatus('${r.id}','APPROVED')">تایید</button>`:''}
@@ -1147,7 +1173,7 @@ tabs.customers = async () => {
       <td>${esc(`${c.firstName} ${c.lastName}`)}</td>
       <td>${c.phone}</td>
       <td>${c._count.bookings}</td>
-      <td>${new Date(c.createdAt).toLocaleDateString("fa-IR")}</td>
+      <td>${fmtJalaliDate(c.createdAt)}</td>
       <td><button class="btn btn-line btn-sm" onclick="showCustomerHistory('${c.id}')">تاریخچه</button></td>
     </tr>`;
   });
@@ -1161,7 +1187,7 @@ window.showCustomerHistory = async (id) => {
     let html = `<div class="card"><h3>تاریخچه‌ی ${esc(`${customer.firstName} ${customer.lastName}`)}</h3>`;
     if(!customer.bookings.length) html += `<p class="muted">نوبتی ثبت نشده.</p>`;
     customer.bookings.forEach(b=>{
-      html += `<div class="row"><div>${b.service?esc(b.service.name):"—"} — ${b.date.slice(0,10)} ساعت ${b.time}</div><span class="tag tag-muted">${statusFa[b.status]||b.status}</span></div>`;
+      html += `<div class="row"><div>${b.service?esc(b.service.name):"—"} — ${fmtJalaliDate(b.date)} ساعت ${b.time}</div><span class="tag tag-muted">${statusFa[b.status]||b.status}</span></div>`;
     });
     html += `</div>`;
     document.getElementById("customerHistory").innerHTML = html;
@@ -1281,7 +1307,7 @@ tabs.smsLogs = async () => {
   logs.forEach(l=>{
     const tag = l.status==="SUCCESS"?"tag-open":l.status==="FAILED"?"tag-closed":"tag-muted";
     const statusFa = l.status==="SUCCESS"?"موفق":l.status==="FAILED"?"ناموفق":"حالت آزمایشی (بدون ارسال واقعی)";
-    html += `<tr><td>${l.phone}</td><td>${SMS_TYPE_FA[l.type]||l.type}</td><td><span class="tag ${tag}">${statusFa}</span></td><td>${new Date(l.createdAt).toLocaleString("fa-IR")}</td></tr>`;
+    html += `<tr><td>${l.phone}</td><td>${SMS_TYPE_FA[l.type]||l.type}</td><td><span class="tag ${tag}">${statusFa}</span></td><td>${fmtJalaliDate(l.createdAt)}، ${new Date(l.createdAt).toLocaleTimeString("fa-IR")}</td></tr>`;
   });
   html += `</tbody></table></div>`;
   setMainContent(html);

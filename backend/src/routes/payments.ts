@@ -6,7 +6,7 @@ import { requireAuth } from "../middleware/auth";
 import { env } from "../lib/env";
 import { createZarinpalPayment, verifyZarinpalPayment } from "../services/zarinpal";
 import { sendBookingConfirmationSms } from "../services/kavenegar";
-import { toDateOnlyString } from "../lib/dates";
+import { toJalaliDateLabel } from "../lib/dates";
 
 const router = Router();
 
@@ -125,7 +125,7 @@ router.get("/zarinpal/callback", callbackLimiter, async (req, res) => {
 
   await sendBookingConfirmationSms(booking.user.phone, {
     serviceName: booking.service.name,
-    dateLabel: toDateOnlyString(booking.date),
+    dateLabel: toJalaliDateLabel(booking.date),
     time: booking.time,
   }).catch((err) => console.error("Failed to send confirmation SMS:", err));
 
