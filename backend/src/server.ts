@@ -69,7 +69,10 @@ app.use(
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", ...(uploadsOrigin ? [uploadsOrigin] : [])],
+        // trustseal.enamad.ir serves the Enamad trust-seal logo <img> in the
+        // footer — required to be loaded directly from Enamad's own server
+        // (not a saved copy) for the seal to remain valid
+        imgSrc: ["'self'", "data:", "https://trustseal.enamad.ir", ...(uploadsOrigin ? [uploadsOrigin] : [])],
         connectSrc: ["'self'"],
       },
     },

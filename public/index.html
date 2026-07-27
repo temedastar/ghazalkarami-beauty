@@ -790,7 +790,11 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
 .f-social svg{flex-shrink:0;color:var(--must-l);}
 .fc a:hover{color:var(--must-l);}
 .f-nas{font-size:21px;color:var(--must-l);margin-top:8px;}
-.fb{border-top:1px solid rgba(251,247,238,.08);padding-top:16px;text-align:center;font-size:12px;opacity:.6;}
+.fb{border-top:1px solid rgba(251,247,238,.08);padding-top:16px;font-size:12px;opacity:.6;
+  display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;text-align:center;}
+.enamad-seal{display:inline-flex;flex-shrink:0;line-height:0;}
+.enamad-seal img{width:74px;height:auto;display:block;}
+@media(max-width:560px){.enamad-seal img{width:64px;}}
 
 .fcta{position:fixed;bottom:22px;left:22px;z-index:80;background:var(--must);
   color:var(--night);border-radius:999px;padding:15px 24px;display:flex;align-items:center;
@@ -1371,7 +1375,12 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <a href="/refund-policy.html">لغو و بازگشت وجه</a>
       </div>
     </div>
-    <div class="fb">© ۱۴۰۵ غزل کرمی — تمامی حقوق محفوظ است</div>
+    <div class="fb">
+      <span>© ۱۴۰۵ غزل کرمی — تمامی حقوق محفوظ است</span>
+      <div class="enamad-seal">
+        <a referrerpolicy='origin' target='_blank' href='https://trustseal.enamad.ir/?id=764532&Code=uxLg6oT5snxrMsfxORy6EAsaBAULqsym'><img referrerpolicy='origin' src='https://trustseal.enamad.ir/logo.aspx?id=764532&Code=uxLg6oT5snxrMsfxORy6EAsaBAULqsym' alt='' style='cursor:pointer' code='uxLg6oT5snxrMsfxORy6EAsaBAULqsym'></a>
+      </div>
+    </div>
   </div>
 </footer>
 

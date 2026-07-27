@@ -59,6 +59,9 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;}
 footer nav a{color:var(--must-l);text-decoration:none;font-size:13px;}
 footer nav a:hover{text-decoration:underline;}
 [data-contact]{color:inherit;text-decoration:none;}
+.enamad-seal{display:inline-flex;flex-shrink:0;line-height:0;}
+.enamad-seal img{width:74px;height:auto;display:block;}
+@media(max-width:560px){.enamad-seal img{width:64px;}}
 
 @media(max-width:600px){
   .page-title{font-size:22px;}
