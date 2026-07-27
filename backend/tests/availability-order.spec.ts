@@ -22,6 +22,18 @@ test("customer-facing availability list is always in chronological order, even m
   const date = nextWeekday(60);
   const dow = new Date(date).getUTCDay();
 
+  // scalp_scrub is seeded with slots at 10:00/12:00/14:00/16:00 on every
+  // weekday (see prisma/seed.ts) — /time-slots/generate upserts, so if any
+  // of the times generated below collide with those, it updates the
+  // existing seeded row and returns ITS id rather than creating a new one.
+  // Deleting every id the endpoint returns would then delete real seeded
+  // data instead of just this test's own additions, so only ids that
+  // didn't already exist for this category/day before the generate call
+  // are eligible for cleanup.
+  const preexistingIds = new Set<string>(
+    scalp.timeSlots.filter((t: { dayOfWeek: number; id: string }) => t.dayOfWeek === dow).map((t: { id: string }) => t.id)
+  );
+
   const createdIds: string[] = [];
   try {
     // a chronological batch via the generator — gets sequential sortOrder 0,1,2
@@ -30,7 +42,11 @@ test("customer-facing availability list is always in chronological order, even m
       data: { categoryId: scalp.id, dayOfWeek: dow, startTime: "10:00", endTime: "13:00", durationMin: 60, gapMin: 0 },
     });
     expect(generated.status(), await generated.text()).toBe(201);
-    createdIds.push(...(await generated.json()).slots.map((s: { id: string }) => s.id));
+    createdIds.push(
+      ...(await generated.json()).slots
+        .map((s: { id: string }) => s.id)
+        .filter((id: string) => !preexistingIds.has(id))
+    );
 
     // two individually-added slots that land BEFORE and BETWEEN the
     // generated ones chronologically, both defaulting to sortOrder 0 — under
