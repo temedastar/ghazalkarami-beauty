@@ -28,6 +28,18 @@ interface LookupParams {
   token3?: string;
 }
 
+// Kavenegar's Lookup/Verify token values reject a raw space (confirmed in
+// production: multi-word tokens like a service name "کوتاهی مو" or a Jalali
+// date label "۱۴ مرداد ۱۴۰۵" came back as return.status 431 — "ساختار کد
+// صحیح نمی‌باشد" — while the single-digit-only OTP token always worked).
+// Collapsing whitespace to a hyphen keeps the token itself space-free for
+// Kavenegar while staying readable if it ends up literally in the delivered
+// text — unlike "_", a hyphen reads as a normal Persian word separator
+// rather than a code artifact.
+function sanitizeToken(value: string): string {
+  return value.trim().replace(/\s+/g, "-");
+}
+
 /**
  * Sends via Kavenegar's Lookup/Verify pattern API — required for transactional
  * messages like these (plain free-text SMS isn't allowed for them). Each
@@ -45,9 +57,9 @@ async function sendLookup({ phone, type, template, token, token2, token3 }: Look
   }
 
   const params = new URLSearchParams({ receptor: phone, template, type: "sms" });
-  if (token) params.set("token", token);
-  if (token2) params.set("token2", token2);
-  if (token3) params.set("token3", token3);
+  if (token) params.set("token", sanitizeToken(token));
+  if (token2) params.set("token2", sanitizeToken(token2));
+  if (token3) params.set("token3", sanitizeToken(token3));
 
   const url = `${KAVENEGAR_BASE}/${env.kavenegar.apiKey}/verify/lookup.json?${params.toString()}`;
   try {
