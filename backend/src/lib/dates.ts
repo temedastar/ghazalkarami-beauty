@@ -13,10 +13,45 @@ export function dayOfWeekUTC(date: Date): number {
   return date.getUTCDay();
 }
 
+// Iran Standard Time is a fixed UTC+3:30 offset — Iran abolished DST in
+// September 2022, so (unlike most timezones) this never needs to account
+// for a seasonal shift. The container this server runs in is not
+// guaranteed to be set to Tehran time (Liara's build/runtime is UTC), so
+// "today"/"now" must be computed from this offset rather than from the
+// process's own local time — otherwise a booking near midnight, or a
+// same-day time-of-day check, silently uses the wrong calendar day/hour.
+const TEHRAN_OFFSET_MINUTES = 3 * 60 + 30;
+
+/** The current moment, shifted so its UTC getters read as Tehran wall-clock
+ * time (e.g. `.getUTCHours()` gives the hour in Tehran, not in the
+ * server's own timezone). */
+function nowInTehran(): Date {
+  return new Date(Date.now() + TEHRAN_OFFSET_MINUTES * 60000);
+}
+
+/** Today's calendar date in Tehran, as a UTC-midnight Date — the same
+ * representation parseDateOnly() produces, so it's directly comparable to
+ * a Booking.date value. */
+function todayInTehran(): Date {
+  const t = nowInTehran();
+  return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()));
+}
+
 export function isPastDate(date: Date): boolean {
-  const now = new Date();
-  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  return date.getTime() < todayUTC.getTime();
+  return date.getTime() < todayInTehran().getTime();
+}
+
+/** How many minutes from right now (in Tehran) until this date+time — negative
+ * once the moment has already passed. Only meaningful for `date` being today
+ * or in the future; a genuinely past date should already be rejected by
+ * isPastDate() before this is ever called. */
+export function minutesUntil(date: Date, time: string): number {
+  const today = todayInTehran();
+  const [h, m] = time.split(":").map(Number);
+  const slotMinutesFromToday = Math.round((date.getTime() - today.getTime()) / 60000) + h * 60 + m;
+  const t = nowInTehran();
+  const nowMinutesFromToday = t.getUTCHours() * 60 + t.getUTCMinutes();
+  return slotMinutesFromToday - nowMinutesFromToday;
 }
 
 export function toDateOnlyString(date: Date): string {

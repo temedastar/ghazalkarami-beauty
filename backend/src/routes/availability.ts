@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { parseDateOnly, dayOfWeekUTC, isPastDate } from "../lib/dates";
-import { getDayOpenInfo, isTimeAllowed } from "../lib/schedule";
+import { getDayOpenInfo, isTimeAllowed, isSlotTooSoon } from "../lib/schedule";
 
 const router = Router();
 
@@ -52,8 +52,12 @@ router.get("/", async (req, res) => {
   });
   const takenTimes = new Set(holds.map((h) => h.time));
 
+  // for today specifically, a slot that's already started (or is about to,
+  // within BOOKING_LEAD_MINUTES) is dropped entirely rather than shown as
+  // "taken" — it was never booked by anyone, it's just no longer a real
+  // appointment to offer. isSlotTooSoon() is always false for a future date.
   const slots = timeSlots
-    .filter((s) => isTimeAllowed(s.time, dayInfo))
+    .filter((s) => isTimeAllowed(s.time, dayInfo) && !isSlotTooSoon(date, s.time))
     .map((s) => ({ time: s.time, available: !takenTimes.has(s.time) }));
   res.json({ dayOpen: true, slots });
 });

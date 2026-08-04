@@ -1,6 +1,21 @@
 import { prisma } from "./prisma";
-import { dayOfWeekUTC } from "./dates";
+import { dayOfWeekUTC, minutesUntil } from "./dates";
 import type { Service } from "@prisma/client";
+
+// a customer arriving (or a walk-in being squeezed in) with zero notice
+// isn't a real appointment — this also closes the specific bug where a
+// same-day slot whose start time had already passed was still shown as
+// bookable, since date-level checks alone (isPastDate) never look at the
+// clock once the date itself is "today"
+export const BOOKING_LEAD_MINUTES = 60;
+
+/** True once a same-day slot is within BOOKING_LEAD_MINUTES of its start
+ * (or has already started/passed) — evaluated in Tehran time regardless of
+ * what timezone the server process itself is running in. A slot on a
+ * future date is never "too soon" here. */
+export function isSlotTooSoon(date: Date, time: string): boolean {
+  return minutesUntil(date, time) < BOOKING_LEAD_MINUTES;
+}
 
 export interface DayOpenInfo {
   open: boolean;

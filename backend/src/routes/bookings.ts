@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { parseDateOnly, dayOfWeekUTC, isPastDate } from "../lib/dates";
-import { getDayOpenInfo, isTimeAllowed, computeDepositAmount } from "../lib/schedule";
+import { getDayOpenInfo, isTimeAllowed, isSlotTooSoon, computeDepositAmount } from "../lib/schedule";
 import { cancelBookingAndMaybeRefund } from "../services/bookingCancellation";
 
 const router = Router();
@@ -64,6 +64,14 @@ router.post("/", createLimiter, requireAuth, async (req, res) => {
   });
   if (!timeSlot || !isTimeAllowed(timeSlot.time, dayInfo)) {
     return res.status(400).json({ error: "ساعت انتخابی معتبر نیست." });
+  }
+  // isPastDate() above only rejects a past calendar day — it says nothing
+  // about a same-day slot whose start time (or the required lead time
+  // before it) has already gone by. Checked here, not just filtered out of
+  // GET /availability, since the frontend list is only ever a suggestion —
+  // this is the actual point of no return for creating the booking.
+  if (isSlotTooSoon(date, timeSlot.time)) {
+    return res.status(400).json({ error: "این ساعت گذشته یا خیلی نزدیک است — لطفاً ساعت دیگری انتخاب کنید." });
   }
 
   const depositAmount = await computeDepositAmount(service);
