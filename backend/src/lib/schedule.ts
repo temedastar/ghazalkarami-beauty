@@ -7,7 +7,7 @@ import type { Service } from "@prisma/client";
 // same-day slot whose start time had already passed was still shown as
 // bookable, since date-level checks alone (isPastDate) never look at the
 // clock once the date itself is "today"
-export const BOOKING_LEAD_MINUTES = 60;
+export const BOOKING_LEAD_MINUTES = 30;
 
 /** True once a same-day slot is within BOOKING_LEAD_MINUTES of its start
  * (or has already started/passed) — evaluated in Tehran time regardless of

@@ -52,13 +52,19 @@ router.get("/", async (req, res) => {
   });
   const takenTimes = new Set(holds.map((h) => h.time));
 
-  // for today specifically, a slot that's already started (or is about to,
-  // within BOOKING_LEAD_MINUTES) is dropped entirely rather than shown as
-  // "taken" — it was never booked by anyone, it's just no longer a real
-  // appointment to offer. isSlotTooSoon() is always false for a future date.
+  // a same-day slot that's already started (or is about to, within
+  // BOOKING_LEAD_MINUTES) still shows up in the list — the frontend renders
+  // it disabled/struck-through with a "this time has passed" message on
+  // click, rather than silently vanishing — but it's never `available`, and
+  // POST /api/bookings independently re-checks isSlotTooSoon() regardless
+  // of what this endpoint returns, since the frontend list is only ever a
+  // suggestion. isSlotTooSoon() is always false for a future date.
   const slots = timeSlots
-    .filter((s) => isTimeAllowed(s.time, dayInfo) && !isSlotTooSoon(date, s.time))
-    .map((s) => ({ time: s.time, available: !takenTimes.has(s.time) }));
+    .filter((s) => isTimeAllowed(s.time, dayInfo))
+    .map((s) => {
+      const past = isSlotTooSoon(date, s.time);
+      return { time: s.time, available: !past && !takenTimes.has(s.time), past };
+    });
   res.json({ dayOpen: true, slots });
 });
 

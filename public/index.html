@@ -2044,7 +2044,12 @@ async function renderTimes(){
   if(myToken!==renderTimesToken)return; /* a newer date/service was picked while this was loading */
   tg.innerHTML='';
 
-  const allBooked = slots.length>0 && slots.every(s=>!s.available);
+  // "past" slots (today's already-elapsed times) don't count toward "the
+  // day is full" — that message should only fire when every slot a
+  // customer could still actually take is taken by someone else, not
+  // because some of today's times simply already happened
+  const liveSlots = slots.filter(s=>!s.past);
+  const allBooked = liveSlots.length>0 && liveSlots.every(s=>!s.available);
   if(!dayOpen || !slots.length || allBooked){
     const full=document.createElement('div');
     full.className='day-full';
@@ -2056,11 +2061,19 @@ async function renderTimes(){
   }
   slots.forEach(s=>{
     const b=document.createElement('button');b.className='tb'+(!s.available?' bkd':'');b.textContent=pd(s.time);
-    if(s.available)b.onclick=()=>{
-      document.querySelectorAll('#tg .tb').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');sTime=s.time;
-      updateSummary();
-    };
-    else b.disabled=true;
+    if(s.available){
+      b.onclick=()=>{
+        document.querySelectorAll('#tg .tb').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');sTime=s.time;
+        updateSummary();
+      };
+    }else if(s.past){
+      // stays a real (non-disabled) button so a click still lands somewhere
+      // and tells the customer why — a plain disabled button gives no
+      // feedback at all when tapped. It still can't be selected for booking.
+      b.onclick=()=>toastAlert('⛔️ این ساعت گذشته است.');
+    }else{
+      b.disabled=true;
+    }
     tg.appendChild(b);
   });
 }

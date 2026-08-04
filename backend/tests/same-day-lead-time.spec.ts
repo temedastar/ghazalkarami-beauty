@@ -25,7 +25,13 @@ function hhmm(minutesFromMidnight: number): string {
 // comparison that says nothing about the clock once the date itself is
 // "today" — plus it compared against the server process's own timezone
 // (UTC on Liara) rather than Tehran's.
-test("a same-day slot that has already passed (or is within the booking lead time) is neither offered nor bookable", async ({
+//
+// A past/too-soon slot is still returned by GET /availability (so the
+// frontend can render it struck-through with a "this time has passed"
+// message instead of it just vanishing) but is never `available`, and
+// POST /bookings independently rejects it regardless of what the list
+// endpoint returned — that's the one that actually has to hold.
+test("a same-day slot that has already passed (or is within the booking lead time) is shown but not bookable", async ({
   request,
 }) => {
   const now = nowInTehran();
@@ -44,7 +50,7 @@ test("a same-day slot that has already passed (or is within the booking lead tim
     .toISOString()
     .slice(0, 10);
 
-  const tooSoonTime = hhmm(nowMinutes + 10); // 10 min out — well inside the 60-min lead requirement
+  const tooSoonTime = hhmm(nowMinutes + 10); // 10 min out — well inside the 30-min lead requirement
   const okTime = hhmm(nowMinutes + 90); // 90 min out — clear of it
 
   const adminToken = testPool().adminToken;
@@ -74,9 +80,17 @@ test("a same-day slot that has already passed (or is within the booking lead tim
 
     const availability = await request.get(`/api/availability?categoryKey=h&date=${todayStr}`);
     expect(availability.status()).toBe(200);
-    const times: string[] = (await availability.json()).slots.map((s: { time: string }) => s.time);
-    expect(times, "the already-past/too-soon slot must not be offered at all").not.toContain(tooSoonTime);
-    expect(times, "a same-day slot safely past the lead time must still be offered").toContain(okTime);
+    const slots: { time: string; available: boolean; past: boolean }[] = (await availability.json()).slots;
+
+    const tooSoonSlot = slots.find((s) => s.time === tooSoonTime);
+    expect(tooSoonSlot, "the too-soon slot should still be listed, not silently dropped").toBeTruthy();
+    expect(tooSoonSlot!.past, "the too-soon slot must be flagged past").toBe(true);
+    expect(tooSoonSlot!.available, "the too-soon slot must not be selectable").toBe(false);
+
+    const okSlot = slots.find((s) => s.time === okTime);
+    expect(okSlot, "a same-day slot safely past the lead time must still be listed").toBeTruthy();
+    expect(okSlot!.past, "a same-day slot safely past the lead time must not be flagged past").toBe(false);
+    expect(okSlot!.available, "a same-day slot safely past the lead time must be selectable").toBe(true);
 
     const customerToken = testPool().customers[7].token;
     const customerAuth = { Authorization: `Bearer ${customerToken}` };
