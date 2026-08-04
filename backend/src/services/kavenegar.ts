@@ -53,10 +53,31 @@ async function sendLookup({ phone, type, template, token, token2, token3 }: Look
   try {
     const res = await fetch(url);
     const body = await res.text();
-    if (!res.ok) {
-      await logSms(phone, type, "FAILED", `HTTP ${res.status}: ${body.slice(0, 300)}`);
-      throw new Error(`Kavenegar lookup failed: ${res.status} ${body}`);
+
+    // Kavenegar can report a real failure (an unapproved template, a
+    // template name that doesn't match what's registered in their panel, an
+    // invalid receptor, ...) inside the JSON body's return.status field
+    // while still answering with plain HTTP 200 — checking only res.ok let
+    // those through as a logged "SUCCESS" even though no SMS was ever sent.
+    let kavenegarStatus: number | undefined;
+    let kavenegarMessage: string | undefined;
+    try {
+      const parsed = JSON.parse(body);
+      kavenegarStatus = parsed?.return?.status;
+      kavenegarMessage = parsed?.return?.message;
+    } catch {
+      // non-JSON body — the res.ok check below still catches this
     }
+
+    if (!res.ok || (kavenegarStatus !== undefined && kavenegarStatus !== 200)) {
+      const detail =
+        kavenegarStatus !== undefined
+          ? `Kavenegar status ${kavenegarStatus}: ${kavenegarMessage || "(no message)"}`
+          : `HTTP ${res.status}: ${body.slice(0, 300)}`;
+      await logSms(phone, type, "FAILED", detail);
+      throw new Error(`Kavenegar lookup failed: ${detail}`);
+    }
+
     await logSms(phone, type, "SUCCESS");
   } catch (err) {
     if (!(err instanceof Error && err.message.startsWith("Kavenegar lookup failed"))) {

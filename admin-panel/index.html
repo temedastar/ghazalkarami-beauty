@@ -1302,12 +1302,17 @@ window.deleteSocialLink = async (id) => {
 const SMS_TYPE_FA = {OTP:"کد ورود",BOOKING_CONFIRM:"تایید رزرو",REMINDER:"یادآوری نوبت",THANK_YOU_REVIEW:"تشکر + درخواست نظر"};
 tabs.smsLogs = async () => {
   const {logs} = await api("/admin/sms-logs?limit=200");
-  let html = `<h1>پیامک‌ها</h1><div class="card table-wrap"><table class="simple"><thead><tr><th>موبایل</th><th>نوع</th><th>وضعیت</th><th>زمان</th></tr></thead><tbody>`;
-  if(!logs.length) html += `<tr><td colspan="4" class="muted">هنوز پیامکی ارسال نشده.</td></tr>`;
+  let html = `<h1>پیامک‌ها</h1><div class="card table-wrap"><table class="simple"><thead><tr><th>موبایل</th><th>نوع</th><th>وضعیت</th><th>خطا</th><th>زمان</th></tr></thead><tbody>`;
+  if(!logs.length) html += `<tr><td colspan="5" class="muted">هنوز پیامکی ارسال نشده.</td></tr>`;
   logs.forEach(l=>{
     const tag = l.status==="SUCCESS"?"tag-open":l.status==="FAILED"?"tag-closed":"tag-muted";
     const statusFa = l.status==="SUCCESS"?"موفق":l.status==="FAILED"?"ناموفق":"حالت آزمایشی (بدون ارسال واقعی)";
-    html += `<tr><td>${l.phone}</td><td>${SMS_TYPE_FA[l.type]||l.type}</td><td><span class="tag ${tag}">${statusFa}</span></td><td>${fmtJalaliDate(l.createdAt)}، ${new Date(l.createdAt).toLocaleTimeString("fa-IR")}</td></tr>`;
+    // full text in the title attribute (hover) since Kavenegar error bodies
+    // can run long — the cell itself stays truncated so the table doesn't stretch
+    const errCell = l.errorMessage
+      ? `<span title="${esc(l.errorMessage)}" style="color:var(--danger);font-size:12.5px;">${esc(l.errorMessage.length>70?l.errorMessage.slice(0,70)+'…':l.errorMessage)}</span>`
+      : `<span class="muted">—</span>`;
+    html += `<tr><td>${l.phone}</td><td>${SMS_TYPE_FA[l.type]||l.type}</td><td><span class="tag ${tag}">${statusFa}</span></td><td>${errCell}</td><td>${fmtJalaliDate(l.createdAt)}، ${new Date(l.createdAt).toLocaleTimeString("fa-IR")}</td></tr>`;
   });
   html += `</tbody></table></div>`;
   setMainContent(html);
