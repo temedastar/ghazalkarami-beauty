@@ -387,6 +387,13 @@ tabs.dashboard = async () => {
   </div>
   <p class="muted" style="margin:-6px 0 18px;">درآمد فقط شامل بیعانه‌های واقعاً پرداخت‌شده از طریق زرین‌پال است؛ نوبت‌های ثبت‌دستی/حضوری در این عدد حساب نمی‌شوند.</p>`;
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  html += `<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <span>رزروهای یک روز خاص</span>
+    <input type="date" id="dashDayPicker" value="${todayStr}" onchange="loadDashboardDay(this.value)" style="width:auto;">
+  </div>
+  <div id="dashDayResult"></div>`;
+
   // most-actionable, most-checked list first — the two analytical/read-only
   // sections (trend chart, popularity ranking) are a lower-priority glance,
   // not something Ghazal needs to act on day to day, so they follow below
@@ -433,6 +440,63 @@ tabs.dashboard = async () => {
   html += `</div>`;
 
   setMainContent(html);
+  loadDashboardDay(todayStr);
+};
+
+// depends on BOOKING_STATUS_FA / BOOKING_STATUS_TAG_CLASS / renderBookingsList,
+// all defined further down in the "رزروها" section — safe since this only
+// ever runs after the whole script has loaded (triggered by the date input's
+// onchange or the initial call above), never during the script's own
+// top-to-bottom evaluation
+window.loadDashboardDay = async (dateStr) => {
+  const resultEl = document.getElementById("dashDayResult");
+  if (!resultEl) return; // tab was switched away before this resolved
+  resultEl.innerHTML = `<p class="muted">در حال بارگذاری…</p>`;
+  try {
+    const { bookings } = await api(`/admin/bookings?date=${dateStr}`);
+    if (resultEl !== document.getElementById("dashDayResult")) return; // tab re-rendered meanwhile
+
+    if (!bookings.length) {
+      resultEl.innerHTML = `<div class="card muted">هیچ رزروی برای ${fmtJalaliDate(dateStr)} ثبت نشده.</div>`;
+      return;
+    }
+
+    // "دریافتی" matches the exact same definition already used above for
+    // امروز/این‌هفته/این‌ماه: only deposits actually confirmed paid through
+    // زرین‌پال — a manual/in-person booking has no Payment row at all, so
+    // there's no real confirmation cash changed hands to count here either
+    const totalReceived = bookings
+      .filter((b) => b.payment && b.payment.status === "PAID")
+      .reduce((sum, b) => sum + b.depositAmount, 0);
+
+    const breakdown = {};
+    bookings.forEach((b) => {
+      breakdown[b.status] = (breakdown[b.status] || 0) + 1;
+    });
+
+    let html = `<div class="card" style="margin-bottom:14px;">
+      <div class="row" style="border:none;padding:0;">
+        <div><span style="font-size:26px;font-weight:900;color:var(--must-l);">${pd(bookings.length)}</span>
+          <span class="muted" style="font-size:12.5px;">رزرو در ${fmtJalaliDate(dateStr)}</span></div>
+        <div style="text-align:left;">
+          <span style="font-size:16px;font-weight:800;color:#7FD9A4;">${toman(totalReceived)}</span>
+          <div class="muted" style="font-size:12px;">بیعانه‌ی دریافتی</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;">
+        ${Object.entries(breakdown)
+          .map(
+            ([status, count]) =>
+              `<span class="tag ${BOOKING_STATUS_TAG_CLASS[status] || "tag-muted"}">${pd(count)} ${BOOKING_STATUS_FA[status] || status}</span>`
+          )
+          .join("")}
+      </div>
+    </div>`;
+    html += renderBookingsList(bookings, "ALL");
+    resultEl.innerHTML = html;
+  } catch (e) {
+    resultEl.innerHTML = `<div class="card muted">خطا در دریافت اطلاعات: ${esc(e.message)}</div>`;
+  }
 };
 
 /* =====================================================================
