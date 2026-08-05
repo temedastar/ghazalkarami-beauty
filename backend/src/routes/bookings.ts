@@ -29,11 +29,22 @@ const createSchema = z.object({
   date: z.string(),
   time: z.string(),
   note: z.string().max(300).optional(),
+  womenOnlyConfirmed: z.boolean().optional(),
 });
 
 router.post("/", createLimiter, requireAuth, async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+
+  // the frontend checkbox disables the submit button until this is checked,
+  // but that's only ever a suggestion — a direct API call bypassing the UI
+  // must be rejected here too, with a specific enough message that it can't
+  // be mistaken for a generic validation failure
+  if (!parsed.data.womenOnlyConfirmed) {
+    return res.status(400).json({
+      error: "برای ثبت رزرو لازم است تایید کنید که این سالن مخصوص بانوان است.",
+    });
+  }
 
   const date = parseDateOnly(parsed.data.date);
   if (!date) return res.status(400).json({ error: "تاریخ نامعتبر است." });
@@ -108,6 +119,8 @@ router.post("/", createLimiter, requireAuth, async (req, res) => {
           depositAmount,
           customerNote: parsed.data.note,
           holdExpiresAt: new Date(Date.now() + HOLD_MINUTES * 60 * 1000),
+          // parsed.data.womenOnlyConfirmed was already required to be true above
+          womenOnlyConfirmedAt: new Date(),
         },
       });
 

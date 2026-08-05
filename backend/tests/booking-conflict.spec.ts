@@ -15,26 +15,26 @@ test.describe("shared-line booking conflicts", () => {
 
     const first = await request.post("/api/bookings", {
       headers: auth,
-      data: { serviceKey: "keratin", date, time: "10:00" },
+      data: { serviceKey: "keratin", date, time: "10:00", womenOnlyConfirmed: true },
     });
     expect(first.status(), await first.text()).toBe(201);
 
     const second = await request.post("/api/bookings", {
       headers: auth,
-      data: { serviceKey: "botox", date, time: "10:00" },
+      data: { serviceKey: "botox", date, time: "10:00", womenOnlyConfirmed: true },
     });
     expect(second.status()).toBe(409);
 
     const third = await request.post("/api/bookings", {
       headers: auth,
-      data: { serviceKey: "protein_therapy", date, time: "10:00" },
+      data: { serviceKey: "protein_therapy", date, time: "10:00", womenOnlyConfirmed: true },
     });
     expect(third.status()).toBe(409);
 
     // control: haircut is an independent line and must still be bookable
     const control = await request.post("/api/bookings", {
       headers: auth,
-      data: { serviceKey: "haircut", date, time: "10:00" },
+      data: { serviceKey: "haircut", date, time: "10:00", womenOnlyConfirmed: true },
     });
     expect(control.status(), await control.text()).toBe(201);
   });
@@ -76,7 +76,7 @@ test.describe("shared-line booking conflicts", () => {
     const token = testPool().customers[1].token;
     const attempt = await request.post("/api/bookings", {
       headers: { Authorization: `Bearer ${token}` },
-      data: { serviceKey: "keratin", date: manualDate, time: "14:30" },
+      data: { serviceKey: "keratin", date: manualDate, time: "14:30", womenOnlyConfirmed: true },
     });
     expect(attempt.status()).toBe(409);
   });

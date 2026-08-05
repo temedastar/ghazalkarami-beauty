@@ -19,7 +19,7 @@ test("percentage-based deposit is computed correctly, and cleanly reverts to fix
     const token = testPool().customers[2].token;
     const booking = await request.post("/api/bookings", {
       headers: { Authorization: `Bearer ${token}` },
-      data: { serviceKey: "haircut", date: nextWeekday(35), time: "10:00" },
+      data: { serviceKey: "haircut", date: nextWeekday(35), time: "10:00", womenOnlyConfirmed: true },
     });
     expect(booking.status(), await booking.text()).toBe(201);
     const body = await booking.json();

@@ -642,6 +642,14 @@ section{padding:96px 0;}
 .pick .pv b{color:var(--must-l);}
 .bsm{display:flex;justify-content:center;}
 .bsm .btn{font-size:18px;padding:18px 48px;min-height:62px;}
+.wo-confirm{display:flex;align-items:flex-start;gap:10px;margin:0 0 20px;cursor:pointer;user-select:none;
+  font-size:13.5px;color:var(--ink-2);line-height:1.7;}
+.wo-confirm input{appearance:none;-webkit-appearance:none;flex-shrink:0;width:21px;height:21px;margin-top:1px;
+  border:1.5px solid var(--must);border-radius:6px;cursor:pointer;background:var(--bone);
+  display:inline-flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s;}
+.wo-confirm input:checked{background:var(--must);border-color:var(--must);}
+.wo-confirm input:checked::after{content:"✓";color:var(--night);font-size:14px;font-weight:900;line-height:1;}
+.wo-confirm input:focus-visible{outline:2px solid var(--must-d);outline-offset:2px;}
 .phone-alt{display:flex;align-items:center;justify-content:center;gap:14px;
   margin:26px auto 0;max-width:860px;background:rgba(251,247,238,.04);
   border:1px dashed rgba(223,160,45,.35);border-radius:18px;padding:20px 24px;
@@ -1138,6 +1146,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
       <span class="kicker">رزرو نوبت آنلاین</span>
       <h2>رزرو نوبت، در سه قدم ساده</h2>
       <p>سرویس، روز و ساعت را انتخاب کنید — همین! بعد از پرداخت، پیامک تایید برایتان ارسال می‌شود.</p>
+      <span class="ptag" style="margin-top:14px;">این سالن تخصصی مو، مخصوص بانوان است</span>
     </div>
     <div class="bp rv">
       <div class="warn" id="cb"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span id="cbm"></span></div>
@@ -1170,6 +1179,10 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <div class="pt">انتخاب شما</div>
         <div class="pv" id="bst">سرویس: <b>هیرکات</b> — لطفاً روز و ساعت را انتخاب کنید</div>
       </div>
+      <label class="wo-confirm">
+        <input type="checkbox" id="womenOnlyConfirm">
+        <span>تایید می‌کنم که این سالن مخصوص بانوان است و رزرو برای یک بانو انجام می‌شود.</span>
+      </label>
       <div class="bsm">
         <button class="btn b-gold" onclick="startBookingAuth()">تایید و ادامه رزرو ←</button>
       </div>
@@ -2641,6 +2654,10 @@ function startBookingAuth(){
     toastAlert('این سرویس فقط با هماهنگی مستقیم در دایرکت اینستاگرام قابل رزرو است.');
     return;
   }
+  if(!document.getElementById('womenOnlyConfirm').checked){
+    toastAlert('برای ادامه، لطفاً تایید کنید که این سالن مخصوص بانوان است.');
+    return;
+  }
   pendingAction='booking';
   if(AUTH_TOKEN)proceedBooking();
   else openAuth('register');
@@ -2652,7 +2669,7 @@ async function proceedBooking(){
     const res=await fetch('/api/bookings',{
       method:'POST',
       headers:{'Content-Type':'application/json',Authorization:`Bearer ${AUTH_TOKEN}`},
-      body:JSON.stringify({serviceKey:cKey,date:toApiDateStr(selectedDate),time:sTime}),
+      body:JSON.stringify({serviceKey:cKey,date:toApiDateStr(selectedDate),time:sTime,womenOnlyConfirmed:document.getElementById('womenOnlyConfirm').checked}),
     });
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||'ثبت رزرو ناموفق بود.');

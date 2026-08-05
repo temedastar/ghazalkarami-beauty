@@ -38,7 +38,7 @@ test.describe("cancelling a CONFIRMED+PAID booking", () => {
 
     const booking = await request.post("/api/bookings", {
       headers: auth,
-      data: { serviceKey: "haircut", date, time: "17:00" },
+      data: { serviceKey: "haircut", date, time: "17:00", womenOnlyConfirmed: true },
     });
     expect(booking.status(), await booking.text()).toBe(201);
     const bookingId = (await booking.json()).booking.id;
@@ -65,7 +65,7 @@ test.describe("cancelling a CONFIRMED+PAID booking", () => {
 
     const booking = await request.post("/api/bookings", {
       headers: { Authorization: `Bearer ${token}` },
-      data: { serviceKey: "haircut", date, time: "18:30" },
+      data: { serviceKey: "haircut", date, time: "18:30", womenOnlyConfirmed: true },
     });
     const bookingId = (await booking.json()).booking.id;
 
@@ -112,7 +112,10 @@ test("cancelling a PENDING_PAYMENT (never-paid) booking never touches refund fie
   const auth = { Authorization: `Bearer ${token}` };
   const date = nextWeekday(62);
 
-  const booking = await request.post("/api/bookings", { headers: auth, data: { serviceKey: "haircut", date, time: "10:00" } });
+  const booking = await request.post("/api/bookings", {
+    headers: auth,
+    data: { serviceKey: "haircut", date, time: "10:00", womenOnlyConfirmed: true },
+  });
   const bookingId = (await booking.json()).booking.id;
 
   const cancel = await request.delete(`/api/bookings/${bookingId}`, { headers: auth });

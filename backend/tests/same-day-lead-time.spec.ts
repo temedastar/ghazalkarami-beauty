@@ -97,14 +97,14 @@ test("a same-day slot that has already passed (or is within the booking lead tim
 
     const tooSoonBooking = await request.post("/api/bookings", {
       headers: customerAuth,
-      data: { serviceKey: "haircut", date: todayStr, time: tooSoonTime },
+      data: { serviceKey: "haircut", date: todayStr, time: tooSoonTime, womenOnlyConfirmed: true },
     });
     expect(tooSoonBooking.status()).toBe(400);
     expect((await tooSoonBooking.json()).error).toContain("گذشته");
 
     const okBooking = await request.post("/api/bookings", {
       headers: customerAuth,
-      data: { serviceKey: "haircut", date: todayStr, time: okTime },
+      data: { serviceKey: "haircut", date: todayStr, time: okTime, womenOnlyConfirmed: true },
     });
     expect(okBooking.status(), await okBooking.text()).toBe(201);
   } finally {

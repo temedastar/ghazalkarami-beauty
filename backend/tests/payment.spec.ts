@@ -8,7 +8,7 @@ test("cancelling at the payment gateway frees the slot immediately (not after an
 
   const booking = await request.post("/api/bookings", {
     headers: auth,
-    data: { serviceKey: "haircut", date, time: "10:00" },
+    data: { serviceKey: "haircut", date, time: "10:00", womenOnlyConfirmed: true },
   });
   const bookingId = (await booking.json()).booking.id;
 
@@ -35,7 +35,7 @@ test("cancelling at the payment gateway frees the slot immediately (not after an
   const secondToken = testPool().customers[4].token;
   const rebooked = await request.post("/api/bookings", {
     headers: { Authorization: `Bearer ${secondToken}` },
-    data: { serviceKey: "haircut", date, time: "10:00" },
+    data: { serviceKey: "haircut", date, time: "10:00", womenOnlyConfirmed: true },
   });
   expect(rebooked.status(), await rebooked.text()).toBe(201);
 });
@@ -48,7 +48,7 @@ test("an abandoned (never-paid) booking's hold is set to expire exactly 15 minut
 
   const booking = await request.post("/api/bookings", {
     headers: { Authorization: `Bearer ${token}` },
-    data: { serviceKey: "scalp_scrub", date, time: "10:00" },
+    data: { serviceKey: "scalp_scrub", date, time: "10:00", womenOnlyConfirmed: true },
   });
   const body = await booking.json();
   const holdExpiresAt = new Date(body.booking.holdExpiresAt).getTime();

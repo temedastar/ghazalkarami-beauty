@@ -244,6 +244,12 @@ model Booking {
   holdExpiresAt DateTime?
   reminderSentAt DateTime?
   cancelledAt   DateTime? // when status became CANCELLED — backs the admin panel's cancellation view
+  // set only for an ONLINE booking, the moment the customer checked "این
+  // سالن مخصوص بانوان است" on the booking form — a timestamp rather than a
+  // plain boolean so it also serves as the audit record of when consent was
+  // given. Admin-entered bookings (manual/block) never set this; Ghazal is
+  // booking on behalf of a customer she already knows is in the salon.
+  womenOnlyConfirmedAt DateTime?
 
   // nullable: ADMIN_BLOCK entries (Ghazal closing a slot with no assigned
   // customer/service) don't need either of these
