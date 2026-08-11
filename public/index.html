@@ -1415,7 +1415,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
         تماس مستقیم
       </a>
-      <a class="btn b-ghost" id="doniaInstaBtn" data-contact="donia-instagram" href="#" target="_blank" rel="noopener noreferrer" style="display:none;justify-content:center;">
+      <a class="btn b-line" id="doniaInstaBtn" data-contact="donia-instagram" href="#" target="_blank" rel="noopener noreferrer" style="display:none;justify-content:center;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
         پیج اینستاگرام دنیا سلیمانی
       </a>
@@ -1624,12 +1624,15 @@ const SOCIAL_ICONS={
   TELEGRAM:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 2.5 1.8 10.4c-1.1.45-1.1 1.1-.2 1.4l5 1.6 1.9 6.1c.25.7.6.85 1.2.35l3.2-2.9 5 3.7c.85.5 1.45.25 1.7-.7l3.1-15.1c.35-1.3-.45-1.85-1.2-1.3z"/></svg>',
   WHATSAPP:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2c-5.5 0-10 4.5-10 10 0 1.77.46 3.44 1.27 4.89L2 22l5.24-1.27A9.96 9.96 0 0 0 12.04 22c5.5 0 10-4.5 10-10s-4.5-10-10-10zm0 18.2c-1.6 0-3.13-.43-4.46-1.24l-.32-.19-3.11.76.77-3.03-.2-.32A8.17 8.17 0 0 1 3.8 12c0-4.55 3.7-8.24 8.24-8.24 4.55 0 8.24 3.7 8.24 8.24 0 4.55-3.7 8.2-8.24 8.2z"/></svg>',
   BALEH:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>',
+  // same phone-receiver icon already used for the fixed contact/whatsapp links below
+  PHONE:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
 };
 const SOCIAL_HREF_BUILDERS={
   INSTAGRAM:v=>'https://instagram.com/'+v.replace(/^@/,''),
   TELEGRAM:v=>'https://t.me/'+v.replace(/^@/,''),
   WHATSAPP:v=>'https://wa.me/'+v.replace(/[^\d+]/g,'').replace(/^0/,'98'),
   BALEH:v=>'https://bale.ai/'+v.replace(/^@/,''),
+  PHONE:v=>'tel:'+v.replace(/[^\d+]/g,''),
 };
 function renderSocialLinks(links){
   const container=document.getElementById('socialLinksList');

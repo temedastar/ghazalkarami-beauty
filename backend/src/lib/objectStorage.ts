@@ -34,17 +34,44 @@ function publicUrlFor(key: string): string {
 }
 
 export async function uploadBuffer(buffer: Buffer, key: string, contentType: string): Promise<string> {
-  await getClient().send(
-    new PutObjectCommand({
-      Bucket: env.objectStorage.bucket,
-      Key: key,
-      Body: buffer,
-      ContentType: contentType,
-      ACL: "public-read",
-      // key is a random UUID (see routes/admin.ts) — the object at this URL
-      // never changes, so it's safe to cache aggressively for a full year
-      CacheControl: "public, max-age=31536000, immutable",
-    })
-  );
+  try {
+    await getClient().send(
+      new PutObjectCommand({
+        Bucket: env.objectStorage.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+        // deliberately no ACL here — Liara Object Storage (and several
+        // other S3-compatible providers) manage public/private access as a
+        // BUCKET-level setting (ObjectRead / ObjectReadWithoutList /
+        // private, set in their console), not per-object ACL headers; their
+        // own upload examples never send one either. A bucket that isn't
+        // set to a public access level in Liara's console will still
+        // upload fine but won't be reachable at the public URL below —
+        // that's a console setting, not something this code can fix.
+        // key is a random UUID (see routes/admin.ts) — the object at this
+        // URL never changes, so it's safe to cache aggressively for a year
+        CacheControl: "public, max-age=31536000, immutable",
+      })
+    );
+  } catch (err) {
+    // AWS SDK v3 errors carry the actual provider-reported reason in
+    // .name/.message and the HTTP status/request id in $metadata — a plain
+    // console.error(err) usually surfaces these too, but logging them as
+    // explicit fields makes the real cause unmistakable in a log viewer
+    // that truncates or reformats stack traces (e.g. Liara's), instead of
+    // every failure looking like the same opaque object
+    const e = err as { name?: string; message?: string; $metadata?: { httpStatusCode?: number; requestId?: string } };
+    console.error("Object storage PutObject failed:", {
+      name: e?.name,
+      message: e?.message,
+      httpStatusCode: e?.$metadata?.httpStatusCode,
+      requestId: e?.$metadata?.requestId,
+      endpoint: env.objectStorage.endpoint,
+      bucket: env.objectStorage.bucket,
+      region: env.objectStorage.region,
+    });
+    throw err;
+  }
   return publicUrlFor(key);
 }

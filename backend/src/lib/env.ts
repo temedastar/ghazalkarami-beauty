@@ -80,7 +80,12 @@ export const env = {
   // plan resize or redeploy.
   objectStorage: {
     endpoint: process.env.OBJECT_STORAGE_ENDPOINT ?? "",
-    region: process.env.OBJECT_STORAGE_REGION ?? "us-east-1",
+    // Liara's own S3Client examples use the literal string "default", not a
+    // real AWS region — an S3-compatible gateway that validates the SigV4
+    // region against what it expects rejects every request when this is
+    // wrong, which is indistinguishable from a generic upload failure
+    // unless the underlying error is inspected (see objectStorage.ts)
+    region: process.env.OBJECT_STORAGE_REGION ?? "default",
     accessKeyId: process.env.OBJECT_STORAGE_ACCESS_KEY ?? "",
     secretAccessKey: process.env.OBJECT_STORAGE_SECRET_KEY ?? "",
     bucket: process.env.OBJECT_STORAGE_BUCKET ?? "",

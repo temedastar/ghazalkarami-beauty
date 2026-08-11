@@ -923,7 +923,7 @@ router.get("/social-links", async (_req, res) => {
 });
 
 const socialLinkCreateSchema = z.object({
-  platform: z.enum(["INSTAGRAM", "TELEGRAM", "WHATSAPP", "BALEH"]),
+  platform: z.enum(["INSTAGRAM", "TELEGRAM", "WHATSAPP", "BALEH", "PHONE"]),
   label: z.string().min(1).max(60),
   value: z.string().min(1).max(120),
   sortOrder: z.number().int().optional(),

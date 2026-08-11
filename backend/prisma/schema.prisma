@@ -403,6 +403,11 @@ enum SocialPlatform {
   TELEGRAM
   WHATSAPP
   BALEH
+  // a second (or third...) phone number the salon wants listed publicly —
+  // ContactInfo.phone already covers the one main number shown everywhere;
+  // this is for anything beyond that, using the exact same add/remove list
+  // UI the other platforms already have, rather than a bolt-on single field
+  PHONE
 }
 
 model SocialLink {
@@ -412,7 +417,7 @@ model SocialLink {
   id        String         @id @default(cuid())
   platform  SocialPlatform
   label     String // e.g. "سالن غزل کرمی" یا "آکادمی هیرکات"
-  value     String // هندل بدون @ برای اینستاگرام/تلگرام/بله، یا شماره برای واتساپ
+  value     String // هندل بدون @ برای اینستاگرام/تلگرام/بله، یا شماره برای واتساپ/تلفن
   sortOrder Int            @default(0)
   createdAt DateTime       @default(now())
 }

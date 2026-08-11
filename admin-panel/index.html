@@ -289,6 +289,23 @@ table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
 .cal-modal-close{background:none;border:none;color:rgba(251,247,238,.5);font-size:16px;cursor:pointer;padding:4px 8px;border-radius:8px;flex-shrink:0;}
 .cal-modal-close:hover{color:#fff;background:rgba(255,255,255,.08);}
 
+/* ---- Jalali date picker (wraps a hidden native <input type="date">, since
+   the native picker is always Gregorian and can't be switched via CSS) ---- */
+.jdp-wrap{position:relative;display:inline-block;}
+.jdp-trigger{padding:10px 13px;border-radius:10px;border:1.5px solid var(--gline);font-family:inherit;font-size:13.5px;
+  width:130px;background:rgba(255,255,255,.04);color:#fff;text-align:right;cursor:pointer;transition:border-color .2s ease,background .2s ease;}
+.jdp-trigger:hover{border-color:rgba(223,160,45,.4);}
+.jdp-popup{position:absolute;top:calc(100% + 8px);right:0;z-index:250;background:var(--night-2);
+  border:1px solid rgba(223,160,45,.3);border-radius:14px;padding:14px;width:240px;box-shadow:0 20px 45px -15px rgba(0,0,0,.6);}
+.jdp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:13.5px;font-weight:700;color:#fff;}
+.jdp-nav{background:none;border:none;color:var(--must-l);font-size:16px;cursor:pointer;padding:2px 9px;border-radius:8px;line-height:1;}
+.jdp-nav:hover{background:rgba(223,160,45,.12);}
+.jdp-dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:10.5px;color:rgba(251,247,238,.45);margin-bottom:4px;}
+.jdp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.jdp-day{background:none;border:none;color:#fff;font-size:12.5px;padding:7px 0;border-radius:8px;cursor:pointer;font-variant-numeric:tabular-nums;}
+.jdp-day:hover{background:rgba(223,160,45,.15);}
+.jdp-day.sel{background:var(--must);color:var(--night);font-weight:700;}
+
 @media(max-width:760px){
   #app.on{flex-direction:column;}
   .sidebar{width:100%;display:flex;overflow-x:auto;padding:12px 0;min-height:auto;height:auto;position:sticky;top:0;z-index:50;}
@@ -301,6 +318,9 @@ table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
   .form-grid{gap:12px;}
   input[type=text],input[type=number],input[type=date],input[type=time],input[type=tel],select{width:100%;}
   input[type=text].wide,input[type=tel].wide{width:100%;}
+  .jdp-wrap{width:100%;}
+  .jdp-trigger{width:100%;}
+  .jdp-popup{width:100%;right:0;}
   .stat-tile .n{font-size:24px;}
   .popular-row .name{width:100px;font-size:12.5px;}
   .day-row{padding:12px 2px;}
@@ -397,6 +417,152 @@ function fmtJalaliDate(dateInput){
   const [jy,jm,jd]=toJalali(d.getFullYear(),d.getMonth()+1,d.getDate());
   return `${pd(jd)} ${jalaliMonths[jm-1]} ${pd(jy)}`;
 }
+/* تبدیل جلالی به میلادی — همون الگوریتم معکوسی که تو public/index.html
+   برای تقویم رزرو مشتری استفاده و تست شده؛ فقط جای دیگه‌ای که یک روزِ
+   انتخاب‌شده‌ی شمسی باید به رشته‌ی ISO برای بک‌اند تبدیل بشه لازمه */
+function jalaliToGregorian(jy,jm,jd){
+  jy+=1595;
+  let days=-355668+(365*jy)+(Math.floor(jy/33)*8)+Math.floor(((jy%33)+3)/4)+jd+((jm<7)?(jm-1)*31:((jm-7)*30)+186);
+  let gy=400*Math.floor(days/146097);
+  days%=146097;
+  if(days>36524){
+    gy+=100*Math.floor(--days/36524);
+    days%=36524;
+    if(days>=365)days++;
+  }
+  gy+=4*Math.floor(days/1461);
+  days%=1461;
+  if(days>365){
+    gy+=Math.floor((days-1)/365);
+    days=(days-1)%365;
+  }
+  let gd=days+1;
+  const sal_a=[0,31,((gy%4===0&&gy%100!==0)||(gy%400===0))?29:28,31,30,31,30,31,31,30,31,30,31];
+  let gm;
+  for(gm=1;gm<=12;gm++){
+    if(gd<=sal_a[gm])break;
+    gd-=sal_a[gm];
+  }
+  return [gy,gm,gd];
+}
+function jdpDaysInMonth(jy,jm){
+  if(jm<=6) return 31;
+  if(jm<=11) return 30;
+  /* اسفند: طول واقعی‌اش از فاصله‌ی دقیق میان دو نوروز پشت‌سرهم */
+  const [gy1,gm1,gd1]=jalaliToGregorian(jy,1,1);
+  const [gy2,gm2,gd2]=jalaliToGregorian(jy+1,1,1);
+  const totalDays=Math.round((new Date(gy2,gm2-1,gd2)-new Date(gy1,gm1-1,gd1))/86400000);
+  return totalDays-336; /* ۶×۳۱ + ۵×۳۰ روزِ ۱۱ ماه اول، باقی‌مانده طول اسفند است */
+}
+
+/* تقویم انتخاب تاریخِ شمسی — یک <input type="date"> موجود را می‌گیرد (مخفی‌اش
+   می‌کند، ولی به‌عنوان تک‌منبع مقدار در DOM نگه می‌داره) و به‌جاش یک دکمه با
+   برچسب شمسی + یک تقویم بازشوی شمسی نشون می‌ده. چون input واقعی و مقدار و
+   رویداد change‌اش دست‌نخورده می‌مونه، هیچ‌کدوم از handler های onchange یا
+   خواندن مستقیمِ .value که از قبل روی این فیلدها نوشته شده لازم نیست عوض بشه —
+   فقط روش انتخاب مقدار عوض می‌شه، نه خودِ مقدار یا جریان داده. */
+function attachJalaliPicker(inputId){
+  const real=document.getElementById(inputId);
+  if(!real || real.dataset.jalaliAttached) return;
+  real.dataset.jalaliAttached="1";
+  real.style.display="none";
+
+  const wrap=document.createElement("div");
+  wrap.className="jdp-wrap";
+  real.insertAdjacentElement("afterend", wrap);
+  const trigger=document.createElement("button");
+  trigger.type="button";
+  trigger.className="jdp-trigger";
+  wrap.appendChild(trigger);
+
+  function label(){
+    if(!real.value) return "انتخاب تاریخ";
+    const [y,m,d]=real.value.split("-").map(Number);
+    const [jy,jm,jd]=toJalali(y,m,d);
+    return `${pd(jd)} ${jalaliMonths[jm-1]} ${pd(jy)}`;
+  }
+  trigger.textContent=label();
+
+  let viewJY, viewJM;
+  // مهم: دکمه‌های ناوبری (‹›) فقط یک‌بار ساخته می‌شن و در DOM ثابت می‌مونن —
+  // اگه به‌جاش هر بار کل popup.innerHTML عوض بشه، همون دکمه‌ای که همین الان
+  // کلیک شده وسط پردازش رویداد کلیک خودش از DOM جدا می‌شه؛ آن‌گاه
+  // e.target.closest('.jdp-wrap') برای اون رویداد دیگه چیزی پیدا نمی‌کنه و
+  // listener سراسریِ «کلیک بیرون» popup رو می‌بنده — یعنی یک کلیک روی خودِ
+  // ناوبری، popup رو باز می‌کرد و بلافاصله همون لحظه دوباره می‌بست. برای
+  // همین، فقط برچسبِ ماه/سال و شبکه‌ی روزها re-render می‌شن، نه کل popup.
+  function renderGrid(monthLabelEl, gridEl){
+    monthLabelEl.textContent=`${jalaliMonths[viewJM-1]} ${pd(viewJY)}`;
+    const daysInMonth=jdpDaysInMonth(viewJY,viewJM);
+    const [gy1,gm1,gd1]=jalaliToGregorian(viewJY,viewJM,1);
+    const firstDow=(new Date(gy1,gm1-1,gd1).getDay()+1)%7; /* شنبه=۰ */
+    let html="";
+    for(let i=0;i<firstDow;i++) html+=`<span></span>`;
+    for(let day=1;day<=daysInMonth;day++){
+      const [gy,gm,gd]=jalaliToGregorian(viewJY,viewJM,day);
+      const iso=`${gy}-${String(gm).padStart(2,"0")}-${String(gd).padStart(2,"0")}`;
+      html+=`<button type="button" class="jdp-day ${real.value===iso?"sel":""}" data-iso="${iso}">${pd(day)}</button>`;
+    }
+    gridEl.innerHTML=html;
+    gridEl.querySelectorAll(".jdp-day").forEach(b=>b.onclick=(e)=>{
+      e.stopPropagation();
+      real.value=b.dataset.iso;
+      real.dispatchEvent(new Event("change",{bubbles:true}));
+      trigger.textContent=label();
+      wrap.querySelector(".jdp-popup")?.remove();
+    });
+  }
+
+  trigger.onclick=(e)=>{
+    e.stopPropagation();
+    const existing=wrap.querySelector(".jdp-popup");
+    if(existing){ existing.remove(); return; }
+    document.querySelectorAll(".jdp-popup").forEach(p=>p.remove());
+    const now=new Date();
+    if(real.value){
+      const [y,m,d]=real.value.split("-").map(Number);
+      [viewJY,viewJM]=toJalali(y,m,d);
+    }else{
+      [viewJY,viewJM]=toJalali(now.getFullYear(),now.getMonth()+1,now.getDate());
+    }
+    const popup=document.createElement("div");
+    popup.className="jdp-popup";
+    popup.innerHTML=`<div class="jdp-head">
+      <button type="button" class="jdp-nav" data-dir="1">›</button>
+      <span></span>
+      <button type="button" class="jdp-nav" data-dir="-1">‹</button>
+    </div>
+    <div class="jdp-dow">${["ش","ی","د","س","چ","پ","ج"].map(s=>`<span>${s}</span>`).join("")}</div>
+    <div class="jdp-grid"></div>`;
+    wrap.appendChild(popup);
+    const monthLabelEl=popup.querySelector(".jdp-head span");
+    const gridEl=popup.querySelector(".jdp-grid");
+    popup.querySelectorAll(".jdp-nav").forEach(b=>b.onclick=(e2)=>{
+      e2.stopPropagation();
+      viewJM+=Number(b.dataset.dir);
+      if(viewJM>12){viewJM=1;viewJY++;}
+      if(viewJM<1){viewJM=12;viewJY--;}
+      renderGrid(monthLabelEl, gridEl);
+    });
+    renderGrid(monthLabelEl, gridEl);
+  };
+  // اگه جای دیگه‌ای مقدار input واقعی رو مستقیم عوض کنه (کمتر پیش میاد، ولی
+  // برای اطمینان)، برچسبِ دکمه هم به‌روز بمونه
+  real.addEventListener("change",()=>{ trigger.textContent=label(); });
+}
+// یک listener سراسری برای بستن هر تقویم بازی که بیرونش کلیک بشه — یک‌بار
+// ثبت می‌شه (نه یک‌بار به‌ازای هر attachJalaliPicker)، چون هر بار باز شدن یک
+// تب، تمام input های تاریخ رو از نو می‌سازه و attachJalaliPicker رو دوباره
+// صدا می‌زنه؛ یک listener جدا به‌ازای هر بار، طی یک نشست طولانی روی هم تلنبار
+// می‌شد
+document.addEventListener("click",(e)=>{
+  // یک target که دیگه به سند وصل نیست (مثلاً همون لحظه با یک re-render حذف
+  // شده) closest() روی هیچی رو برنمی‌گردونه — نباید این حالت به معنیِ
+  // «کلیک بیرون از تقویم» تعبیر بشه
+  if(!e.target.isConnected) return;
+  if(e.target.closest(".jdp-wrap")) return;
+  document.querySelectorAll(".jdp-popup").forEach(p=>p.remove());
+});
 
 /* every tab render goes through this instead of a raw innerHTML assignment,
    so switching tabs gets a consistent subtle fade instead of an abrupt swap */
@@ -533,6 +699,7 @@ tabs.dashboard = async () => {
   html += `</div>`;
 
   setMainContent(html);
+  attachJalaliPicker("dashDayPicker");
   loadDashboardDay(todayStr);
 };
 
@@ -1208,6 +1375,9 @@ tabs.schedule = async () => {
   window._scheduleCategories = categories;
   renderSlotDay();
   renderExHoursVisibility();
+  attachJalaliPicker("exDate");
+  attachJalaliPicker("closureStart");
+  attachJalaliPicker("closureEnd");
 };
 
 /* custom hours only make sense when the exception marks the day open — no
@@ -1458,6 +1628,7 @@ tabs.bookings = async () => {
   setMainContent(html);
   window._bookingsCategories = categories;
   renderManualServiceOptions();
+  attachJalaliPicker("mbDate");
 };
 function renderManualServiceOptions(){
   const catId=document.getElementById("mbCat").value;
@@ -1530,9 +1701,9 @@ tabs.gallery = async () => {
   const {images} = await api("/admin/gallery");
   let html = `<h1>گالری</h1><div class="card">
     <label class="upload-btn">افزودن عکس جدید
-      <input type="file" accept="image/*" style="display:none;" onchange="uploadImage(this)">
+      <input type="file" accept="image/*" multiple style="display:none;" onchange="uploadImage(this)">
     </label>
-    <span class="muted" style="margin-right:10px;">JPG / PNG / WebP — حداکثر ۸ مگابایت</span>
+    <span class="muted" style="margin-right:10px;">JPG / PNG / WebP — حداکثر ۸ مگابایت هر عکس — می‌توانید چند عکس را هم‌زمان انتخاب کنید</span>
   </div>`;
   html += `<div class="grid-imgs">`;
   images.forEach((img,idx)=>{
@@ -1573,17 +1744,28 @@ window.moveGalleryImage = async (id, direction) => {
   }catch(e){ toast(e.message,true); }
 };
 window.uploadImage = async (input) => {
-  const file = input.files[0];
-  if(!file) return;
+  const files = Array.from(input.files || []);
+  if(!files.length) return;
   if(input.disabled) return; // already uploading — the change event can't normally re-fire mid-upload, but guard anyway
   input.disabled = true;
-  try{
-    const fd = new FormData(); fd.append("file", file);
-    const data = await api("/admin/upload", { method:"POST", body: fd });
-    await api("/admin/gallery",{method:"POST",body:JSON.stringify({url:data.url,category:"haircut"})});
-    toast("عکس اضافه شد.");
-    tabs.gallery(); // re-renders the tab, which recreates (and re-enables) this input
-  }catch(e){ toast(e.message,true); input.disabled = false; input.value = ""; }
+  // uploaded one at a time (not Promise.all) — a salon owner selecting a
+  // few dozen photos at once shouldn't fire that many concurrent requests
+  // against the image-optimization step, and a running "x از y" count is
+  // more useful feedback than everything landing at once anyway
+  let uploaded = 0;
+  const failures = [];
+  for(const file of files){
+    try{
+      const fd = new FormData(); fd.append("file", file);
+      const data = await api("/admin/upload", { method:"POST", body: fd });
+      await api("/admin/gallery",{method:"POST",body:JSON.stringify({url:data.url,category:"haircut"})});
+      uploaded++;
+      if(files.length>1) toast(`در حال آپلود… (${uploaded} از ${files.length})`);
+    }catch(e){ failures.push(`${file.name}: ${e.message}`); }
+  }
+  if(failures.length) toast(`${uploaded} عکس اضافه شد — ${failures.length} مورد ناموفق: ${failures.join(" | ")}`, uploaded===0);
+  else toast(files.length>1 ? `${uploaded} عکس اضافه شد.` : "عکس اضافه شد.");
+  tabs.gallery(); // re-renders the tab, which recreates (and re-enables) this input
 };
 window.updateGalleryField = async (id, field, value) => {
   try{ await api(`/admin/gallery/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
@@ -1642,6 +1824,7 @@ tabs.reviews = async () => {
   </details>`;
 
   setMainContent(html);
+  attachJalaliPicker("rvDate");
 };
 window.setReviewStatus = async (id, status) => {
   try{ await api(`/admin/reviews/${id}`,{method:"PATCH",body:JSON.stringify({status})}); toast("وضعیت به‌روزرسانی شد."); tabs.reviews(); }
@@ -1896,7 +2079,10 @@ window.setClassStatus = async (id, status) => {
 /* =====================================================================
    اطلاعات تماس
    ===================================================================== */
-const SOCIAL_PLATFORM_FA = {INSTAGRAM:"اینستاگرام", TELEGRAM:"تلگرام", WHATSAPP:"واتساپ", BALEH:"بله"};
+const SOCIAL_PLATFORM_FA = {INSTAGRAM:"اینستاگرام", TELEGRAM:"تلگرام", WHATSAPP:"واتساپ", BALEH:"بله", PHONE:"شماره تماس دیگر"};
+// اینستاگرام/تلگرام/بله یک آیدی می‌گیرن؛ واتساپ و شماره‌ی دیگر یک شماره تلفن —
+// همون فرقی که قبلاً فقط برای واتساپ در نظر گرفته شده بود
+const SOCIAL_PLATFORM_IS_PHONE_LIKE = {WHATSAPP:true, PHONE:true};
 
 tabs.contact = async () => {
   const [{contact}, {links}] = await Promise.all([
@@ -1921,22 +2107,25 @@ tabs.contact = async () => {
     </div>
   </div>`;
 
-  html += `<div class="section-title">شبکه‌های اجتماعی (می‌توانید چند آیدی برای هر پلتفرم اضافه کنید — مثلاً یکی برای سالن، یکی برای آکادمی)</div>`;
+  html += `<div class="section-title">شبکه‌های اجتماعی و شماره‌های دیگر (می‌توانید چند مورد برای هر بخش اضافه کنید — مثلاً یکی برای سالن، یکی برای آکادمی)</div>`;
   Object.entries(SOCIAL_PLATFORM_FA).forEach(([platform, label])=>{
+    const isPhoneLike = Boolean(SOCIAL_PLATFORM_IS_PHONE_LIKE[platform]);
+    const valuePlaceholder = isPhoneLike ? "شماره (مثلاً 09121234567)" : "آیدی (بدون @)";
+    const noun = isPhoneLike ? "شماره‌ای" : "آیدی‌ای";
     const rows = links.filter(l=>l.platform===platform);
     html += `<div class="card" style="margin-bottom:14px;">
       <h3 style="margin-bottom:10px;">${label}</h3>`;
     rows.forEach(l=>{
       html += `<div class="row" style="gap:10px;margin-bottom:8px;">
         <input type="text" placeholder="برچسب (مثلاً «سالن» یا «آکادمی»)" value="${esc(l.label)}" onchange="updateSocialLink('${l.id}','label',this.value)" style="flex:1;">
-        <input type="text" placeholder="${platform==='WHATSAPP'?'شماره (مثلاً 09121234567)':'آیدی (بدون @)'}" value="${esc(l.value)}" onchange="updateSocialLink('${l.id}','value',this.value)" style="flex:1;">
+        <input type="${isPhoneLike?'tel':'text'}" placeholder="${valuePlaceholder}" value="${esc(l.value)}" onchange="updateSocialLink('${l.id}','value',this.value)" style="flex:1;">
         <button class="btn btn-danger btn-sm" onclick="deleteSocialLink('${l.id}')">حذف</button>
       </div>`;
     });
-    if(!rows.length) html += `<p class="muted" style="margin-bottom:8px;">هنوز آیدی‌ای برای ${label} اضافه نشده.</p>`;
+    if(!rows.length) html += `<p class="muted" style="margin-bottom:8px;">هنوز ${noun} برای ${label} اضافه نشده.</p>`;
     html += `<div class="row" style="gap:10px;">
         <input type="text" placeholder="برچسب" id="newLabel-${platform}" style="flex:1;">
-        <input type="text" placeholder="${platform==='WHATSAPP'?'شماره':'آیدی (بدون @)'}" id="newValue-${platform}" style="flex:1;">
+        <input type="${isPhoneLike?'tel':'text'}" placeholder="${valuePlaceholder}" id="newValue-${platform}" style="flex:1;">
         <button class="btn btn-gold btn-sm" onclick="addSocialLink('${platform}')">افزودن</button>
       </div>
     </div>`;
