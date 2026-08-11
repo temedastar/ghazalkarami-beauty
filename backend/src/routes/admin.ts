@@ -252,9 +252,18 @@ router.patch("/working-days/:dayOfWeek", async (req, res) => {
 
 /* ---------- day exceptions (specific-date overrides + temporary closures) ---------- */
 
-router.get("/day-exceptions", async (_req, res) => {
+router.get("/day-exceptions", async (req, res) => {
+  // the "زمان‌بندی سالن" tab wants future exceptions only (its default, no
+  // params) — the calendar view needs to see exceptions for whatever week
+  // it's currently showing, including past ones when navigating backward,
+  // so it passes an explicit range instead
+  const fromStr = typeof req.query.from === "string" ? req.query.from : undefined;
+  const toStr = typeof req.query.to === "string" ? req.query.to : undefined;
+  const from = fromStr ? parseDateOnly(fromStr) : undefined;
+  const to = toStr ? parseDateOnly(toStr) : undefined;
   const exceptions = await prisma.dayException.findMany({
-    where: { date: { gte: new Date(new Date().toISOString().slice(0, 10)) } },
+    where:
+      from && to ? { date: { gte: from, lte: to } } : { date: { gte: new Date(new Date().toISOString().slice(0, 10)) } },
     orderBy: { date: "asc" },
   });
   res.json({ exceptions });
@@ -611,11 +620,20 @@ router.post("/reviews", async (req, res) => {
 router.get("/bookings", async (req, res) => {
   const dateStr = typeof req.query.date === "string" ? req.query.date : undefined;
   const upcoming = req.query.upcoming === "1";
+  // date-range mode — used by the admin calendar view to fetch a whole
+  // visible week in one request instead of one per day. Independent of
+  // (and lower-priority than) the single-date/upcoming modes above, which
+  // existing callers still use unchanged.
+  const fromStr = typeof req.query.from === "string" ? req.query.from : undefined;
+  const toStr = typeof req.query.to === "string" ? req.query.to : undefined;
   const date = dateStr ? parseDateOnly(dateStr) : undefined;
+  const from = fromStr ? parseDateOnly(fromStr) : undefined;
+  const to = toStr ? parseDateOnly(toStr) : undefined;
   const bookings = await prisma.booking.findMany({
     where: {
       ...(date ? { date } : {}),
       ...(upcoming ? { date: { gte: new Date(new Date().toISOString().slice(0, 10)) } } : {}),
+      ...(from && to ? { date: { gte: from, lte: to } } : {}),
     },
     include: { service: true, category: true, user: { select: SAFE_USER_SELECT }, payment: true },
     orderBy: [{ date: "asc" }, { time: "asc" }],

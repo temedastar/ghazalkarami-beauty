@@ -206,6 +206,89 @@ details.add-form summary:hover{color:#fff;}
 .popular-row .name{width:140px;flex-shrink:0;font-size:13px;color:#fff;}
 .popular-row .count{width:26px;flex-shrink:0;text-align:left;font-size:12.5px;color:var(--must-l);font-weight:700;}
 
+/* ---- calendar (تقویم) ---- */
+.cal-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
+.cal-toolbar select{width:auto;min-width:170px;}
+.cal-nav{display:flex;align-items:center;gap:6px;}
+.cal-nav .btn{padding:8px 14px;}
+.cal-range-label{font-size:13px;color:rgba(251,247,238,.65);margin-right:auto;}
+
+.cal-legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;padding:12px 16px;
+  background:rgba(255,255,255,.02);border:1px solid var(--gline);border-radius:12px;}
+.cal-leg-item{display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(251,247,238,.65);}
+.cal-sw{width:14px;height:14px;border-radius:5px;display:inline-block;flex-shrink:0;border:1.5px solid var(--gline);}
+.cal-sw-empty{background:rgba(251,247,238,.24);border-color:rgba(251,247,238,.4);}
+.cal-sw-booked{background:rgba(223,160,45,.34);border-color:var(--must);}
+.cal-sw-closed{background:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 5px,rgba(255,255,255,.14) 5px 10px);}
+.cal-sw-past{background:rgba(255,255,255,.035);opacity:.5;}
+
+/* desktop: week table, time rows × Sat..Fri columns */
+.cal-week-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--gline);border-radius:16px;background:var(--night-2);}
+table.cal-grid{width:100%;border-collapse:collapse;min-width:760px;}
+table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
+.cal-timecol{width:64px;min-width:64px;text-align:center;font-size:12px;color:rgba(251,247,238,.5);
+  font-variant-numeric:tabular-nums;padding:10px 4px;background:rgba(255,255,255,.015);}
+.cal-daycol{padding:0;background:rgba(255,255,255,.02);}
+.cal-daycol.is-today{background:rgba(223,160,45,.09);}
+.cal-daycol-inner{padding:12px 8px;text-align:center;position:relative;}
+.cal-dname{font-size:12.5px;font-weight:800;color:#fff;}
+.cal-ddate{font-size:11px;color:rgba(251,247,238,.55);margin-top:2px;}
+.cal-daytag{margin-top:6px;}
+.cal-kebab{position:absolute;top:6px;left:6px;background:none;border:none;color:rgba(251,247,238,.45);
+  font-size:16px;cursor:pointer;padding:2px 7px;border-radius:8px;line-height:1;}
+.cal-kebab:hover{color:var(--must-l);background:rgba(223,160,45,.1);}
+
+.cal-cell{height:50px;text-align:center;vertical-align:middle;cursor:pointer;transition:background .15s ease;padding:4px 6px;font-size:11.5px;}
+.cal-cell.cal-blank{cursor:default;background:transparent;}
+.cal-cell.cal-empty{background:rgba(251,247,238,.24);}
+.cal-cell.cal-empty:hover{background:rgba(223,160,45,.4);}
+.cal-cell.cal-booked{background:rgba(223,160,45,.34);}
+.cal-cell.cal-booked:hover{background:rgba(223,160,45,.46);}
+.cal-cell.cal-closed{background:repeating-linear-gradient(135deg,rgba(255,255,255,.04) 0 7px,rgba(255,255,255,.09) 7px 14px);cursor:default;}
+.cal-cell.cal-past{background:rgba(255,255,255,.035);opacity:.5;cursor:default;}
+.cal-cell-title{font-weight:800;color:#fff;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;margin:0 auto;}
+.cal-cell-sub{font-size:10.5px;color:rgba(251,247,238,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;margin:2px auto 0;}
+
+/* mobile: horizontal 7-day switcher strip */
+.cal-mobile-strip{display:none;gap:8px;overflow-x:auto;padding:4px 2px 10px;margin-bottom:6px;-webkit-overflow-scrolling:touch;}
+.cal-strip-day{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:58px;padding:10px 6px;
+  border-radius:13px;border:1.5px solid var(--gline);background:rgba(255,255,255,.03);color:rgba(251,247,238,.7);
+  font-family:inherit;cursor:pointer;transition:.2s;}
+.cal-strip-day.on{background:var(--must);color:var(--night);border-color:var(--must);}
+.cal-strip-day.is-today:not(.on){border-color:var(--must);color:var(--must-l);}
+.cal-strip-day.is-closed:not(.on){opacity:.5;}
+.cal-strip-dname{font-size:10.5px;font-weight:700;}
+.cal-strip-dnum{font-size:14.5px;font-weight:900;}
+
+/* mobile: single-day vertical list */
+.cal-day-list{display:flex;flex-direction:column;gap:9px;}
+.cal-row{display:flex;align-items:center;gap:14px;padding:15px 16px;border-radius:13px;border:1.5px solid var(--gline);
+  background:rgba(255,255,255,.03);cursor:pointer;transition:.15s;min-height:48px;}
+.cal-row-time{font-size:14.5px;font-weight:800;color:#fff;min-width:52px;font-variant-numeric:tabular-nums;}
+.cal-row-main{flex:1;font-size:13.5px;}
+.cal-row-label{font-size:13px;color:rgba(251,247,238,.55);}
+.cal-row.cal-booked{background:rgba(223,160,45,.18);border-color:rgba(223,160,45,.4);}
+.cal-row.cal-booked:active{background:rgba(223,160,45,.28);}
+.cal-row.cal-empty:active{background:rgba(223,160,45,.12);}
+.cal-row.cal-closed{cursor:default;opacity:.55;}
+.cal-row.cal-past{cursor:default;opacity:.4;}
+
+.cal-summary{margin-bottom:14px;}
+.cal-summary-row{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+.cal-summary-n{font-size:22px;font-weight:900;color:var(--must-l);display:block;}
+
+/* modal: booking details, quick-add menu, close-a-range form — shared by
+   both breakpoints instead of a separate anchored popover, since a centered
+   overlay is far more reliable across touch/mouse and avoids off-screen
+   positioning bugs near grid edges */
+.cal-modal-overlay{position:fixed;inset:0;background:rgba(4,8,16,.72);display:flex;align-items:center;justify-content:center;
+  padding:20px;z-index:300;animation:fadeInUp .2s ease;}
+.cal-modal-card{background:var(--night-2);border:1px solid rgba(223,160,45,.3);border-radius:18px;padding:22px;
+  width:100%;max-width:420px;max-height:85vh;overflow-y:auto;box-shadow:0 30px 60px -20px rgba(0,0,0,.6);}
+.cal-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;font-size:15px;color:#fff;}
+.cal-modal-close{background:none;border:none;color:rgba(251,247,238,.5);font-size:16px;cursor:pointer;padding:4px 8px;border-radius:8px;flex-shrink:0;}
+.cal-modal-close:hover{color:#fff;background:rgba(255,255,255,.08);}
+
 @media(max-width:760px){
   #app.on{flex-direction:column;}
   .sidebar{width:100%;display:flex;overflow-x:auto;padding:12px 0;min-height:auto;height:auto;position:sticky;top:0;z-index:50;}
@@ -223,6 +306,15 @@ details.add-form summary:hover{color:#fff;}
   .day-row{padding:12px 2px;}
   .day-row .name{min-width:64px;font-size:14px;}
   .slot-grid{grid-template-columns:repeat(auto-fill,minmax(92px,1fr));}
+
+  .cal-toolbar{flex-direction:column;align-items:stretch;}
+  .cal-toolbar select{width:100%;}
+  .cal-nav{justify-content:space-between;}
+  .cal-mobile-strip{display:flex;}
+  .cal-legend{gap:12px 18px;padding:10px 14px;}
+  .cal-day-header .row{flex-direction:column;align-items:stretch;gap:14px;}
+  .cal-day-header .row > div:last-child{display:flex;gap:8px;flex-wrap:wrap;}
+  .cal-day-header .row > div:last-child .btn{flex:1;min-width:140px;}
 }
 </style>
 </head>
@@ -244,6 +336,7 @@ details.add-form summary:hover{color:#fff;}
     <h2>غزل کرمی</h2>
     <button data-tab="dashboard" class="on">داشبورد</button>
     <div class="group-label">رزرو و زمان‌بندی</div>
+    <button data-tab="calendar">تقویم</button>
     <button data-tab="schedule">زمان‌بندی سالن</button>
     <button data-tab="bookings">رزروها</button>
     <div class="group-label">محتوای سایت</div>
@@ -498,6 +591,521 @@ window.loadDashboardDay = async (dateStr) => {
     resultEl.innerHTML = `<div class="card muted">خطا در دریافت اطلاعات: ${esc(e.message)}</div>`;
   }
 };
+
+/* =====================================================================
+   تقویم: نمای هفتگی (دسکتاپ) / روزانه (موبایل) که کارهای روزمره‌ی رزرو —
+   دیدن خالی/پر، ثبت نوبت دستی، بستن یک ساعت یا یک بازه، تعطیل کردن یک روز —
+   را مستقیم از خود تقویم انجام می‌دهد، بدون رفتن به تب‌های دیگر. همه‌ی
+   نوشتن‌ها از همون endpoint هایی که تب‌های «زمان‌بندی سالن» و «رزروها» از
+   قبل دارن رد می‌شن (رزرو دستی، استثنای روز)، چیز جدیدی از پایه نساخته شده.
+
+   تاریخ داخلی همیشه یک Date با نیمه‌شب UTC است (همون قرارداد پارس‌شده‌ی
+   backend/lib/dates.ts)، نه زمان محلی مرورگر — چون هفته‌ی ایرانی باید از
+   شنبه شروع بشه و «امروز» باید بر اساس ساعت تهران باشه، نه ساعت سرور یا
+   دستگاه ادمین.
+   ===================================================================== */
+const CAL_TEHRAN_OFFSET_MIN = 3 * 60 + 30;
+function calNowInTehran(){ return new Date(Date.now() + CAL_TEHRAN_OFFSET_MIN * 60000); }
+function calTodayUTC(){ const t = calNowInTehran(); return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate())); }
+function calDateStr(d){ return d.toISOString().slice(0, 10); }
+function calAddDays(d, n){ const r = new Date(d); r.setUTCDate(r.getUTCDate() + n); return r; }
+function calDayOfWeek(d){ return d.getUTCDay(); } // 0=یکشنبه..6=شنبه، مطابق backend
+// شنبه‌ی هفته‌ای که این تاریخ توش قرار داره — همون فرمول «daysSinceSaturday»ی
+// که GET /admin/dashboard سمت سرور برای هفته‌ی جاری استفاده می‌کنه
+function calWeekStartFor(d){ const dow = calDayOfWeek(d); return calAddDays(d, -((dow + 1) % 7)); }
+// فقط برای گرفتن روز جلالی (jd) با همون منطق toJalali/fmtJalaliDate بالای
+// همین فایل — کامپوننت‌های محلیِ Date را می‌خونه، نه UTC، دقیقاً هم‌راستا با
+// fmtJalaliDate تا هیچ‌جا عدد متفاوتی از همون تاریخ نشون داده نشه
+function calJalaliDay(d){ const [, , jd] = toJalali(d.getFullYear(), d.getMonth() + 1, d.getDate()); return pd(jd); }
+
+const CAL_NOT_OCCUPYING = ["CANCELLED", "EXPIRED"]; // این دو وضعیت یعنی SlotHold پاک شده و اون تایم واقعاً خالیه
+
+let calCategoryId = localStorage.getItem("gk_cal_category") || "";
+let calWeekStart = null;
+let calSelectedDate = null;
+
+tabs.calendar = async () => {
+  const { categories } = await api("/admin/categories");
+  window._calCategories = categories;
+  if (!calCategoryId || !categories.some((c) => c.id === calCategoryId)) {
+    calCategoryId = categories[0]?.id || "";
+  }
+  if (!calWeekStart) {
+    const t = calTodayUTC();
+    calWeekStart = calWeekStartFor(t);
+    calSelectedDate = t;
+  }
+
+  let html = `<h1>تقویم</h1>`;
+  html += `<div class="cal-toolbar">
+    <select id="calCatSelect" onchange="calOnCategoryChange(this.value)">
+      ${categories.map((c) => `<option value="${c.id}" ${c.id === calCategoryId ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+    </select>
+    <div class="cal-nav">
+      <button class="btn btn-ghost btn-sm" onclick="calNav(-1)" aria-label="قبلی">‹</button>
+      <button class="btn btn-line btn-sm" onclick="calGoToday()">امروز</button>
+      <button class="btn btn-ghost btn-sm" onclick="calNav(1)" aria-label="بعدی">›</button>
+    </div>
+    <span class="cal-range-label" id="calRangeLabel"></span>
+  </div>`;
+  html += `<div class="cal-legend">
+    <span class="cal-leg-item"><i class="cal-sw cal-sw-empty"></i>خالی و قابل رزرو</span>
+    <span class="cal-leg-item"><i class="cal-sw cal-sw-booked"></i>رزرو شده</span>
+    <span class="cal-leg-item"><i class="cal-sw cal-sw-closed"></i>بسته</span>
+    <span class="cal-leg-item"><i class="cal-sw cal-sw-past"></i>گذشته</span>
+  </div>`;
+  html += `<div class="cal-mobile-strip" id="calMobileStrip"></div>`;
+  html += `<div id="calBody"><div class="loading">در حال بارگذاری…</div></div>`;
+  html += `<div id="calModalRoot"></div>`;
+
+  setMainContent(html);
+  await calLoadAndRender();
+};
+
+window.calOnCategoryChange = (id) => {
+  calCategoryId = id;
+  localStorage.setItem("gk_cal_category", id);
+  calLoadAndRender();
+};
+window.calGoToday = () => {
+  const t = calTodayUTC();
+  calWeekStart = calWeekStartFor(t);
+  calSelectedDate = t;
+  calLoadAndRender();
+};
+// دسکتاپ (نمای هفتگی): قبلی/بعدی یعنی یک هفته. موبایل (نمای روزانه): یعنی
+// یک روز — و اگر از هفته‌ی جاری بیرون رفت، پنجره‌ی هفته هم دنبالش می‌آد
+window.calNav = (dir) => {
+  const isMobile = window.matchMedia("(max-width:760px)").matches;
+  if (isMobile) {
+    calSelectedDate = calAddDays(calSelectedDate, dir);
+    if (calSelectedDate.getTime() < calWeekStart.getTime() || calSelectedDate.getTime() > calAddDays(calWeekStart, 6).getTime()) {
+      calWeekStart = calWeekStartFor(calSelectedDate);
+    }
+  } else {
+    calWeekStart = calAddDays(calWeekStart, dir * 7);
+    calSelectedDate = calWeekStart;
+  }
+  calLoadAndRender();
+};
+
+async function calLoadAndRender(){
+  const bodyEl = document.getElementById("calBody");
+  if (!bodyEl) return;
+  bodyEl.innerHTML = `<div class="loading">در حال بارگذاری…</div>`;
+  const from = calDateStr(calWeekStart);
+  const to = calDateStr(calAddDays(calWeekStart, 6));
+  const [{ exceptions }, { days }, { bookings }] = await Promise.all([
+    api(`/admin/day-exceptions?from=${from}&to=${to}`),
+    api("/admin/working-days"),
+    api(`/admin/bookings?from=${from}&to=${to}`),
+  ]);
+  if (bodyEl !== document.getElementById("calBody")) return; // در این فاصله از تب خارج شده
+  window._calWorkingDays = days;
+  window._calExceptions = exceptions;
+  window._calBookings = bookings;
+  calRenderRangeLabel();
+  calRenderMobileStrip();
+  const isMobile = window.matchMedia("(max-width:760px)").matches;
+  bodyEl.innerHTML = isMobile ? calBuildDayView(calSelectedDate) : calBuildWeekView();
+}
+
+function calRenderRangeLabel(){
+  const el = document.getElementById("calRangeLabel");
+  if (!el) return;
+  el.textContent = `${fmtJalaliDate(calWeekStart)} تا ${fmtJalaliDate(calAddDays(calWeekStart, 6))}`;
+}
+
+/* ---------- داده‌ها: وضعیت هر روز/هر تایم برای دسته‌بندی انتخاب‌شده ---------- */
+
+function calCategory(){
+  return (window._calCategories || []).find((c) => c.id === calCategoryId);
+}
+// همون قانون getDayOpenInfo سمت سرور: یک DayException برای این تاریخ همیشه
+// روی الگوی هفتگی WorkingDay اولویت داره
+function calDayInfo(date){
+  const dateStr = calDateStr(date);
+  const exception = (window._calExceptions || []).find((e) => calDateStr(new Date(e.date)) === dateStr);
+  if (exception) return { open: exception.isOpen, openTime: exception.openTime, closeTime: exception.closeTime, isException: true, exceptionId: exception.id };
+  const dow = calDayOfWeek(date);
+  const wd = (window._calWorkingDays || []).find((d) => d.dayOfWeek === dow);
+  return { open: wd?.isOpen ?? false, openTime: null, closeTime: null, isException: false, exceptionId: null };
+}
+// همون قانون isTimeAllowed سمت سرور
+function calTimeAllowed(time, info){
+  if (info.openTime && time < info.openTime) return false;
+  if (info.closeTime && time >= info.closeTime) return false;
+  return true;
+}
+function calSlotsForDate(date){
+  const cat = calCategory();
+  if (!cat) return [];
+  const dow = calDayOfWeek(date);
+  return (cat.timeSlots || []).filter((s) => s.dayOfWeek === dow && s.isActive).sort((a, b) => a.time.localeCompare(b.time));
+}
+function calBookingsForDate(date){
+  const cat = calCategory();
+  if (!cat) return [];
+  const dateStr = calDateStr(date);
+  return (window._calBookings || []).filter((b) => b.categoryId === cat.id && calDateStr(new Date(b.date)) === dateStr);
+}
+function calOccupyingBooking(date, time){
+  return calBookingsForDate(date).find((b) => b.time === time && !CAL_NOT_OCCUPYING.includes(b.status));
+}
+// گذشته یعنی ساعتش واقعاً شروع شده — بدون بازه‌ی ۳۰ دقیقه‌ای که سمت مشتری
+// اعمال می‌شه؛ خود غزل باید بتونه یک مشتری حضوری رو همین چند دقیقه‌ی بعد ثبت کنه
+function calIsPast(date, time){
+  const today = calTodayUTC();
+  if (date.getTime() < today.getTime()) return true;
+  if (date.getTime() > today.getTime()) return false;
+  const now = calNowInTehran();
+  const nowHM = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")}`;
+  return time <= nowHM;
+}
+function calCellState(date, time){
+  const info = calDayInfo(date);
+  if (!info.open || !calTimeAllowed(time, info)) return { state: "closed" };
+  const booking = calOccupyingBooking(date, time);
+  if (booking) return { state: "booked", booking };
+  if (calIsPast(date, time)) return { state: "past" };
+  return { state: "empty" };
+}
+
+/* ---------- نمای هفتگی (دسکتاپ) ---------- */
+
+function calWeekUnionTimes(){
+  const times = new Set();
+  for (let i = 0; i < 7; i++) calSlotsForDate(calAddDays(calWeekStart, i)).forEach((s) => times.add(s.time));
+  return Array.from(times).sort();
+}
+function calBuildWeekView(){
+  const times = calWeekUnionTimes();
+  const days = Array.from({ length: 7 }, (_, i) => calAddDays(calWeekStart, i));
+  if (!times.length) {
+    return `<div class="card muted">برای «${esc(calCategory()?.name || "")}» هنوز اسلاتی تعریف نشده — از تب «زمان‌بندی سالن» اضافه کنید.</div>`;
+  }
+  const todayStr = calDateStr(calTodayUTC());
+  let html = `<div class="cal-week-wrap"><table class="cal-grid"><thead><tr><th class="cal-timecol"></th>`;
+  days.forEach((d) => {
+    const info = calDayInfo(d);
+    const dStr = calDateStr(d);
+    html += `<th class="cal-daycol ${dStr === todayStr ? "is-today" : ""}">
+      <div class="cal-daycol-inner">
+        <button class="cal-kebab" title="کارهای این روز" aria-label="کارهای این روز" onclick="calOpenDayMenu('${dStr}')">⋮</button>
+        <div class="cal-dname">${DOW_NAMES[calDayOfWeek(d)]}</div>
+        <div class="cal-ddate">${fmtJalaliDate(d)}</div>
+        <span class="tag ${info.open ? "tag-open" : "tag-closed"} cal-daytag">${info.open ? "باز" : "تعطیل"}</span>
+      </div>
+    </th>`;
+  });
+  html += `</tr></thead><tbody>`;
+  times.forEach((t) => {
+    html += `<tr><td class="cal-timecol">${t}</td>`;
+    days.forEach((d) => {
+      // a whole-day closure must win even when this weekday has zero
+      // TimeSlot rows of its own (e.g. Saturday, never scheduled at all) —
+      // otherwise a fully-closed day rendered as plain blank cells instead
+      // of the "بسته" hatched style, since the hasSlot check below would
+      // never even get a chance to run
+      if (!calDayInfo(d).open) { html += `<td class="cal-cell cal-closed" title="بسته"></td>`; return; }
+      const hasSlot = calSlotsForDate(d).some((s) => s.time === t);
+      html += hasSlot ? calRenderCell(d, t) : `<td class="cal-cell cal-blank"></td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+  return html;
+}
+function calRenderCell(date, time){
+  const cs = calCellState(date, time);
+  const dateStr = calDateStr(date);
+  if (cs.state === "closed") return `<td class="cal-cell cal-closed" title="بسته"></td>`;
+  if (cs.state === "past") return `<td class="cal-cell cal-past" title="گذشته"></td>`;
+  if (cs.state === "booked") {
+    const b = cs.booking;
+    const who = b.user ? esc(`${b.user.firstName} ${b.user.lastName}`) : esc(b.blockReason || "قفل دستی");
+    const svc = b.service ? esc(b.service.name) : esc(b.blockReason || "بدون سرویس");
+    return `<td class="cal-cell cal-booked" onclick="calOpenBooking('${b.id}')">
+      <div class="cal-cell-title">${svc}</div><div class="cal-cell-sub">${who}</div>
+    </td>`;
+  }
+  return `<td class="cal-cell cal-empty" onclick="calOpenEmptyMenu('${dateStr}','${time}')"></td>`;
+}
+
+/* ---------- نمای روزانه (موبایل) + نوار سوییچ ۷ روزه ---------- */
+
+function calRenderMobileStrip(){
+  const el = document.getElementById("calMobileStrip");
+  if (!el) return;
+  const days = Array.from({ length: 7 }, (_, i) => calAddDays(calWeekStart, i));
+  const selStr = calDateStr(calSelectedDate);
+  const todayStr = calDateStr(calTodayUTC());
+  el.innerHTML = days
+    .map((d) => {
+      const dStr = calDateStr(d);
+      const info = calDayInfo(d);
+      return `<button class="cal-strip-day ${dStr === selStr ? "on" : ""} ${dStr === todayStr ? "is-today" : ""} ${!info.open ? "is-closed" : ""}"
+        onclick="calSelectDay('${dStr}')">
+        <span class="cal-strip-dname">${DOW_NAMES[calDayOfWeek(d)]}</span>
+        <span class="cal-strip-dnum">${calJalaliDay(d)}</span>
+      </button>`;
+    })
+    .join("");
+}
+window.calSelectDay = (dateStr) => {
+  calSelectedDate = new Date(`${dateStr}T00:00:00Z`);
+  calRenderMobileStrip();
+  const bodyEl = document.getElementById("calBody");
+  if (bodyEl) bodyEl.innerHTML = calBuildDayView(calSelectedDate);
+};
+function calBuildDayView(date){
+  const info = calDayInfo(date);
+  const dateStr = calDateStr(date);
+  const slots = calSlotsForDate(date);
+  const bookingsToday = calBookingsForDate(date);
+
+  let html = `<div class="cal-day-header card">
+    <div class="row" style="border:none;padding:0;">
+      <div>
+        <div style="font-size:16px;font-weight:900;color:#fff;">${DOW_NAMES[calDayOfWeek(date)]} — ${fmtJalaliDate(date)}</div>
+        <span class="tag ${info.open ? "tag-open" : "tag-closed"}" style="margin-top:6px;display:inline-block;">${info.open ? "باز" : "تعطیل"}</span>
+      </div>
+      <div>
+        ${info.isException
+          ? `<button class="btn btn-ghost" onclick="calReopenDay('${dateStr}','${info.exceptionId}')">بازکردن مجدد</button>`
+          : `<button class="btn btn-danger" onclick="calCloseWholeDay('${dateStr}')">تعطیل کردن کل این روز</button>`}
+        ${info.open ? `<button class="btn btn-line" onclick="calOpenRangeForm('${dateStr}')">بستن یک بازه</button>` : ""}
+      </div>
+    </div>
+  </div>`;
+
+  html += calDaySummaryHtml(date, bookingsToday);
+
+  if (!info.open) {
+    // the «تعطیل» tag above already says everything — no slot list, and no
+    // "no slots defined" message that would misattribute a closed day to a
+    // missing schedule
+  } else if (!slots.length) {
+    html += `<div class="card muted">برای این روز/دسته‌بندی اسلاتی تعریف نشده.</div>`;
+  } else {
+    html += `<div class="cal-day-list">${slots.map((s) => calRenderDayRow(date, s.time)).join("")}</div>`;
+  }
+  return html;
+}
+function calRenderDayRow(date, time){
+  const cs = calCellState(date, time);
+  const dateStr = calDateStr(date);
+  if (cs.state === "closed") return `<div class="cal-row cal-closed"><span class="cal-row-time">${time}</span><span class="cal-row-label">بسته</span></div>`;
+  if (cs.state === "past") return `<div class="cal-row cal-past"><span class="cal-row-time">${time}</span><span class="cal-row-label">گذشته</span></div>`;
+  if (cs.state === "booked") {
+    const b = cs.booking;
+    const who = b.user ? esc(`${b.user.firstName} ${b.user.lastName}`) : esc(b.blockReason || "قفل دستی");
+    const svc = b.service ? esc(b.service.name) : esc(b.blockReason || "بدون سرویس");
+    return `<div class="cal-row cal-booked" onclick="calOpenBooking('${b.id}')">
+      <span class="cal-row-time">${time}</span>
+      <div class="cal-row-main"><b>${svc}</b><div class="muted">${who}</div></div>
+    </div>`;
+  }
+  return `<div class="cal-row cal-empty" onclick="calOpenEmptyMenu('${dateStr}','${time}')">
+    <span class="cal-row-time">${time}</span><span class="cal-row-label">خالی — برای ثبت نوبت لمس کنید</span>
+  </div>`;
+}
+
+/* ---------- خلاصه‌ی روزانه — همون تعریف/محاسبه‌ای که «داشبورد» از قبل
+   برای نمای یک‌روزه‌اش داره (loadDashboardDay)، به‌علاوه‌ی یک عدد جدید:
+   تعداد ساعت‌های خالیِ باقی‌مانده ---------- */
+function calDaySummaryHtml(date, bookingsForDay){
+  const totalReceived = bookingsForDay.filter((b) => b.payment && b.payment.status === "PAID").reduce((s, b) => s + b.depositAmount, 0);
+  const breakdown = {};
+  bookingsForDay.forEach((b) => { breakdown[b.status] = (breakdown[b.status] || 0) + 1; });
+  const freeCount = calSlotsForDate(date).filter((s) => calCellState(date, s.time).state === "empty").length;
+
+  return `<div class="card cal-summary">
+    <div class="cal-summary-row">
+      <div><span class="cal-summary-n">${pd(bookingsForDay.length)}</span><div class="muted" style="font-size:12px;">رزرو این روز</div></div>
+      <div><span class="cal-summary-n" style="color:#7FD9A4;">${toman(totalReceived)}</span><div class="muted" style="font-size:12px;">بیعانه‌ی دریافتی</div></div>
+      <div><span class="cal-summary-n">${pd(freeCount)}</span><div class="muted" style="font-size:12px;">ساعت خالی باقی‌مانده</div></div>
+    </div>
+    ${Object.keys(breakdown).length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+      ${Object.entries(breakdown).map(([status, count]) => `<span class="tag ${BOOKING_STATUS_TAG_CLASS[status] || "tag-muted"}">${pd(count)} ${BOOKING_STATUS_FA[status] || status}</span>`).join("")}
+    </div>` : ""}
+  </div>`;
+}
+
+/* ---------- مودال عمومی (منوی سریع خونه‌ی خالی، جزئیات رزرو، منوی روز،
+   فرم بستن بازه) ---------- */
+
+function calShowModal(title, bodyHtml){
+  const root = document.getElementById("calModalRoot");
+  if (!root) return;
+  root.innerHTML = `<div class="cal-modal-overlay" onclick="if(event.target===this)calCloseModal()">
+    <div class="cal-modal-card">
+      <div class="cal-modal-head"><b>${title}</b><button class="cal-modal-close" onclick="calCloseModal()" aria-label="بستن">✕</button></div>
+      <div class="cal-modal-body">${bodyHtml}</div>
+    </div>
+  </div>`;
+}
+window.calCloseModal = () => {
+  const root = document.getElementById("calModalRoot");
+  if (root) root.innerHTML = "";
+};
+
+window.calOpenEmptyMenu = (dateStr, time) => {
+  calShowModal(`${fmtJalaliDate(dateStr)} — ساعت ${time}`, `
+    <p class="muted" style="margin-bottom:16px;">${esc(calCategory()?.name || "")}</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-gold" onclick="calOpenManualBookingForm('${dateStr}','${time}')">ثبت نوبت دستی اینجا</button>
+      <button class="btn btn-danger" onclick="calBlockSingleSlot('${dateStr}','${time}')">بستن این ساعت</button>
+    </div>
+  `);
+};
+window.calOpenManualBookingForm = (dateStr, time) => {
+  const services = calCategory()?.services || [];
+  calShowModal(`ثبت نوبت دستی — ${fmtJalaliDate(dateStr)}، ساعت ${time}`, `
+    <div class="form-grid" style="flex-direction:column;align-items:stretch;">
+      <label class="field">سرویس (اختیاری — خالی=فقط قفل تایم)<select id="calMbService">
+        <option value="">— فقط قفل تایم —</option>
+        ${services.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join("")}
+      </select></label>
+      <label class="field">نام مشتری<input type="text" id="calMbName"></label>
+      <label class="field">موبایل مشتری<input type="tel" id="calMbPhone" placeholder="09xxxxxxxxx"></label>
+      <label class="field">دلیل/توضیح<input type="text" id="calMbReason"></label>
+      <button class="btn btn-gold" onclick="calSubmitManualBooking('${dateStr}','${time}')" style="margin-top:6px;">ثبت</button>
+    </div>
+  `);
+};
+window.calSubmitManualBooking = withSubmitGuard(async (dateStr, time) => {
+  const serviceId = document.getElementById("calMbService").value || null;
+  const customerName = document.getElementById("calMbName").value.trim() || null;
+  const customerPhone = document.getElementById("calMbPhone").value.trim() || null;
+  const reason = document.getElementById("calMbReason").value.trim() || null;
+  try {
+    await api("/admin/bookings/manual", { method: "POST", body: JSON.stringify({ categoryId: calCategoryId, serviceId, date: dateStr, time, customerName, customerPhone, reason }) });
+    toast("ثبت شد.");
+    calCloseModal();
+    calLoadAndRender();
+  } catch (e) { toast(e.message, true); }
+});
+window.calBlockSingleSlot = withSubmitGuard(async (dateStr, time) => {
+  try {
+    await api("/admin/bookings/manual", { method: "POST", body: JSON.stringify({ categoryId: calCategoryId, date: dateStr, time, reason: "بسته توسط مدیر" }) });
+    toast("این ساعت بسته شد.");
+    calCloseModal();
+    calLoadAndRender();
+  } catch (e) { toast(e.message, true); }
+});
+
+window.calOpenBooking = (id) => {
+  const b = (window._calBookings || []).find((x) => x.id === id);
+  if (!b) return;
+  const who = b.user ? esc(`${b.user.firstName} ${b.user.lastName} (${b.user.phone})`) : "بدون مشتری (قفل دستی)";
+  const svc = b.service ? esc(b.service.name) : esc(b.blockReason || "بدون سرویس");
+  const showRefund = b.status === "CANCELLED" && b.payment && b.payment.status === "PAID";
+  calShowModal(`${fmtJalaliDate(b.date)} — ساعت ${b.time}`, `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:15px;font-weight:800;color:#fff;">${svc}</div>
+      <div class="muted" style="margin-top:4px;">${who}</div>
+      <div class="muted" style="margin-top:4px;">بیعانه: ${toman(b.depositAmount)}</div>
+      ${b.source !== "ONLINE" ? `<span class="tag tag-muted" style="margin-top:8px;display:inline-block;">${b.source === "ADMIN_BLOCK" ? "قفل دستی" : "ثبت دستی"}</span>` : ""}
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      <span class="tag ${BOOKING_STATUS_TAG_CLASS[b.status] || "tag-muted"}">${BOOKING_STATUS_FA[b.status] || b.status}</span>
+      ${showRefund ? `<span class="tag ${REFUND_STATUS_TAG_CLASS[b.payment.refundStatus] || "tag-muted"}">${REFUND_STATUS_FA[b.payment.refundStatus] || b.payment.refundStatus}</span>` : ""}
+    </div>
+    ${showRefund && b.payment.refundStatus === "NEEDS_MANUAL_FOLLOWUP" ? `<button class="btn btn-ghost" onclick="calResolveRefund('${b.payment.id}')" style="margin-bottom:14px;width:100%;">علامت‌گذاری به‌عنوان بازگشت داده‌شده</button>` : ""}
+    ${["CONFIRMED", "PENDING_PAYMENT"].includes(b.status) ? `
+      <label class="field">تغییر وضعیت
+        <select onchange="calSetBookingStatus('${b.id}', this.value)">
+          <option value="">تغییر وضعیت…</option>
+          <option value="COMPLETED">انجام‌شده</option>
+          <option value="NO_SHOW">مشتری نیامد</option>
+          <option value="CANCELLED">لغو</option>
+        </select>
+      </label>` : ""}
+  `);
+};
+window.calSetBookingStatus = async (id, status) => {
+  if (!status) return;
+  if (status === "CANCELLED" && !confirm("این نوبت لغو شود؟")) return;
+  try {
+    await api(`/admin/bookings/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+    toast("وضعیت به‌روزرسانی شد.");
+    calCloseModal();
+    calLoadAndRender();
+  } catch (e) { toast(e.message, true); }
+};
+window.calResolveRefund = async (paymentId) => {
+  if (!confirm("آیا بازگشت بیعانه به‌صورت دستی انجام شده و این مورد باید بسته شود؟")) return;
+  try {
+    await api(`/admin/payments/${paymentId}/refund-status`, { method: "PATCH", body: JSON.stringify({ refundStatus: "SUCCEEDED" }) });
+    toast("ثبت شد.");
+    calCloseModal();
+    calLoadAndRender();
+  } catch (e) { toast(e.message, true); }
+};
+
+// یک روز کامل تعطیل/باز — روی کل سالن اثر می‌ذاره، نه فقط دسته‌بندی
+// انتخاب‌شده در تقویم (DayException اصلاً مفهوم دسته‌بندی نداره)
+window.calCloseWholeDay = withSubmitGuard(async (dateStr) => {
+  if (!confirm(`کل روز ${fmtJalaliDate(dateStr)} برای همه‌ی سرویس‌های سالن بسته شود؟`)) return;
+  try {
+    await api("/admin/day-exceptions", { method: "POST", body: JSON.stringify({ date: dateStr, isOpen: false }) });
+    toast("این روز تعطیل شد.");
+    calCloseModal();
+    calLoadAndRender();
+  } catch (e) { toast(e.message, true); }
+});
+window.calReopenDay = withSubmitGuard(async (dateStr, exceptionId) => {
+  try {
+    await api(`/admin/day-exceptions/${exceptionId}`, { method: "DELETE" });
+    toast("این روز دوباره باز شد.");
+    calCloseModal();
+    calLoadAndRender();
+  } catch (e) { toast(e.message, true); }
+});
+window.calOpenDayMenu = (dateStr) => {
+  const date = new Date(`${dateStr}T00:00:00Z`);
+  const info = calDayInfo(date);
+  let html = `<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+    ${info.isException
+      ? `<button class="btn btn-ghost" onclick="calReopenDay('${dateStr}','${info.exceptionId}')">بازکردن مجدد</button>`
+      : `<button class="btn btn-danger" onclick="calCloseWholeDay('${dateStr}')">تعطیل کردن کل این روز</button>`}
+    ${info.open ? `<button class="btn btn-line" onclick="calOpenRangeForm('${dateStr}')">بستن یک بازه</button>` : ""}
+  </div>`;
+  html += calDaySummaryHtml(date, calBookingsForDate(date));
+  calShowModal(`${DOW_NAMES[calDayOfWeek(date)]} — ${fmtJalaliDate(date)}`, html);
+};
+
+// بستن یک بازه‌ی ساعتی از یک روز خاص — فقط برای دسته‌بندی انتخاب‌شده، فقط
+// همون یک روز؛ همون endpoint قفل‌کردن تکی رزرو دستی رو یک‌به‌یک برای هر
+// اسلاتِ داخل بازه صدا می‌زنه (منطق جدیدی روی سرور لازم نبود)
+window.calOpenRangeForm = (dateStr) => {
+  calShowModal(`بستن یک بازه — ${fmtJalaliDate(dateStr)}`, `
+    <p class="muted" style="margin-bottom:14px;">فقط برای «${esc(calCategory()?.name || "")}» و همین یک روز — بقیه‌ی روز و بقیه‌ی سرویس‌ها دست‌نخورده می‌مونن.</p>
+    <div class="form-grid" style="flex-direction:column;align-items:stretch;">
+      <label class="field">از ساعت<input type="time" id="calRangeStart"></label>
+      <label class="field">تا ساعت<input type="time" id="calRangeEnd"></label>
+      <button class="btn btn-danger" onclick="calSubmitCloseRange('${dateStr}')" style="margin-top:6px;">بستن این بازه</button>
+    </div>
+  `);
+};
+window.calSubmitCloseRange = withSubmitGuard(async (dateStr) => {
+  const start = document.getElementById("calRangeStart").value;
+  const end = document.getElementById("calRangeEnd").value;
+  if (!start || !end) return toast("ساعت شروع و پایان را وارد کنید.", true);
+  if (end <= start) return toast("ساعت پایان باید بعد از ساعت شروع باشد.", true);
+  const date = new Date(`${dateStr}T00:00:00Z`);
+  const slotsInRange = calSlotsForDate(date).filter((s) => s.time >= start && s.time < end);
+  const openable = slotsInRange.filter((s) => calCellState(date, s.time).state === "empty");
+  if (!openable.length) return toast("اسلات خالی‌ای در این بازه پیدا نشد.", true);
+  try {
+    await Promise.all(openable.map((s) => api("/admin/bookings/manual", { method: "POST", body: JSON.stringify({ categoryId: calCategoryId, date: dateStr, time: s.time, reason: "بسته توسط مدیر" }) })));
+    const skipped = slotsInRange.length - openable.length;
+    toast(`${openable.length} تایم بسته شد.${skipped ? ` (${skipped} تایم از قبل رزرو/بسته بود و رد شد)` : ""}`);
+    calCloseModal();
+    calLoadAndRender();
+  } catch (e) { toast(e.message, true); }
+});
 
 /* =====================================================================
    زمان‌بندی سالن: الگوی هفتگی + استثناهای تاریخ خاص + تعطیلی موقت + اسلات‌ها
