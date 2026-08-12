@@ -16,10 +16,16 @@ test.describe("admin calendar: date-range params on existing endpoints", () => {
     const categories = (await (await request.get("/api/admin/categories", { headers: auth })).json()).categories;
     const scalp = categories.find((c: { key: string }) => c.key === "s");
 
-    const before = nextWeekday(50);
-    const inRangeStart = nextWeekday(51);
-    const inRangeEnd = nextWeekday(53);
-    const after = nextWeekday(55);
+    // spaced 5+ days apart, not 1-3 — nextWeekday() skips Fri/Sat, so two
+    // close-together offsets can drift onto the SAME resulting date
+    // depending on how many weekends fall between "today" and each one
+    // (e.g. offsets 51 and 53 have, on some days of the year, collapsed
+    // onto the identical calendar date, making the second manual booking
+    // below collide with the first instead of testing a real 4-date spread)
+    const before = nextWeekday(80);
+    const inRangeStart = nextWeekday(85);
+    const inRangeEnd = nextWeekday(90);
+    const after = nextWeekday(95);
 
     for (const [date, reason] of [
       [before, "قبل از بازه"],

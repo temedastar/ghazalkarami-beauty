@@ -11,7 +11,7 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 import { normalizePhone } from "../lib/phone";
 import { parseDateOnly, toDateOnlyString, dayOfWeekUTC } from "../lib/dates";
 import { sendThankYouReviewSms } from "../services/kavenegar";
-import { isObjectStorageConfigured, uploadBuffer } from "../lib/objectStorage";
+import { isObjectStorageConfigured, uploadBuffer, deleteObject, headBucket, describeStorageError } from "../lib/objectStorage";
 import { env } from "../lib/env";
 import { cancelBookingAndMaybeRefund } from "../services/bookingCancellation";
 
@@ -210,14 +210,66 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       const url = await uploadBuffer(optimized, key, "image/webp");
       return res.status(201).json({ url });
     } catch (err) {
-      console.error("Object storage upload failed:", err);
-      return res.status(502).json({ error: "آپلود به فضای ذخیره‌سازی ابری ناموفق بود." });
+      // uploadBuffer() already logs the full structured error server-side;
+      // the exact provider error code is included here too (not just the
+      // generic message) since this response only ever reaches an
+      // authenticated admin, and it saves a trip to the server log for the
+      // common case — see GET /admin/object-storage/test for the full
+      // diagnostic picture (config values, connectivity stage, etc.)
+      const detail = describeStorageError(err);
+      return res.status(502).json({
+        error: "آپلود به فضای ذخیره‌سازی ابری ناموفق بود.",
+        detail: detail.code || detail.name || detail.causeCode || detail.message || null,
+      });
     }
   }
 
   fs.mkdirSync(uploadDir, { recursive: true });
   fs.writeFileSync(path.join(uploadDir, key), optimized);
   res.status(201).json({ url: `/uploads/${key}` });
+});
+
+// diagnostic-only: lets Ghazal (or whoever's troubleshooting) confirm the
+// object storage connection actually works — and see the REAL error if it
+// doesn't — without needing to upload a real photo or read server logs.
+// Tries two stages so a failure points at the right thing: HeadBucket first
+// (pure connectivity/credentials/bucket-exists check, no write), then a
+// tiny real PutObject+DeleteObject round-trip (confirms write permission
+// too, then cleans up after itself).
+router.get("/object-storage/test", async (_req, res) => {
+  const config = {
+    endpointConfigured: Boolean(env.objectStorage.endpoint),
+    endpoint: env.objectStorage.endpoint || null,
+    bucketConfigured: Boolean(env.objectStorage.bucket),
+    bucket: env.objectStorage.bucket || null,
+    region: env.objectStorage.region,
+    accessKeyConfigured: Boolean(env.objectStorage.accessKeyId),
+    secretKeyConfigured: Boolean(env.objectStorage.secretAccessKey),
+    publicUrlBase: env.objectStorage.publicUrlBase || null,
+  };
+  if (!isObjectStorageConfigured()) {
+    return res.json({
+      ok: false,
+      stage: "config",
+      config,
+      error: "یکی از متغیرهای ضروری (OBJECT_STORAGE_ENDPOINT / OBJECT_STORAGE_BUCKET / OBJECT_STORAGE_ACCESS_KEY) تنظیم نشده — آپلود روی دیسک محلی سرور انجام می‌شود که در پروداکشن با هر ری‌استارت پاک می‌شود.",
+    });
+  }
+
+  try {
+    await headBucket();
+  } catch (err) {
+    return res.json({ ok: false, stage: "connect", config, error: describeStorageError(err) });
+  }
+
+  const testKey = `_diagnostic-test-${Date.now()}.txt`;
+  try {
+    const url = await uploadBuffer(Buffer.from("ok"), testKey, "text/plain");
+    await deleteObject(testKey);
+    return res.json({ ok: true, stage: "upload", config, publicUrl: url });
+  } catch (err) {
+    return res.json({ ok: false, stage: "upload", config, error: describeStorageError(err) });
+  }
 });
 
 /* ---------- working days (default weekly pattern) ---------- */
@@ -502,6 +554,32 @@ router.get("/price-list", async (_req, res) => {
   res.json({ items });
 });
 
+const priceListCreateSchema = z.object({
+  groupTitle: z.string().min(1).max(120),
+  name: z.string().min(1).max(120),
+  description: z.string().max(400).nullable().optional(),
+  priceMin: z.number().int().nullable().optional(),
+  priceMax: z.number().int().nullable().optional(),
+  priceLabel: z.string().max(120).nullable().optional(),
+});
+
+router.post("/price-list", async (req, res) => {
+  const parsed = priceListCreateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  // places the new row at the end of its own group: the highest sortOrder
+  // among rows sharing the same groupTitle, plus one — a brand-new group
+  // (no existing rows) falls back to the end of the whole list instead, so
+  // it still appears after every group already on the page
+  const siblingMax = await prisma.priceListItem.aggregate({
+    where: { groupTitle: parsed.data.groupTitle },
+    _max: { sortOrder: true },
+  });
+  const overallMax = await prisma.priceListItem.aggregate({ _max: { sortOrder: true } });
+  const sortOrder = (siblingMax._max.sortOrder ?? overallMax._max.sortOrder ?? -1) + 1;
+  const item = await prisma.priceListItem.create({ data: { ...parsed.data, sortOrder } });
+  res.status(201).json({ item });
+});
+
 const priceListPatchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   description: z.string().max(400).nullable().optional(),
@@ -517,6 +595,11 @@ router.patch("/price-list/:id", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
   const item = await prisma.priceListItem.update({ where: { id: req.params.id }, data: parsed.data });
   res.json({ item });
+});
+
+router.delete("/price-list/:id", async (req, res) => {
+  await prisma.priceListItem.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
 });
 
 /* ---------- gallery ---------- */

@@ -79,7 +79,15 @@ export const env = {
   // since local disk on a PaaS app container isn't guaranteed to survive a
   // plan resize or redeploy.
   objectStorage: {
-    endpoint: process.env.OBJECT_STORAGE_ENDPOINT ?? "",
+    // a PaaS dashboard field filled in without a protocol (e.g.
+    // "storage.iran.liara.space" instead of "https://storage.iran.liara.space")
+    // is the exact same easy-to-miss typo normalizeBaseUrl() already guards
+    // against for APP_BASE_URL/FRONTEND_BASE_URL above — except here it's
+    // worse: the AWS SDK doesn't reject a protocol-less endpoint at
+    // S3Client construction time, it fails deep inside request signing with
+    // an opaque error, which looks identical to every other kind of upload
+    // failure unless you already suspect this specific cause
+    endpoint: process.env.OBJECT_STORAGE_ENDPOINT ? normalizeBaseUrl(process.env.OBJECT_STORAGE_ENDPOINT) : "",
     // Liara's own S3Client examples use the literal string "default", not a
     // real AWS region — an S3-compatible gateway that validates the SigV4
     // region against what it expects rejects every request when this is

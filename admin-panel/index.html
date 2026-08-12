@@ -68,7 +68,15 @@ a{color:inherit;}
 .sidebar button.on{background:rgba(223,160,45,.13);color:var(--must-l);border-right-color:var(--must);font-weight:700;}
 .sidebar .logout{margin-top:20px;color:rgba(251,247,238,.4);}
 .sidebar .logout:hover{background:rgba(192,57,43,.1);color:#ff8a80;}
-main{flex:1;padding:38px 42px;max-width:1280px;}
+/* padding-bottom is deliberately much bigger than the top/side padding —
+   the last card on a short tab (e.g. a form with just a couple of fields)
+   would otherwise end almost flush with the viewport edge, leaving no
+   scroll room for anything that opens BELOW the last field (a date-picker
+   popup, a select dropdown) to actually be reachable. The picker also
+   flips upward on its own when there's truly no room (see
+   attachJalaliPicker), but this is the simpler fix that covers everything
+   else too — a dropdown, a toast, an accidentally-tall validation message. */
+main{flex:1;padding:38px 42px 140px;max-width:1280px;}
 main h1{font-size:23px;margin-bottom:26px;color:#fff;font-weight:900;letter-spacing:-.01em;}
 main h3{font-size:15px;margin-bottom:14px;color:#fff;}
 #mainContent{animation:fadeInUp .35s cubic-bezier(.2,.8,.3,1);}
@@ -126,6 +134,7 @@ textarea:focus{outline:none;border-color:var(--must);}
   font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:.2s;}
 .chip.on{background:var(--must);color:var(--night);border-color:var(--must);}
 .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.mobile-scroll-hint{display:none;}
 table.simple{width:100%;border-collapse:collapse;font-size:13px;min-width:480px;}
 table.simple th{text-align:right;color:rgba(251,247,238,.5);font-weight:700;font-size:12px;padding:9px 6px;border-bottom:1.5px solid var(--gline);}
 table.simple td{padding:9px 6px;border-bottom:1px solid var(--gline);}
@@ -211,6 +220,7 @@ details.add-form summary:hover{color:#fff;}
 .cal-toolbar select{width:auto;min-width:170px;}
 .cal-nav{display:flex;align-items:center;gap:6px;}
 .cal-nav .btn{padding:8px 14px;}
+.cal-jump-label{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(251,247,238,.75);}
 .cal-range-label{font-size:13px;color:rgba(251,247,238,.65);margin-right:auto;}
 
 .cal-legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;padding:12px 16px;
@@ -297,6 +307,8 @@ table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
 .jdp-trigger:hover{border-color:rgba(223,160,45,.4);}
 .jdp-popup{position:absolute;top:calc(100% + 8px);right:0;z-index:250;background:var(--night-2);
   border:1px solid rgba(223,160,45,.3);border-radius:14px;padding:14px;width:240px;box-shadow:0 20px 45px -15px rgba(0,0,0,.6);}
+/* وقتی فضای زیر فیلد کافی نباشه، جاوااسکریپت این کلاس رو اضافه می‌کنه تا تقویم به‌جای پایین، بالای فیلد باز بشه */
+.jdp-popup.jdp-up{top:auto;bottom:calc(100% + 8px);}
 .jdp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:13.5px;font-weight:700;color:#fff;}
 .jdp-nav{background:none;border:none;color:var(--must-l);font-size:16px;cursor:pointer;padding:2px 9px;border-radius:8px;line-height:1;}
 .jdp-nav:hover{background:rgba(223,160,45,.12);}
@@ -312,7 +324,8 @@ table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
   .sidebar h2,.sidebar .logout,.sidebar .group-label{display:none;}
   .sidebar button{white-space:nowrap;border-right:none;border-bottom:3px solid transparent;padding:12px 16px;}
   .sidebar button.on{border-bottom-color:var(--must);}
-  main{padding:20px 16px;}
+  main{padding:20px 16px 120px;}
+  .mobile-scroll-hint{display:block;font-size:11.5px;color:rgba(251,247,238,.45);margin-bottom:10px;}
   main h1{font-size:19px;margin-bottom:20px;}
   .card{padding:18px;border-radius:14px;}
   .form-grid{gap:12px;}
@@ -330,6 +343,9 @@ table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
   .cal-toolbar{flex-direction:column;align-items:stretch;}
   .cal-toolbar select{width:100%;}
   .cal-nav{justify-content:space-between;}
+  .cal-jump-label{justify-content:space-between;}
+  .cal-jump-label .jdp-wrap{flex:1;}
+  .cal-jump-label .jdp-trigger{width:100%;}
   .cal-mobile-strip{display:flex;}
   .cal-legend{gap:12px 18px;padding:10px 14px;}
   .cal-day-header .row{flex-direction:column;align-items:stretch;gap:14px;}
@@ -545,6 +561,13 @@ function attachJalaliPicker(inputId){
       renderGrid(monthLabelEl, gridEl);
     });
     renderGrid(monthLabelEl, gridEl);
+    // اگه فضای زیر فیلد برای کل ارتفاع تقویم کافی نباشه (مثلاً فیلد نزدیک
+    // پایین صفحه‌ست)، به‌جای باز شدن به سمت پایین که از دید کاربر خارج و
+    // غیرقابل‌کلیک می‌شه، به سمت بالای فیلد باز می‌شه
+    const rect=popup.getBoundingClientRect();
+    if(rect.bottom>window.innerHeight){
+      popup.classList.add("jdp-up");
+    }
   };
   // اگه جای دیگه‌ای مقدار input واقعی رو مستقیم عوض کنه (کمتر پیش میاد، ولی
   // برای اطمینان)، برچسبِ دکمه هم به‌روز بمونه
@@ -572,7 +595,21 @@ function setMainContent(html){
   el.style.animation='none';
   void el.offsetWidth; /* force reflow so the animation restarts every time */
   el.style.animation='fadeInUp .35s cubic-bezier(.2,.8,.3,1)';
+  // متن‌های چندخطیِ ذخیره‌شده (بیوگرافی، توضیح سرویس، متن نظر و ...) اغلب
+  // بلندتر از دو خط پیش‌فرض textarea هستن — بدون این، متن موجود همون لحظه‌ی
+  // باز شدن تب، وسط یک خط بریده می‌شه و کاربر فکر می‌کنه محتوا خراب/ناقصه؛
+  // این باکس رو همون لحظه‌ی رندر به اندازه‌ی متنِ داخلش می‌کِشه
+  el.querySelectorAll("textarea[data-autogrow]").forEach(autoGrowTextarea);
 }
+function autoGrowTextarea(el){
+  el.style.height="auto";
+  el.style.height=(el.scrollHeight+2)+"px";
+}
+// یک listener سراسری (نه یک‌بار به‌ازای هر تب) برای رشد زنده‌ی textarea حین
+// تایپ کاربر، هم‌راستا با الگوی listener سراسریِ بستن تقویم بازشو در پایین فایل
+document.addEventListener("input",(e)=>{
+  if(e.target.matches && e.target.matches("textarea[data-autogrow]")) autoGrowTextarea(e.target);
+});
 
 /* prevents a create-type button from firing a second overlapping request if
    double-clicked (or clicked again before the toast/re-render from the first
@@ -813,6 +850,7 @@ tabs.calendar = async () => {
       <button class="btn btn-line btn-sm" onclick="calGoToday()">امروز</button>
       <button class="btn btn-ghost btn-sm" onclick="calNav(1)" aria-label="بعدی">›</button>
     </div>
+    <label class="cal-jump-label">رفتن به تاریخ:<input type="date" id="calJumpDate" onchange="calJumpToDate(this.value)"></label>
     <span class="cal-range-label" id="calRangeLabel"></span>
   </div>`;
   html += `<div class="cal-legend">
@@ -826,7 +864,21 @@ tabs.calendar = async () => {
   html += `<div id="calModalRoot"></div>`;
 
   setMainContent(html);
+  document.getElementById("calJumpDate").value = calDateStr(calSelectedDate || calTodayUTC());
+  attachJalaliPicker("calJumpDate");
   await calLoadAndRender();
+};
+
+// انتخاب مستقیم یک تاریخ از تقویم شمسی — برای پرش سریع به چند هفته/ماه جلوتر
+// یا عقب‌تر، به‌جای کلیک‌های پی‌درپی روی دکمه‌ی «قبلی/بعدی» که فقط هفته‌به‌هفته
+// جلو می‌رن
+window.calJumpToDate = (dateStr) => {
+  if (!dateStr) return;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  calWeekStart = calWeekStartFor(date);
+  calSelectedDate = date;
+  calLoadAndRender();
 };
 
 window.calOnCategoryChange = (id) => {
@@ -1665,6 +1717,7 @@ window.setBookingStatus = async (id, status) => {
    ===================================================================== */
 tabs.prices = async () => {
   const {items} = await api("/admin/price-list");
+  window._priceGroups = Array.from(new Set(items.map(i=>i.groupTitle)));
   const groups = {};
   items.forEach(i=>{ (groups[i.groupTitle] ||= []).push(i); });
   let html = `<h1>قیمت‌ها</h1>`;
@@ -1673,16 +1726,37 @@ tabs.prices = async () => {
     rows.sort((a,b)=>a.sortOrder-b.sortOrder).forEach(r=>{
       html += `<div class="row">
         <div style="flex:1;min-width:160px;"><b>${esc(r.name)}</b><div class="muted">${esc(r.description||"")}</div></div>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input type="number" value="${r.priceMin??""}" placeholder="از" onchange="updatePrice('${r.id}','priceMin',this.value)">
           <span class="muted">تا</span>
           <input type="number" value="${r.priceMax??""}" placeholder="تا" onchange="updatePrice('${r.id}','priceMax',this.value)">
           <input type="text" class="wide" value="${esc(r.priceLabel||"")}" placeholder="یا برچسب متنی (مثلاً «با مشاوره»)" onchange="updatePrice('${r.id}','priceLabel',this.value)">
+          <button class="btn btn-danger btn-sm" onclick="deletePriceRow('${r.id}')">حذف</button>
         </div>
       </div>`;
     });
     html += `</div>`;
   });
+
+  html += `<details class="add-form" style="margin-top:26px;">
+    <summary>افزودن ردیف قیمت جدید</summary>
+    <div class="adv-body">
+      <p class="muted" style="margin:14px 0;">وقتی سرویس جدیدی از تب «خدمات» اضافه می‌کنید، اینجا خودکار اضافه نمی‌شود — چون بعضی سرویس‌ها (مثلاً هیرکات) چند ردیف قیمت دارند. برای نشان‌دادنش در صفحه‌ی قیمت‌های سایت، یک ردیف اینجا اضافه کنید.</p>
+      <div class="form-grid">
+        <label class="field">گروه (دسته‌ی نمایش در صفحه‌ی قیمت‌ها)
+          <input type="text" id="plGroup" list="plGroupList" placeholder="مثلاً «رنگ و دکلره» یا یک گروه جدید">
+          <datalist id="plGroupList">${window._priceGroups.map(g=>`<option value="${esc(g)}">`).join("")}</datalist>
+        </label>
+        <label class="field">نام سرویس/ردیف<input type="text" id="plName"></label>
+        <label class="field">توضیح (اختیاری)<input type="text" class="wide" id="plDesc"></label>
+        <label class="field">از (تومان)<input type="number" id="plMin"></label>
+        <label class="field">تا (تومان)<input type="number" id="plMax"></label>
+        <label class="field">یا برچسب متنی (اختیاری، مثلاً «با مشاوره»)<input type="text" id="plLabel"></label>
+        <button class="btn btn-gold btn-sm" onclick="createPriceRow()">افزودن</button>
+      </div>
+    </div>
+  </details>`;
+
   setMainContent(html);
 };
 window.updatePrice = async (id, field, value) => {
@@ -1693,6 +1767,31 @@ window.updatePrice = async (id, field, value) => {
     toast("قیمت به‌روزرسانی شد.");
   }catch(e){ toast(e.message,true); }
 };
+window.deletePriceRow = async (id) => {
+  if(!confirm("این ردیف قیمت حذف شود؟")) return;
+  try{ await api(`/admin/price-list/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.prices(); }
+  catch(e){ toast(e.message,true); }
+};
+window.createPriceRow = withSubmitGuard(async () => {
+  const groupTitle=document.getElementById("plGroup").value.trim();
+  const name=document.getElementById("plName").value.trim();
+  const description=document.getElementById("plDesc").value.trim();
+  const priceMin=document.getElementById("plMin").value;
+  const priceMax=document.getElementById("plMax").value;
+  const priceLabel=document.getElementById("plLabel").value.trim();
+  if(!groupTitle||!name) return toast("گروه و نام ردیف را وارد کنید.",true);
+  try{
+    await api("/admin/price-list",{method:"POST",body:JSON.stringify({
+      groupTitle, name,
+      description: description||null,
+      priceMin: priceMin===""?null:Number(priceMin),
+      priceMax: priceMax===""?null:Number(priceMax),
+      priceLabel: priceLabel||null,
+    })});
+    toast("ردیف قیمت اضافه شد.");
+    tabs.prices();
+  }catch(e){ toast(e.message,true); }
+});
 
 /* =====================================================================
    گالری
@@ -1819,7 +1918,7 @@ tabs.reviews = async () => {
         <label class="field">تاریخ (اختیاری)<input type="date" id="rvDate"></label>
         <button class="btn btn-gold btn-sm" onclick="addManualReview()">ثبت (به‌صورت تاییدشده)</button>
       </div>
-      <label class="field" style="margin-top:12px;">متن نظر<textarea id="rvText" rows="2"></textarea></label>
+      <label class="field" style="margin-top:12px;">متن نظر<textarea id="rvText" rows="2" data-autogrow></textarea></label>
     </div>
   </details>`;
 
@@ -1906,7 +2005,7 @@ tabs.siteContent = async () => {
     const len = (byKey[key]||"").length;
     html += `<div class="row" style="align-items:flex-start;">
       <label class="field" style="flex:1;">${label}
-        <textarea rows="2" maxlength="${max}" oninput="document.getElementById('cnt-${key}').textContent=this.value.length+' / ${max}'" onchange="updateSiteContent('${key}',this.value)">${esc(byKey[key]||"")}</textarea>
+        <textarea rows="2" data-autogrow maxlength="${max}" oninput="document.getElementById('cnt-${key}').textContent=this.value.length+' / ${max}'" onchange="updateSiteContent('${key}',this.value)">${esc(byKey[key]||"")}</textarea>
         <div class="muted" id="cnt-${key}" style="font-size:12px;margin-top:2px;">${len} / ${max}</div>
       </label>
     </div>`;
@@ -1959,7 +2058,7 @@ tabs.services = async () => {
       </div>
       <div class="row">
         <label class="field" style="flex:1;">توضیح سرویس (نمایش‌داده‌شده در بخش «خدمات تخصصی» سایت)
-          <textarea rows="2" maxlength="400" oninput="document.getElementById('cnt-note-${s.id}').textContent=this.value.length+' / 400'" onchange="updateService('${s.id}','priceNote',this.value)">${esc(s.priceNote||"")}</textarea>
+          <textarea rows="2" data-autogrow maxlength="400" oninput="document.getElementById('cnt-note-${s.id}').textContent=this.value.length+' / 400'" onchange="updateService('${s.id}','priceNote',this.value)">${esc(s.priceNote||"")}</textarea>
           <div class="muted" id="cnt-note-${s.id}" style="font-size:12px;margin-top:2px;">${(s.priceNote||"").length} / 400</div>
         </label>
       </div>
@@ -2022,7 +2121,7 @@ tabs.customers = async () => {
   const {customers} = await api("/admin/customers");
   let html = `<h1>مشتریان</h1>`;
   if(!customers.length) html += `<div class="card muted">هنوز مشتری ثبت‌نامی وجود ندارد.</div>`;
-  html += `<div class="card table-wrap"><table class="simple"><thead><tr><th>نام</th><th>موبایل</th><th>تعداد نوبت</th><th>تاریخ عضویت</th><th></th></tr></thead><tbody>`;
+  html += `<div class="card"><div class="mobile-scroll-hint">برای دیدن همه‌ی ستون‌ها، جدول را به چپ بکشید ←</div><div class="table-wrap"><table class="simple"><thead><tr><th>نام</th><th>موبایل</th><th>تعداد نوبت</th><th>تاریخ عضویت</th><th></th></tr></thead><tbody>`;
   customers.forEach(c=>{
     html += `<tr>
       <td>${esc(`${c.firstName} ${c.lastName}`)}</td>
@@ -2032,7 +2131,7 @@ tabs.customers = async () => {
       <td><button class="btn btn-line btn-sm" onclick="showCustomerHistory('${c.id}')">تاریخچه</button></td>
     </tr>`;
   });
-  html += `</tbody></table></div><div id="customerHistory"></div>`;
+  html += `</tbody></table></div></div><div id="customerHistory"></div>`;
   setMainContent(html);
 };
 window.showCustomerHistory = async (id) => {
@@ -2163,7 +2262,7 @@ window.deleteSocialLink = async (id) => {
 const SMS_TYPE_FA = {OTP:"کد ورود",BOOKING_CONFIRM:"تایید رزرو",REMINDER:"یادآوری نوبت",THANK_YOU_REVIEW:"تشکر + درخواست نظر"};
 tabs.smsLogs = async () => {
   const {logs} = await api("/admin/sms-logs?limit=200");
-  let html = `<h1>پیامک‌ها</h1><div class="card table-wrap"><table class="simple"><thead><tr><th>موبایل</th><th>نوع</th><th>وضعیت</th><th>خطا</th><th>زمان</th></tr></thead><tbody>`;
+  let html = `<h1>پیامک‌ها</h1><div class="card"><div class="mobile-scroll-hint">برای دیدن همه‌ی ستون‌ها، جدول را به چپ بکشید ←</div><div class="table-wrap"><table class="simple"><thead><tr><th>موبایل</th><th>نوع</th><th>وضعیت</th><th>خطا</th><th>زمان</th></tr></thead><tbody>`;
   if(!logs.length) html += `<tr><td colspan="5" class="muted">هنوز پیامکی ارسال نشده.</td></tr>`;
   logs.forEach(l=>{
     const tag = l.status==="SUCCESS"?"tag-open":l.status==="FAILED"?"tag-closed":"tag-muted";
@@ -2175,7 +2274,7 @@ tabs.smsLogs = async () => {
       : `<span class="muted">—</span>`;
     html += `<tr><td>${l.phone}</td><td>${SMS_TYPE_FA[l.type]||l.type}</td><td><span class="tag ${tag}">${statusFa}</span></td><td>${errCell}</td><td>${fmtJalaliDate(l.createdAt)}، ${new Date(l.createdAt).toLocaleTimeString("fa-IR")}</td></tr>`;
   });
-  html += `</tbody></table></div>`;
+  html += `</tbody></table></div></div>`;
   setMainContent(html);
 };
 
@@ -2196,12 +2295,65 @@ tabs.settings = async () => {
       <label class="field">مقدار پیش‌فرض<input type="number" value="${settings.defaultDepositValue}" onchange="updateSettings('defaultDepositValue',Number(this.value))" style="width:120px;"></label>
     </div>
   </div>`;
+
+  html += `<div class="section-title">تست اتصال به فضای ذخیره‌سازی ابری (Object Storage)</div><div class="card">
+    <p class="muted" style="margin-bottom:16px;">اگر آپلود عکس تو تب «گالری» با خطا مواجه می‌شه، اول این تست رو بزن — دقیقاً می‌گه مشکل کجاست (تنظیمات، اتصال، یا خودِ آپلود).</p>
+    <button class="btn btn-gold btn-sm" onclick="testObjectStorage()">تست اتصال</button>
+    <div id="storageTestResult" style="margin-top:16px;"></div>
+  </div>`;
+
   setMainContent(html);
 };
 window.updateSettings = async (field, value) => {
   try{ await api("/admin/settings",{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }
 };
+const STORAGE_STAGE_FA = {config:"تنظیمات (متغیرهای محیطی)", connect:"اتصال به باکت", upload:"آپلود فایل آزمایشی"};
+window.testObjectStorage = withSubmitGuard(async () => {
+  const el = document.getElementById("storageTestResult");
+  el.innerHTML = `<p class="muted">در حال تست…</p>`;
+  let r;
+  try{
+    r = await api("/admin/object-storage/test");
+  }catch(e){
+    el.innerHTML = `<div class="card muted" style="border-color:var(--danger);">درخواست تست خودش ناموفق بود: ${esc(e.message)}</div>`;
+    return;
+  }
+  const cfgRows = [
+    ["آدرس (Endpoint)", r.config.endpoint, r.config.endpointConfigured],
+    ["نام باکت (Bucket)", r.config.bucket, r.config.bucketConfigured],
+    ["منطقه (Region)", r.config.region, true],
+    ["کلید دسترسی (Access Key)", r.config.accessKeyConfigured?"تنظیم شده":"—", r.config.accessKeyConfigured],
+    ["کلید محرمانه (Secret Key)", r.config.secretKeyConfigured?"تنظیم شده":"—", r.config.secretKeyConfigured],
+  ];
+  let html = `<div class="card" style="border-color:${r.ok?'var(--success)':'var(--danger)'};">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <span class="tag ${r.ok?'tag-open':'tag-closed'}" style="font-size:13px;">${r.ok?'✓ موفق':'✗ ناموفق — مرحله: '+(STORAGE_STAGE_FA[r.stage]||r.stage)}</span>
+    </div>
+    <div class="mobile-scroll-hint">برای دیدن مقدار هر ردیف، جدول را به چپ بکشید ←</div>
+    <div class="table-wrap"><table class="simple" style="margin-bottom:${r.ok?'0':'14px'};"><tbody>
+      ${cfgRows.map(([label,val,ok])=>`<tr><td class="muted">${label}</td><td>${val?esc(String(val)):'<span style="color:var(--danger);">— تنظیم نشده</span>'}</td></tr>`).join("")}
+    </tbody></table></div>`;
+  if(!r.ok){
+    const err = r.error;
+    if(typeof err === "string"){
+      html += `<p style="color:var(--danger);">${esc(err)}</p>`;
+    } else {
+      html += `<div class="table-wrap"><table class="simple"><tbody>
+        ${err.code?`<tr><td class="muted">کد خطا</td><td>${esc(err.code)}</td></tr>`:''}
+        ${err.name?`<tr><td class="muted">نوع خطا</td><td>${esc(err.name)}</td></tr>`:''}
+        ${err.message?`<tr><td class="muted">پیام</td><td>${esc(err.message)}</td></tr>`:''}
+        ${err.httpStatusCode?`<tr><td class="muted">کد HTTP</td><td>${esc(String(err.httpStatusCode))}</td></tr>`:''}
+        ${err.causeMessage?`<tr><td class="muted">علت زیرین (شبکه/DNS)</td><td>${esc(err.causeMessage)}</td></tr>`:''}
+        ${err.requestId?`<tr><td class="muted">شناسه‌ی درخواست</td><td>${esc(err.requestId)}</td></tr>`:''}
+      </tbody></table></div>`;
+    }
+  } else {
+    html += `<p style="color:#7FD9A4;">آپلود و حذف فایل آزمایشی با موفقیت انجام شد — فضای ذخیره‌سازی سالمه.</p>`;
+  }
+  html += `</div>`;
+  el.innerHTML = html;
+});
 
 /* ---------------- shell ---------------- */
 document.querySelectorAll(".sidebar button[data-tab]").forEach(btn=>{
