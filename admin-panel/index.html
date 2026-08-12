@@ -479,6 +479,31 @@ function jdpDaysInMonth(jy,jm){
   return totalDays-336; /* ۶×۳۱ + ۵×۳۰ روزِ ۱۱ ماه اول، باقی‌مانده طول اسفند است */
 }
 
+// موقعیت پیش‌فرض popup (پایینِ فیلد، چسبیده به لبه‌ی راست) فقط وقتی درست
+// جواب می‌ده که فیلد نه به لبه‌ی پایین صفحه نزدیک باشه، نه به لبه‌ی چپ —
+// نسخه‌ی قبلی این تابع فقط سرریزِ پایین رو چک می‌کرد، برای همین وقتی خودِ
+// popup بالاتر از بالای صفحه هم می‌رفت (روی صفحه‌های کوتاه) یا فیلد نزدیک
+// لبه‌ی چپ بود (که در RTL یعنی popup که به راست می‌چسبد و به چپ باز می‌شه، از
+// چپ صفحه بیرون می‌زنه)، هیچ اصلاحی روش اعمال نمی‌شد. این نسخه بعد از رندر
+// واقعی، سرریز هر چهار جهت رو اندازه می‌گیره و با transform جابه‌جا می‌کنه —
+// مستقل از اینکه popup با top/bottom و right/left چطور در CSS چیده شده.
+function positionPopup(popup){
+  popup.style.transform="";
+  popup.classList.remove("jdp-up");
+  const margin=8;
+  let rect=popup.getBoundingClientRect();
+  if(rect.bottom>window.innerHeight-margin && rect.height<window.innerHeight-margin*2){
+    popup.classList.add("jdp-up");
+    rect=popup.getBoundingClientRect();
+  }
+  let dx=0, dy=0;
+  if(rect.left<margin) dx=margin-rect.left;
+  else if(rect.right>window.innerWidth-margin) dx=(window.innerWidth-margin)-rect.right;
+  if(rect.top<margin) dy=margin-rect.top;
+  else if(rect.bottom>window.innerHeight-margin) dy=(window.innerHeight-margin)-rect.bottom;
+  if(dx||dy) popup.style.transform=`translate(${dx}px, ${dy}px)`;
+}
+
 /* تقویم انتخاب تاریخِ شمسی — یک <input type="date"> موجود را می‌گیرد (مخفی‌اش
    می‌کند، ولی به‌عنوان تک‌منبع مقدار در DOM نگه می‌داره) و به‌جاش یک دکمه با
    برچسب شمسی + یک تقویم بازشوی شمسی نشون می‌ده. چون input واقعی و مقدار و
@@ -567,15 +592,10 @@ function attachJalaliPicker(inputId){
       if(viewJM>12){viewJM=1;viewJY++;}
       if(viewJM<1){viewJM=12;viewJY--;}
       renderGrid(monthLabelEl, gridEl);
+      positionPopup(popup);
     });
     renderGrid(monthLabelEl, gridEl);
-    // اگه فضای زیر فیلد برای کل ارتفاع تقویم کافی نباشه (مثلاً فیلد نزدیک
-    // پایین صفحه‌ست)، به‌جای باز شدن به سمت پایین که از دید کاربر خارج و
-    // غیرقابل‌کلیک می‌شه، به سمت بالای فیلد باز می‌شه
-    const rect=popup.getBoundingClientRect();
-    if(rect.bottom>window.innerHeight){
-      popup.classList.add("jdp-up");
-    }
+    positionPopup(popup);
   };
   // اگه جای دیگه‌ای مقدار input واقعی رو مستقیم عوض کنه (کمتر پیش میاد، ولی
   // برای اطمینان)، برچسبِ دکمه هم به‌روز بمونه
@@ -1382,12 +1402,16 @@ tabs.schedule = async () => {
     </div>
   </div>`;
 
-  html += `<div class="section-title">تعطیلی موقت (بستن چند روز پشت‌سرهم — مرخصی، بیماری)</div><div class="card">
+  html += `<div class="section-title">بستن/بازکردن یک بازه‌ی تاریخ (چند روز یا چند ماه یکجا)</div><div class="card">
+    <p class="muted" style="margin-bottom:14px;">برای مرخصی، بیماری، یا هر بازه‌ای که از قبل به‌صورت حضوری/تلفنی پر شده و نباید آنلاین رزرو بشه — کل بازه رو یکجا ببند (تا ۹۰ روز، یعنی مثلاً دو ماه کامل در یک بار). اگه اشتباهی بسته شد، با همون دو تاریخ می‌تونی «بازکردن این بازه» رو بزنی تا برگرده به حالت عادی.</p>
     <div class="form-grid">
       <label class="field">از تاریخ<input type="date" id="closureStart"></label>
       <label class="field">تا تاریخ<input type="date" id="closureEnd"></label>
-      <label class="field">دلیل (اختیاری)<input type="text" class="wide" id="closureReason" placeholder="مثلاً مرخصی"></label>
+      <label class="field">دلیل (اختیاری، فقط برای بستن)<input type="text" class="wide" id="closureReason" placeholder="مثلاً مرخصی یا نوبت‌های حضوری از قبل"></label>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
       <button class="btn btn-danger btn-sm" onclick="addClosureRange()">بستن این بازه</button>
+      <button class="btn btn-ghost btn-sm" onclick="removeClosureRange()">بازکردن این بازه</button>
     </div>
   </div>`;
 
@@ -1478,14 +1502,33 @@ window.deleteDayException = async (id) => {
   try{ await api(`/admin/day-exceptions/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.schedule(); }
   catch(e){ toast(e.message,true); }
 };
+function closureRangeDayCount(startDate,endDate){
+  return Math.round((new Date(endDate)-new Date(startDate))/86400000)+1;
+}
 window.addClosureRange = withSubmitGuard(async () => {
   const startDate=document.getElementById("closureStart").value;
   const endDate=document.getElementById("closureEnd").value;
   if(!startDate||!endDate) return toast("بازه‌ی تاریخ را کامل کنید.",true);
+  const days=closureRangeDayCount(startDate,endDate);
+  if(days<1) return toast("تاریخ پایان باید بعد از تاریخ شروع باشد.",true);
+  if(!confirm(`${days} روز (از ${fmtJalaliDate(startDate)} تا ${fmtJalaliDate(endDate)}) بسته بشه؟ هیچ مشتری‌ای نمی‌تونه توی این بازه آنلاین رزرو کنه.`)) return;
   const reason=document.getElementById("closureReason").value.trim()||null;
   try{
     const r=await api("/admin/day-exceptions/closure-range",{method:"POST",body:JSON.stringify({startDate,endDate,reason})});
     toast(`${r.exceptions.length} روز بسته شد.`);
+    tabs.schedule();
+  }catch(e){ toast(e.message,true); }
+});
+window.removeClosureRange = withSubmitGuard(async () => {
+  const startDate=document.getElementById("closureStart").value;
+  const endDate=document.getElementById("closureEnd").value;
+  if(!startDate||!endDate) return toast("بازه‌ی تاریخ را کامل کنید.",true);
+  const days=closureRangeDayCount(startDate,endDate);
+  if(days<1) return toast("تاریخ پایان باید بعد از تاریخ شروع باشد.",true);
+  if(!confirm(`${days} روز (از ${fmtJalaliDate(startDate)} تا ${fmtJalaliDate(endDate)}) به حالت عادی برگرده؟ (فقط روزهایی که با همین ابزار یا به‌صورت تکی بسته شده‌اند باز می‌شوند.)`)) return;
+  try{
+    const r=await api(`/admin/day-exceptions/closure-range?startDate=${startDate}&endDate=${endDate}`,{method:"DELETE"});
+    toast(`${r.count} روز باز شد.`);
     tabs.schedule();
   }catch(e){ toast(e.message,true); }
 });

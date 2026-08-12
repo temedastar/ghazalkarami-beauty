@@ -390,11 +390,6 @@ router.post("/day-exceptions", async (req, res) => {
   res.status(201).json({ exception });
 });
 
-router.delete("/day-exceptions/:id", async (req, res) => {
-  await prisma.dayException.delete({ where: { id: req.params.id } });
-  res.json({ ok: true });
-});
-
 const closureRangeSchema = z.object({
   startDate: z.string(),
   endDate: z.string(),
@@ -429,6 +424,37 @@ router.post("/day-exceptions/closure-range", async (req, res) => {
     )
   );
   res.status(201).json({ exceptions: created });
+});
+
+// the undo counterpart to the bulk close above — a mistaken 90-day close
+// shouldn't require deleting exceptions one at a time from the list below.
+// Only touches isOpen:false rows in the range, not every exception in it:
+// a deliberately-added "extra hours" or "custom schedule" exception that
+// happens to fall inside the same date range is a different admin decision
+// and must survive an "undo my bulk close" click untouched.
+router.delete("/day-exceptions/closure-range", async (req, res) => {
+  const parsed = z.object({ startDate: z.string(), endDate: z.string() }).safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  const start = parseDateOnly(parsed.data.startDate);
+  const end = parseDateOnly(parsed.data.endDate);
+  if (!start || !end || end < start) return res.status(400).json({ error: "بازه‌ی تاریخ نامعتبر است." });
+
+  const dayCount = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  if (dayCount > 90) return res.status(400).json({ error: "بازه‌ی بازکردن نباید بیشتر از ۹۰ روز باشد." });
+
+  const { count } = await prisma.dayException.deleteMany({
+    where: { date: { gte: start, lte: end }, isOpen: false },
+  });
+  res.json({ count });
+});
+
+// registered AFTER /day-exceptions/closure-range on purpose — Express
+// matches routes in registration order, and this :id wildcard would
+// otherwise swallow "closure-range" as if it were an id, throwing a
+// confusing "record not found" instead of ever reaching that route
+router.delete("/day-exceptions/:id", async (req, res) => {
+  await prisma.dayException.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
 });
 
 /* ---------- categories & time slots ---------- */
