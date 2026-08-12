@@ -208,6 +208,12 @@ router.post("/upload", upload.single("file"), async (req, res) => {
   if (isObjectStorageConfigured()) {
     try {
       const url = await uploadBuffer(optimized, key, "image/webp");
+      // upload itself succeeding says nothing about whether the CALLER then
+      // successfully saves this url anywhere (gallery row, site-content
+      // key) — logging it here gives a fixed reference point: if a photo
+      // never shows up, checking whether ITS url appears in this log at all
+      // tells you immediately whether the break is before or after this line
+      console.log(`Upload OK: key=${key} originalBytes=${req.file.size} url=${url}`);
       return res.status(201).json({ url });
     } catch (err) {
       // uploadBuffer() already logs the full structured error server-side;
@@ -660,6 +666,7 @@ router.post("/gallery", async (req, res) => {
   const parsed = gallerySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
   const image = await prisma.galleryImage.create({ data: parsed.data });
+  console.log(`POST gallery: created id=${image.id} url=${image.url}`);
   res.status(201).json({ image });
 });
 
@@ -1008,14 +1015,15 @@ router.patch("/site-content/:key", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: `متن نباید بیشتر از ${maxLength} کاراکتر باشد.` });
   }
-  const previous = SITE_IMAGE_KEYS.has(req.params.key)
-    ? await prisma.siteContent.findUnique({ where: { key: req.params.key } })
-    : null;
+  const isImageKey = SITE_IMAGE_KEYS.has(req.params.key);
+  const previous = isImageKey ? await prisma.siteContent.findUnique({ where: { key: req.params.key } }) : null;
+  if (isImageKey) console.log(`PATCH site-content ${req.params.key}: saving value="${parsed.data.value}"`);
   const row = await prisma.siteContent.upsert({
     where: { key: req.params.key },
     create: { key: req.params.key, value: parsed.data.value },
     update: { value: parsed.data.value },
   });
+  if (isImageKey) console.log(`PATCH site-content ${req.params.key}: DB now has value="${row.value}"`);
   if (previous && previous.value && previous.value !== parsed.data.value) {
     await deleteUploadedFile(previous.value);
   }
