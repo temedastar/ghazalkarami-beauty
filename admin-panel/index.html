@@ -111,13 +111,21 @@ label.field{display:flex;flex-direction:column;gap:6px;font-size:12px;color:rgba
 .slider::before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
 input:checked + .slider{background:var(--must);}
 input:checked + .slider::before{transform:translateX(-20px);}
-.grid-imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;}
-.gimg{border:1.5px solid var(--gline);border-radius:13px;overflow:hidden;position:relative;background:rgba(255,255,255,.03);
+.grid-imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;}
+.gimg{border:1.5px solid var(--gline);border-radius:13px;position:relative;background:rgba(255,255,255,.03);
   transition:border-color .2s ease,transform .2s ease;}
 .gimg:hover{border-color:rgba(223,160,45,.35);transform:translateY(-2px);}
-.gimg img{width:100%;height:140px;object-fit:cover;display:block;}
-.gimg .meta{padding:9px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:6px;}
-.gimg select{font-family:inherit;font-size:11px;padding:3px;border-radius:6px;width:auto;}
+.gimg img{width:100%;height:140px;object-fit:cover;display:block;border-radius:13px 13px 0 0;}
+/* یک ردیف باریک ۱۴۰px (کارت گالری) هرگز جای کافی برای select + چهار دکمه‌ی
+   کنار هم نداره؛ اگه به‌جای اینکه بشکنه به خط بعد، از overflow:hidden کارت
+   بیرون بزنه، همون‌جا نامرئی می‌شه — دقیقاً همین اتفاق برای دکمه‌ی «حذف»
+   می‌افتاد: در DOM و قابل کلیک بود، ولی هیچ‌وقت روی صفحه دیده نمی‌شد. برای
+   همین این‌جا overflow:hidden از کارت برداشته شده (فقط روی عکس با
+   border-radius جداگانه اعمال می‌شه) و کل .meta ستونی شده تا هیچ کنترلی
+   هیچ‌وقت بیرون از کارت کلیپ نشه. */
+.gimg .meta{padding:9px;font-size:11.5px;display:flex;flex-direction:column;gap:8px;}
+.gimg .meta-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+.gimg select{font-family:inherit;font-size:11px;padding:5px;border-radius:6px;width:100%;}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--night-2);color:#fff;
   border:1px solid rgba(223,160,45,.3);padding:13px 24px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;
   transition:opacity .25s ease,transform .25s ease;z-index:200;max-width:90vw;text-align:center;box-shadow:0 20px 40px -12px rgba(0,0,0,.5);}
@@ -1814,7 +1822,7 @@ tabs.gallery = async () => {
           <option value="color" ${img.category==="color"?"selected":""}>رنگ</option>
           <option value="treat" ${img.category==="treat"?"selected":""}>صافی/احیا</option>
         </select>
-        <div style="display:flex;gap:6px;align-items:center;">
+        <div class="meta-actions">
           <button class="btn btn-ghost btn-sm" style="padding:6px 10px;" onclick="moveGalleryImage('${img.id}','up')" ${idx===0?"disabled":""} title="جابه‌جایی به بالا" aria-label="جابه‌جایی این عکس به بالا">↑</button>
           <button class="btn btn-ghost btn-sm" style="padding:6px 10px;" onclick="moveGalleryImage('${img.id}','down')" ${idx===images.length-1?"disabled":""} title="جابه‌جایی به پایین" aria-label="جابه‌جایی این عکس به پایین">↓</button>
           <label class="switch" style="width:34px;height:19px;"><input type="checkbox" ${img.active?"checked":""} onchange="updateGalleryField('${img.id}','active',this.checked)"><span class="slider"></span></label>
@@ -1992,9 +2000,12 @@ tabs.siteContent = async () => {
         ${url?`<img src="${esc(url)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:10px;border:1.5px solid var(--line);">`:'<div class="muted" style="width:56px;">— بدون عکس —</div>'}
         <b>${label}</b>
       </div>
-      <label class="upload-btn">آپلود عکس جدید
-        <input type="file" accept="image/*" style="display:none;" onchange="uploadSiteImage(this,'${key}')">
-      </label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <label class="upload-btn">آپلود عکس جدید
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadSiteImage(this,'${key}')">
+        </label>
+        ${url?`<button class="btn btn-danger btn-sm" onclick="deleteSiteImage('${key}')">حذف عکس</button>`:''}
+      </div>
     </div>`;
   });
   html += `</div>`;
@@ -2029,6 +2040,14 @@ window.uploadSiteImage = async (input, key) => {
     toast("عکس به‌روزرسانی شد.");
     tabs.siteContent(); // re-renders the tab, which recreates (and re-enables) this input
   }catch(e){ toast(e.message,true); input.disabled = false; input.value = ""; }
+};
+window.deleteSiteImage = async (key) => {
+  if(!confirm("این عکس حذف شود؟ (هم از سایت، هم کامل از فضای ذخیره‌سازی)")) return;
+  try{
+    await api(`/admin/site-content/${key}`,{method:"PATCH",body:JSON.stringify({value:""})});
+    toast("عکس حذف شد.");
+    tabs.siteContent();
+  }catch(e){ toast(e.message,true); }
 };
 
 /* =====================================================================
@@ -2334,7 +2353,19 @@ window.testObjectStorage = withSubmitGuard(async () => {
     <div class="table-wrap"><table class="simple" style="margin-bottom:${r.ok?'0':'14px'};"><tbody>
       ${cfgRows.map(([label,val,ok])=>`<tr><td class="muted">${label}</td><td>${val?esc(String(val)):'<span style="color:var(--danger);">— تنظیم نشده</span>'}</td></tr>`).join("")}
     </tbody></table></div>`;
-  if(!r.ok){
+  if(r.publicAccess){
+    // upload itself worked — this stage checks something the upload call
+    // itself can't: whether an anonymous browser (not our signed admin
+    // request) can actually load the file at its public URL. That depends
+    // only on the bucket's public/private access level in Liara's console.
+    html += `<p class="muted" style="margin-bottom:10px;">لینک عمومی فایل آزمایشی: <a href="${esc(r.publicUrl)}" target="_blank" rel="noopener" style="color:var(--must-l);word-break:break-all;">${esc(r.publicUrl)}</a></p>`;
+    if(r.publicAccess.reachable){
+      html += `<p style="color:#7FD9A4;">فایل آزمایشی از همین لینک، بدون نیاز به ورود، با موفقیت بارگذاری شد — یعنی باکت درست روی «عمومی» تنظیم شده و عکس‌ها باید در سایت نمایش داده بشن.</p>`;
+    } else {
+      html += `<p style="color:var(--danger);margin-bottom:10px;">فایل با موفقیت آپلود شد، ولی همین لینک عمومی از بیرون (بدون ورود) قابل بارگذاری نبود${r.publicAccess.httpStatus?` (کد HTTP ${r.publicAccess.httpStatus})`:''}${r.publicAccess.error?` — ${esc(r.publicAccess.error)}`:''}. این دقیقاً همون علتیه که عکس‌ها تو سایت نمایش داده نمی‌شن.</p>
+      <p style="color:var(--danger);">راه‌حل: وارد کنسول لیارا بشید → فضای ذخیره‌سازی ابری → روی باکت‌تون بزنید → تنظیمات → سطح دسترسی (Access Level) رو از «خصوصی» به «عمومی» تغییر بدید.</p>`;
+    }
+  } else if(!r.ok){
     const err = r.error;
     if(typeof err === "string"){
       html += `<p style="color:var(--danger);">${esc(err)}</p>`;

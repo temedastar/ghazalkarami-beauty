@@ -229,6 +229,27 @@ router.post("/upload", upload.single("file"), async (req, res) => {
   res.status(201).json({ url: `/uploads/${key}` });
 });
 
+// every place that removes or replaces an uploaded image (gallery delete,
+// site-content logo/portrait delete or re-upload) needs to clean up the
+// actual file too, not just the DB row/value pointing at it — otherwise the
+// old file sits in the bucket forever, taking up paid storage, orphaned and
+// unreachable from any admin UI. Best-effort by design: the key naming
+// scheme (a bare UUID + extension, see /upload above) means a stored URL's
+// last path segment IS the key regardless of which base (publicUrlBase or
+// endpoint/bucket) built it, so this works without touching the DB schema.
+async function deleteUploadedFile(url: string | null | undefined): Promise<void> {
+  if (!url) return;
+  if (isObjectStorageConfigured()) {
+    const key = url.split("/").filter(Boolean).pop();
+    if (!key) return;
+    await deleteObject(key).catch(() => {});
+  } else if (url.startsWith("/uploads/")) {
+    const key = url.slice("/uploads/".length);
+    if (!key || key.includes("/")) return; // defensive: never touch anything outside uploadDir
+    fs.promises.unlink(path.join(uploadDir, key)).catch(() => {});
+  }
+}
+
 // diagnostic-only: lets Ghazal (or whoever's troubleshooting) confirm the
 // object storage connection actually works — and see the REAL error if it
 // doesn't — without needing to upload a real photo or read server logs.
@@ -263,13 +284,33 @@ router.get("/object-storage/test", async (_req, res) => {
   }
 
   const testKey = `_diagnostic-test-${Date.now()}.txt`;
+  let publicUrl: string;
   try {
-    const url = await uploadBuffer(Buffer.from("ok"), testKey, "text/plain");
-    await deleteObject(testKey);
-    return res.json({ ok: true, stage: "upload", config, publicUrl: url });
+    publicUrl = await uploadBuffer(Buffer.from("ok"), testKey, "text/plain");
   } catch (err) {
     return res.json({ ok: false, stage: "upload", config, error: describeStorageError(err) });
   }
+
+  // uploading (an authenticated, signed request) succeeding says nothing
+  // about whether an ANONYMOUS visitor's browser can load the same file —
+  // that depends entirely on the bucket's public/private access level, a
+  // console setting this code can't see or change. A plain unauthenticated
+  // fetch of the exact URL galleries/site-content images will be served at
+  // is the only way to actually answer that, using Ghazal's real bucket
+  // instead of guessing from documentation.
+  let publicAccess: { reachable: boolean; httpStatus: number | null; error: string | null };
+  try {
+    const probe = await fetch(publicUrl);
+    publicAccess = { reachable: probe.ok, httpStatus: probe.status, error: null };
+  } catch (err) {
+    publicAccess = { reachable: false, httpStatus: null, error: describeStorageError(err).causeMessage || String(err) };
+  }
+
+  // deleteObject() already logs its own failure server-side — a cleanup
+  // failure here shouldn't hide the actual test result the admin is waiting on
+  await deleteObject(testKey).catch(() => {});
+
+  return res.json({ ok: publicAccess.reachable, stage: "upload", config, publicUrl, publicAccess });
 });
 
 /* ---------- working days (default weekly pattern) ---------- */
@@ -636,7 +677,8 @@ router.patch("/gallery/:id", async (req, res) => {
 });
 
 router.delete("/gallery/:id", async (req, res) => {
-  await prisma.galleryImage.delete({ where: { id: req.params.id } });
+  const image = await prisma.galleryImage.delete({ where: { id: req.params.id } });
+  await deleteUploadedFile(image.url);
   res.json({ ok: true });
 });
 
@@ -954,17 +996,29 @@ const SITE_CONTENT_MAX_LENGTHS: Record<string, number> = {
 };
 const DEFAULT_SITE_CONTENT_MAX_LENGTH = 500;
 
+// logo_url / ghazal_photo_url / donia_photo_url are SiteContent rows just
+// like any text field (value = the image URL) — but replacing or clearing
+// one of these specifically needs the OLD file cleaned up from storage too,
+// unlike every other key here which is plain text with nothing to delete
+const SITE_IMAGE_KEYS = new Set(["logo_url", "ghazal_photo_url", "donia_photo_url"]);
+
 router.patch("/site-content/:key", async (req, res) => {
   const maxLength = SITE_CONTENT_MAX_LENGTHS[req.params.key] ?? DEFAULT_SITE_CONTENT_MAX_LENGTH;
   const parsed = z.object({ value: z.string().max(maxLength) }).safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: `متن نباید بیشتر از ${maxLength} کاراکتر باشد.` });
   }
+  const previous = SITE_IMAGE_KEYS.has(req.params.key)
+    ? await prisma.siteContent.findUnique({ where: { key: req.params.key } })
+    : null;
   const row = await prisma.siteContent.upsert({
     where: { key: req.params.key },
     create: { key: req.params.key, value: parsed.data.value },
     update: { value: parsed.data.value },
   });
+  if (previous && previous.value && previous.value !== parsed.data.value) {
+    await deleteUploadedFile(previous.value);
+  }
   res.json({ content: row });
 });
 
