@@ -1121,7 +1121,7 @@ function calBuildDayView(date){
         ${info.isException
           ? `<button class="btn btn-ghost" onclick="calReopenDay('${dateStr}','${info.exceptionId}')">بازکردن مجدد</button>`
           : `<button class="btn btn-danger" onclick="calCloseWholeDay('${dateStr}')">تعطیل کردن کل این روز</button>`}
-        ${info.open ? `<button class="btn btn-line" onclick="calOpenRangeForm('${dateStr}')">بستن یک بازه</button>` : ""}
+        ${info.open ? `<button class="btn btn-line" onclick="calOpenRangeForm('${dateStr}')">بستن/بازکردن یک بازه</button>` : ""}
       </div>
     </div>
   </div>`;
@@ -1202,7 +1202,8 @@ window.calOpenEmptyMenu = (dateStr, time) => {
     <p class="muted" style="margin-bottom:16px;">${esc(calCategory()?.name || "")}</p>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <button class="btn btn-gold" onclick="calOpenManualBookingForm('${dateStr}','${time}')">ثبت نوبت دستی اینجا</button>
-      <button class="btn btn-danger" onclick="calBlockSingleSlot('${dateStr}','${time}')">بستن این ساعت</button>
+      <button class="btn btn-danger" onclick="calBlockSingleSlot('${dateStr}','${time}',false)">بستن این ساعت (فقط «${esc(calCategory()?.name || "")}»)</button>
+      <button class="btn btn-line" onclick="calBlockSingleSlot('${dateStr}','${time}',true)">بستن این ساعت برای همه‌ی سرویس‌ها</button>
     </div>
   `);
 };
@@ -1233,10 +1234,16 @@ window.calSubmitManualBooking = withSubmitGuard(async (dateStr, time) => {
     calLoadAndRender();
   } catch (e) { toast(e.message, true); }
 });
-window.calBlockSingleSlot = withSubmitGuard(async (dateStr, time) => {
+window.calBlockSingleSlot = withSubmitGuard(async (dateStr, time, allCategories) => {
+  if (!confirm(allCategories ? `ساعت ${time} برای همه‌ی سرویس‌ها بسته شود؟` : `ساعت ${time} بسته شود؟`)) return;
   try {
-    await api("/admin/bookings/manual", { method: "POST", body: JSON.stringify({ categoryId: calCategoryId, date: dateStr, time, reason: "بسته توسط مدیر" }) });
-    toast("این ساعت بسته شد.");
+    if (allCategories) {
+      const r = await api("/admin/bookings/block-range", { method: "POST", body: JSON.stringify({ startDate: dateStr, endDate: dateStr, time, categoryId: null, reason: "بسته توسط مدیر" }) });
+      toast(`این ساعت برای ${r.blocked} سرویس بسته شد.${r.skipped ? ` (${r.skipped} مورد از قبل رزرو/بسته بود)` : ""}`);
+    } else {
+      await api("/admin/bookings/manual", { method: "POST", body: JSON.stringify({ categoryId: calCategoryId, date: dateStr, time, reason: "بسته توسط مدیر" }) });
+      toast("این ساعت بسته شد.");
+    }
     calCloseModal();
     calLoadAndRender();
   } catch (e) { toast(e.message, true); }
@@ -1259,13 +1266,22 @@ window.calOpenBooking = (id) => {
       <span class="tag ${BOOKING_STATUS_TAG_CLASS[b.status] || "tag-muted"}">${BOOKING_STATUS_FA[b.status] || b.status}</span>
       ${showRefund ? `<span class="tag ${REFUND_STATUS_TAG_CLASS[b.payment.refundStatus] || "tag-muted"}">${REFUND_STATUS_FA[b.payment.refundStatus] || b.payment.refundStatus}</span>` : ""}
     </div>
-    ${showRefund && b.payment.refundStatus === "NEEDS_MANUAL_FOLLOWUP" ? `<button class="btn btn-ghost" onclick="calResolveRefund('${b.payment.id}')" style="margin-bottom:14px;width:100%;">علامت‌گذاری به‌عنوان بازگشت داده‌شده</button>` : ""}
-    ${["CONFIRMED", "PENDING_PAYMENT"].includes(b.status) ? `
+    ${showRefund && b.payment.refundStatus === "NEEDS_MANUAL_FOLLOWUP" ? `
+      <p class="muted" style="margin-bottom:10px;">${esc(b.payment.refundNote || "بازگشت خودکار وجه فعال نیست؛ باید مبلغ بیعانه را خودتان (مثلاً کارت‌به‌کارت) به مشتری برگردانید.")}</p>
+      <button class="btn btn-ghost" onclick="calResolveRefund('${b.payment.id}')" style="margin-bottom:14px;width:100%;">علامت‌گذاری به‌عنوان بازگشت داده‌شده</button>` : ""}
+    ${b.status === "CONFIRMED" ? `
       <label class="field">تغییر وضعیت
         <select onchange="calSetBookingStatus('${b.id}', this.value)">
           <option value="">تغییر وضعیت…</option>
-          <option value="COMPLETED">انجام‌شده</option>
+          <option value="COMPLETED">انجام‌شده (پیامک تشکر/نظرسنجی برای مشتری ارسال می‌شود)</option>
           <option value="NO_SHOW">مشتری نیامد</option>
+          <option value="CANCELLED">لغو</option>
+        </select>
+      </label>
+      <p class="muted" style="margin-top:6px;">«مشتری نیامد» فقط برای ثبت داخلی است — نه پیامکی می‌ره و نه بیعانه خودکار برمی‌گرده.</p>` : b.status === "PENDING_PAYMENT" ? `
+      <label class="field">تغییر وضعیت
+        <select onchange="calSetBookingStatus('${b.id}', this.value)">
+          <option value="">تغییر وضعیت…</option>
           <option value="CANCELLED">لغو</option>
         </select>
       </label>` : ""}
@@ -1296,8 +1312,8 @@ window.calResolveRefund = async (paymentId) => {
 window.calCloseWholeDay = withSubmitGuard(async (dateStr) => {
   if (!confirm(`کل روز ${fmtJalaliDate(dateStr)} برای همه‌ی سرویس‌های سالن بسته شود؟`)) return;
   try {
-    await api("/admin/day-exceptions", { method: "POST", body: JSON.stringify({ date: dateStr, isOpen: false }) });
-    toast("این روز تعطیل شد.");
+    const r = await api("/admin/day-exceptions", { method: "POST", body: JSON.stringify({ date: dateStr, isOpen: false }) });
+    toast(r.affectedBookings ? `این روز تعطیل شد. توجه: ${r.affectedBookings} نوبت تأییدشده در این روز هست که خودکار لغو نشد.` : "این روز تعطیل شد.");
     calCloseModal();
     calLoadAndRender();
   } catch (e) { toast(e.message, true); }
@@ -1317,22 +1333,30 @@ window.calOpenDayMenu = (dateStr) => {
     ${info.isException
       ? `<button class="btn btn-ghost" onclick="calReopenDay('${dateStr}','${info.exceptionId}')">بازکردن مجدد</button>`
       : `<button class="btn btn-danger" onclick="calCloseWholeDay('${dateStr}')">تعطیل کردن کل این روز</button>`}
-    ${info.open ? `<button class="btn btn-line" onclick="calOpenRangeForm('${dateStr}')">بستن یک بازه</button>` : ""}
+    ${info.open ? `<button class="btn btn-line" onclick="calOpenRangeForm('${dateStr}')">بستن/بازکردن یک بازه</button>` : ""}
   </div>`;
   html += calDaySummaryHtml(date, calBookingsForDate(date));
   calShowModal(`${DOW_NAMES[calDayOfWeek(date)]} — ${fmtJalaliDate(date)}`, html);
 };
 
-// بستن یک بازه‌ی ساعتی از یک روز خاص — فقط برای دسته‌بندی انتخاب‌شده، فقط
-// همون یک روز؛ همون endpoint قفل‌کردن تکی رزرو دستی رو یک‌به‌یک برای هر
-// اسلاتِ داخل بازه صدا می‌زنه (منطق جدیدی روی سرور لازم نبود)
+// بستن/بازکردن یک بازه‌ی ساعتی از یک روز خاص — دسته‌بندی قابل‌انتخاب است
+// (پیش‌فرض: همون دسته‌بندی انتخاب‌شده در تقویم)، از /admin/bookings/block-range
+// استفاده می‌کنه که هم برای یک دسته‌بندی و هم برای همه‌ی دسته‌ها کار می‌کنه
 window.calOpenRangeForm = (dateStr) => {
-  calShowModal(`بستن یک بازه — ${fmtJalaliDate(dateStr)}`, `
-    <p class="muted" style="margin-bottom:14px;">فقط برای «${esc(calCategory()?.name || "")}» و همین یک روز — بقیه‌ی روز و بقیه‌ی سرویس‌ها دست‌نخورده می‌مونن.</p>
+  const cats = window._calCategories || [];
+  calShowModal(`بستن/بازکردن یک بازه — ${fmtJalaliDate(dateStr)}`, `
+    <p class="muted" style="margin-bottom:14px;">فقط همین یک روز؛ بقیه‌ی روز دست‌نخورده می‌مونه.</p>
     <div class="form-grid" style="flex-direction:column;align-items:stretch;">
       <label class="field">از ساعت<input type="time" id="calRangeStart"></label>
       <label class="field">تا ساعت<input type="time" id="calRangeEnd"></label>
-      <button class="btn btn-danger" onclick="calSubmitCloseRange('${dateStr}')" style="margin-top:6px;">بستن این بازه</button>
+      <label class="field">برای کدام سرویس‌ها<select id="calRangeScope">
+        <option value="">همه‌ی سرویس‌ها</option>
+        ${cats.map((c) => `<option value="${c.id}" ${c.id === calCategoryId ? "selected" : ""}>فقط «${esc(c.name)}»</option>`).join("")}
+      </select></label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">
+        <button class="btn btn-danger" onclick="calSubmitCloseRange('${dateStr}')">بستن این بازه</button>
+        <button class="btn btn-ghost" onclick="calSubmitReopenRange('${dateStr}')">بازکردن این بازه</button>
+      </div>
     </div>
   `);
 };
@@ -1341,14 +1365,25 @@ window.calSubmitCloseRange = withSubmitGuard(async (dateStr) => {
   const end = document.getElementById("calRangeEnd").value;
   if (!start || !end) return toast("ساعت شروع و پایان را وارد کنید.", true);
   if (end <= start) return toast("ساعت پایان باید بعد از ساعت شروع باشد.", true);
-  const date = new Date(`${dateStr}T00:00:00Z`);
-  const slotsInRange = calSlotsForDate(date).filter((s) => s.time >= start && s.time < end);
-  const openable = slotsInRange.filter((s) => calCellState(date, s.time).state === "empty");
-  if (!openable.length) return toast("اسلات خالی‌ای در این بازه پیدا نشد.", true);
+  const categoryId = document.getElementById("calRangeScope").value || null;
   try {
-    await Promise.all(openable.map((s) => api("/admin/bookings/manual", { method: "POST", body: JSON.stringify({ categoryId: calCategoryId, date: dateStr, time: s.time, reason: "بسته توسط مدیر" }) })));
-    const skipped = slotsInRange.length - openable.length;
-    toast(`${openable.length} تایم بسته شد.${skipped ? ` (${skipped} تایم از قبل رزرو/بسته بود و رد شد)` : ""}`);
+    const r = await api("/admin/bookings/block-range", { method: "POST", body: JSON.stringify({ startDate: dateStr, endDate: dateStr, startTime: start, endTime: end, categoryId, reason: "بسته توسط مدیر" }) });
+    toast(`${r.blocked} تایم بسته شد.${r.skipped ? ` (${r.skipped} تایم از قبل رزرو/بسته بود و رد شد)` : ""}`);
+    calCloseModal();
+    calLoadAndRender();
+  } catch (e) { toast(e.message, true); }
+});
+window.calSubmitReopenRange = withSubmitGuard(async (dateStr) => {
+  const start = document.getElementById("calRangeStart").value;
+  const end = document.getElementById("calRangeEnd").value;
+  if (!start || !end) return toast("ساعت شروع و پایان را وارد کنید.", true);
+  if (end <= start) return toast("ساعت پایان باید بعد از ساعت شروع باشد.", true);
+  const categoryId = document.getElementById("calRangeScope").value || null;
+  try {
+    const qs = new URLSearchParams({ startDate: dateStr, endDate: dateStr, startTime: start, endTime: end });
+    if (categoryId) qs.set("categoryId", categoryId);
+    const r = await api(`/admin/bookings/block-range?${qs.toString()}`, { method: "DELETE" });
+    toast(`${r.count} تایم باز شد.`);
     calCloseModal();
     calLoadAndRender();
   } catch (e) { toast(e.message, true); }
@@ -1408,6 +1443,10 @@ tabs.schedule = async () => {
       <label class="field">از تاریخ<input type="date" id="closureStart"></label>
       <label class="field">تا تاریخ<input type="date" id="closureEnd"></label>
       <label class="field">دلیل (اختیاری، فقط برای بستن)<input type="text" class="wide" id="closureReason" placeholder="مثلاً مرخصی یا نوبت‌های حضوری از قبل"></label>
+      <label class="field">برای کدام سرویس‌ها<select id="closureScope">
+        <option value="">همه‌ی سرویس‌ها (کل سالن تعطیل)</option>
+        ${categories.map(c=>`<option value="${c.id}">فقط «${esc(c.name)}»</option>`).join("")}
+      </select></label>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
       <button class="btn btn-danger btn-sm" onclick="addClosureRange()">بستن این بازه</button>
@@ -1495,10 +1534,14 @@ window.addDayException = withSubmitGuard(async () => {
   // only meaningful when the day is open — a closed day has no hours to set
   const openTime=isOpen?(document.getElementById("exOpenTime").value||null):null;
   const closeTime=isOpen?(document.getElementById("exCloseTime").value||null):null;
-  try{ await api("/admin/day-exceptions",{method:"POST",body:JSON.stringify({date,isOpen,openTime,closeTime,reason})}); toast("استثنا ثبت شد."); tabs.schedule(); }
-  catch(e){ toast(e.message,true); }
+  try{
+    const r=await api("/admin/day-exceptions",{method:"POST",body:JSON.stringify({date,isOpen,openTime,closeTime,reason})});
+    toast(r.affectedBookings?`استثنا ثبت شد. توجه: ${r.affectedBookings} نوبت تأییدشده در این روز هست که خودکار لغو نشد.`:"استثنا ثبت شد.");
+    tabs.schedule();
+  }catch(e){ toast(e.message,true); }
 });
 window.deleteDayException = async (id) => {
+  if(!confirm("این استثنا حذف شود؟")) return;
   try{ await api(`/admin/day-exceptions/${id}`,{method:"DELETE"}); toast("حذف شد."); tabs.schedule(); }
   catch(e){ toast(e.message,true); }
 };
@@ -1511,11 +1554,18 @@ window.addClosureRange = withSubmitGuard(async () => {
   if(!startDate||!endDate) return toast("بازه‌ی تاریخ را کامل کنید.",true);
   const days=closureRangeDayCount(startDate,endDate);
   if(days<1) return toast("تاریخ پایان باید بعد از تاریخ شروع باشد.",true);
-  if(!confirm(`${days} روز (از ${fmtJalaliDate(startDate)} تا ${fmtJalaliDate(endDate)}) بسته بشه؟ هیچ مشتری‌ای نمی‌تونه توی این بازه آنلاین رزرو کنه.`)) return;
+  const categoryId=document.getElementById("closureScope").value||null;
+  const scopeLabel=categoryId? `فقط سرویس‌های «${document.getElementById("closureScope").selectedOptions[0].textContent.replace('فقط «','').replace('»','')}»` : "همه‌ی سرویس‌های سالن";
+  if(!confirm(`${days} روز (از ${fmtJalaliDate(startDate)} تا ${fmtJalaliDate(endDate)}) برای ${scopeLabel} بسته بشه؟ هیچ مشتری‌ای نمی‌تونه توی این بازه آنلاین رزرو کنه.`)) return;
   const reason=document.getElementById("closureReason").value.trim()||null;
   try{
-    const r=await api("/admin/day-exceptions/closure-range",{method:"POST",body:JSON.stringify({startDate,endDate,reason})});
-    toast(`${r.exceptions.length} روز بسته شد.`);
+    if(categoryId){
+      const r=await api("/admin/bookings/block-range",{method:"POST",body:JSON.stringify({startDate,endDate,categoryId,reason})});
+      toast(`${r.blocked} تایم بسته شد.${r.skipped?` (${r.skipped} تایم از قبل رزرو/بسته بود و رد شد)`:""}`);
+    }else{
+      const r=await api("/admin/day-exceptions/closure-range",{method:"POST",body:JSON.stringify({startDate,endDate,reason})});
+      toast(r.affectedBookings?`${r.exceptions.length} روز بسته شد. توجه: ${r.affectedBookings} نوبت تأییدشده در این بازه هست که خودکار لغو نشد.`:`${r.exceptions.length} روز بسته شد.`);
+    }
     tabs.schedule();
   }catch(e){ toast(e.message,true); }
 });
@@ -1525,10 +1575,17 @@ window.removeClosureRange = withSubmitGuard(async () => {
   if(!startDate||!endDate) return toast("بازه‌ی تاریخ را کامل کنید.",true);
   const days=closureRangeDayCount(startDate,endDate);
   if(days<1) return toast("تاریخ پایان باید بعد از تاریخ شروع باشد.",true);
-  if(!confirm(`${days} روز (از ${fmtJalaliDate(startDate)} تا ${fmtJalaliDate(endDate)}) به حالت عادی برگرده؟ (فقط روزهایی که با همین ابزار یا به‌صورت تکی بسته شده‌اند باز می‌شوند.)`)) return;
+  const categoryId=document.getElementById("closureScope").value||null;
+  const scopeLabel=categoryId? `فقط سرویس‌های «${document.getElementById("closureScope").selectedOptions[0].textContent.replace('فقط «','').replace('»','')}»` : "همه‌ی سرویس‌های سالن";
+  if(!confirm(`${days} روز (از ${fmtJalaliDate(startDate)} تا ${fmtJalaliDate(endDate)}) برای ${scopeLabel} به حالت عادی برگرده؟ (فقط چیزهایی که با همین ابزار یا به‌صورت تکی بسته شده‌اند باز می‌شوند.)`)) return;
   try{
-    const r=await api(`/admin/day-exceptions/closure-range?startDate=${startDate}&endDate=${endDate}`,{method:"DELETE"});
-    toast(`${r.count} روز باز شد.`);
+    if(categoryId){
+      const r=await api(`/admin/bookings/block-range?startDate=${startDate}&endDate=${endDate}&categoryId=${categoryId}`,{method:"DELETE"});
+      toast(`${r.count} تایم باز شد.`);
+    }else{
+      const r=await api(`/admin/day-exceptions/closure-range?startDate=${startDate}&endDate=${endDate}`,{method:"DELETE"});
+      toast(`${r.count} روز باز شد.`);
+    }
     tabs.schedule();
   }catch(e){ toast(e.message,true); }
 });
@@ -1560,7 +1617,7 @@ async function refreshScheduleSlots(){
   renderSlotDay();
 }
 window.toggleSlot = async (id, isActive) => {
-  try{ await api(`/admin/time-slots/${id}`,{method:"PATCH",body:JSON.stringify({isActive})}); await refreshScheduleSlots(); }
+  try{ await api(`/admin/time-slots/${id}`,{method:"PATCH",body:JSON.stringify({isActive})}); toast("ذخیره شد."); await refreshScheduleSlots(); }
   catch(e){ toast(e.message,true); }
 };
 /* the direct single-slot create endpoint (POST /admin/time-slots) already
@@ -1593,6 +1650,7 @@ window.closeSlotRange = withSubmitGuard(async (enable) => {
   const category=(window._scheduleCategories||[]).find(c=>c.id===catId);
   const slots=(category?.timeSlots||[]).filter(s=>s.dayOfWeek===dow && s.time>=start && s.time<end);
   if(!slots.length) return toast("اسلاتی در این بازه برای این روز/دسته یافت نشد.",true);
+  if(!enable && !confirm(`${slots.length} اسلات (از ${start} تا ${end}) غیرفعال بشه؟`)) return;
   try{
     await Promise.all(slots.map(s=>api(`/admin/time-slots/${s.id}`,{method:"PATCH",body:JSON.stringify({isActive:enable})})));
     toast(enable?`${slots.length} اسلات باز شد.`:`${slots.length} اسلات بسته شد.`);
@@ -1644,21 +1702,26 @@ function renderBookingsList(bookings, filter){
     const who = b.user ? esc(`${b.user.firstName} ${b.user.lastName} (${b.user.phone})`) : "بدون مشتری (قفل دستی)";
     const svc = b.service ? b.service.name : (b.blockReason || "بدون سرویس");
     const showRefund = b.status==="CANCELLED" && b.payment && b.payment.status==="PAID";
-    return `<div class="row">
+    return `<div class="row" style="flex-wrap:wrap;">
       <div>
         <b>${esc(svc)}</b> ${b.source!=="ONLINE"?`<span class="tag tag-muted">${b.source==='ADMIN_BLOCK'?'قفل دستی':'ثبت دستی'}</span>`:''}
         <div class="muted">${who}</div>
         <div class="muted">${fmtJalaliDate(b.date)} ساعت ${b.time} — بیعانه ${toman(b.depositAmount)}</div>
+        ${showRefund && b.payment.refundStatus==="NEEDS_MANUAL_FOLLOWUP"?`<div class="muted" style="margin-top:4px;">${esc(b.payment.refundNote||"بازگشت خودکار وجه فعال نیست؛ باید مبلغ بیعانه را خودتان (مثلاً کارت‌به‌کارت) به مشتری برگردانید.")}</div>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span class="tag ${BOOKING_STATUS_TAG_CLASS[b.status]||'tag-muted'}">${BOOKING_STATUS_FA[b.status]||b.status}</span>
         ${showRefund?`<span class="tag ${REFUND_STATUS_TAG_CLASS[b.payment.refundStatus]||'tag-muted'}">${REFUND_STATUS_FA[b.payment.refundStatus]||b.payment.refundStatus}</span>`:''}
         ${showRefund && b.payment.refundStatus==="NEEDS_MANUAL_FOLLOWUP"?`<button class="btn btn-ghost btn-sm" onclick="resolveRefund('${b.payment.id}')">علامت‌گذاری به‌عنوان بازگشت داده‌شده</button>`:''}
-        ${["CONFIRMED","PENDING_PAYMENT"].includes(b.status)?`
+        ${b.status==="CONFIRMED"?`
+          <select onchange="setBookingStatus('${b.id}', this.value)" title="«مشتری نیامد» فقط ثبت داخلی است — نه پیامکی می‌ره و نه بیعانه خودکار برمی‌گرده.">
+            <option value="">تغییر وضعیت…</option>
+            <option value="COMPLETED">انجام‌شده (پیامک تشکر/نظرسنجی ارسال می‌شود)</option>
+            <option value="NO_SHOW">مشتری نیامد</option>
+            <option value="CANCELLED">لغو</option>
+          </select>`:b.status==="PENDING_PAYMENT"?`
           <select onchange="setBookingStatus('${b.id}', this.value)">
             <option value="">تغییر وضعیت…</option>
-            <option value="COMPLETED">انجام‌شده</option>
-            <option value="NO_SHOW">مشتری نیامد</option>
             <option value="CANCELLED">لغو</option>
           </select>`:''}
       </div>
@@ -1890,6 +1953,7 @@ window.moveGalleryImage = async (id, direction) => {
     // (nothing has set it before now), so a plain value-swap between two
     // tied items would do nothing; a full renumber is correct either way
     await Promise.all(images.map((img,i)=>api(`/admin/gallery/${img.id}`,{method:"PATCH",body:JSON.stringify({sortOrder:i})})));
+    toast("ترتیب ذخیره شد.");
     tabs.gallery();
   }catch(e){ toast(e.message,true); }
 };
@@ -2358,6 +2422,15 @@ tabs.settings = async () => {
     </div>
   </div>`;
 
+  html += `<div class="section-title">تغییر رمز عبور</div><div class="card">
+    <div class="form-grid">
+      <label class="field">رمز عبور جدید<input type="password" id="newPassword" autocomplete="new-password"></label>
+      <label class="field">تکرار رمز عبور جدید<input type="password" id="newPasswordConfirm" autocomplete="new-password"></label>
+      <button class="btn btn-gold btn-sm" onclick="changeAdminPassword()">ثبت رمز جدید</button>
+    </div>
+    <p class="muted" style="margin-top:10px;">رمز عبور باید حداقل ۸ کاراکتر و شامل حروف و عدد باشد.</p>
+  </div>`;
+
   html += `<div class="section-title">تست اتصال به فضای ذخیره‌سازی ابری (Object Storage)</div><div class="card">
     <p class="muted" style="margin-bottom:16px;">اگر آپلود عکس تو تب «گالری» با خطا مواجه می‌شه، اول این تست رو بزن — دقیقاً می‌گه مشکل کجاست (تنظیمات، اتصال، یا خودِ آپلود).</p>
     <button class="btn btn-gold btn-sm" onclick="testObjectStorage()">تست اتصال</button>
@@ -2366,6 +2439,18 @@ tabs.settings = async () => {
 
   setMainContent(html);
 };
+window.changeAdminPassword = withSubmitGuard(async () => {
+  const password=document.getElementById("newPassword").value;
+  const confirmPassword=document.getElementById("newPasswordConfirm").value;
+  if(!password||!confirmPassword) return toast("هر دو فیلد را پر کنید.",true);
+  if(password!==confirmPassword) return toast("رمز عبور و تکرار آن یکسان نیستند.",true);
+  try{
+    await api("/auth/set-password",{method:"POST",body:JSON.stringify({password})});
+    toast("رمز عبور با موفقیت تغییر کرد.");
+    document.getElementById("newPassword").value="";
+    document.getElementById("newPasswordConfirm").value="";
+  }catch(e){ toast(e.message,true); }
+});
 window.updateSettings = async (field, value) => {
   try{ await api("/admin/settings",{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }

@@ -1864,7 +1864,7 @@ document.getElementById('ss').addEventListener('click',e=>{
   const cb=document.getElementById('cb'),m=document.getElementById('cbm');
   const svc=svcInfo[cKey];
   if(svc && !svc.allowOnlineBooking){
-    m.textContent='رنگ و لایت فقط با هماهنگی مستقیم در دایرکت اینستاگرام دنیا سلیمانی رزرو می‌شود.';
+    m.textContent=`${svc.name} فقط با هماهنگی مستقیم با دنیا سلیمانی رزرو می‌شود.`;
     cb.classList.add('on');
   } else {
     cb.classList.remove('on');
@@ -2016,31 +2016,23 @@ async function renderTimes(){
   if(!d){updateSummary();return;}
   const svc=svcInfo[cKey];
   if(svc && !svc.allowOnlineBooking){
+    // this used to render its own row of Instagram/Telegram/WhatsApp/Bale
+    // icons with href="#" — dead links never wired to the admin-entered
+    // contact info. The doniaMbg modal already does this correctly (real
+    // hrefs from loadContactInfo(), and hides whichever button has no value
+    // set), so this reuses it instead of maintaining a second, broken copy.
     const wrap=document.createElement('div');
     wrap.style.cssText='padding:10px 4px;';
     const note=document.createElement('div');
     note.style.cssText='color:rgba(251,247,238,.7);font-size:13.5px;margin-bottom:14px;line-height:1.8;';
-    note.textContent='برای رزرو رنگ و لایت، لطفاً از طریق یکی از راه‌های زیر با دنیا سلیمانی هماهنگ کنید.';
+    note.textContent=`برای رزرو ${svc.name}، لطفاً مستقیم با دنیا سلیمانی هماهنگ کنید.`;
     wrap.appendChild(note);
-    const iconsRow=document.createElement('div');
-    iconsRow.style.cssText='display:flex;gap:10px;flex-wrap:wrap;';
-    const socials=[
-      {name:'اینستاگرام',href:'#',svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>'},
-      {name:'تلگرام',href:'#',svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 2.5 1.8 10.4c-1.1.45-1.1 1.1-.2 1.4l5 1.6 1.9 6.1c.25.7.6.85 1.2.35l3.2-2.9 5 3.7c.85.5 1.45.25 1.7-.7l3.1-15.1c.35-1.3-.45-1.85-1.2-1.3z"/></svg>'},
-      {name:'واتساپ',href:'#',svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2c-5.5 0-10 4.5-10 10 0 1.77.46 3.44 1.27 4.89L2 22l5.24-1.27A9.96 9.96 0 0 0 12.04 22c5.5 0 10-4.5 10-10s-4.5-10-10-10zm0 18.2c-1.6 0-3.13-.43-4.46-1.24l-.32-.19-3.11.76.77-3.03-.2-.32A8.17 8.17 0 0 1 3.8 12c0-4.55 3.7-8.24 8.24-8.24 4.55 0 8.24 3.7 8.24 8.24 0 4.55-3.7 8.2-8.24 8.2z"/></svg>'},
-      {name:'بله',href:'#',svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>'}
-    ];
-    socials.forEach(s=>{
-      const a=document.createElement('a');
-      a.href=s.href;a.target='_blank';a.rel='noopener';
-      a.title=s.name;
-      a.style.cssText='width:40px;height:40px;border-radius:50%;border:1.5px solid rgba(223,160,45,.4);display:flex;align-items:center;justify-content:center;color:var(--must-l);transition:.2s;';
-      a.innerHTML=s.svg;
-      a.onmouseenter=()=>{a.style.background='var(--must)';a.style.color='var(--night)';};
-      a.onmouseleave=()=>{a.style.background='transparent';a.style.color='var(--must-l)';};
-      iconsRow.appendChild(a);
-    });
-    wrap.appendChild(iconsRow);
+    const openBtn=document.createElement('button');
+    openBtn.type='button';
+    openBtn.className='btn b-gold';
+    openBtn.textContent='راه‌های تماس با دنیا سلیمانی';
+    openBtn.onclick=openDoniaModal;
+    wrap.appendChild(openBtn);
     tg.appendChild(wrap);
     return;
   }
@@ -2093,6 +2085,18 @@ async function renderTimes(){
     tg.appendChild(b);
   });
 }
+// same FIXED/PERCENT math as the backend's lib/schedule.ts, so the amount
+// shown here before registration/OTP matches what the payment step
+// (#pay-amount) shows afterward exactly — no surprise once the customer
+// actually gets there
+function depositAmountFor(svc){
+  if(!svc)return null;
+  if(svc.depositType==='PERCENT'){
+    if(!svc.priceMin)return null;
+    return Math.round((svc.priceMin*svc.depositValue)/100);
+  }
+  return svc.depositValue||0;
+}
 function updateSummary(){
   const s=document.querySelector('#ss .db.on').dataset.svc;
   const d=selectedDate;
@@ -2103,7 +2107,9 @@ function updateSummary(){
     document.getElementById('bst').innerHTML=`سرویس: <b>${s}</b> — نیاز به هماهنگی در دایرکت اینستاگرام`;
     return;
   }
-  document.getElementById('bst').innerHTML=sTime?`<b>${s}</b> — روز ${l}، ساعت <b>${pd(sTime)}</b> ✓`:`سرویس: <b>${s}</b> — لطفاً روز و ساعت را انتخاب کنید`;
+  const deposit=depositAmountFor(svc);
+  const depositLine=deposit?` — بیعانه: <b>${formatToman(deposit)} تومان</b>`:'';
+  document.getElementById('bst').innerHTML=sTime?`<b>${s}</b> — روز ${l}، ساعت <b>${pd(sTime)}</b> ✓${depositLine}`:`سرویس: <b>${s}</b>${depositLine} — لطفاً روز و ساعت را انتخاب کنید`;
 }
 
 /* class request */
@@ -2588,6 +2594,19 @@ const MB_REFUND_CLASS={SUCCEEDED:'st-done',NEEDS_MANUAL_FOLLOWUP:'st-pending',NO
 // (48h policy, see cancellationPolicy.ts) and returns the exact outcome
 // message, which is what gets shown — never guessed here.
 const MB_CANCELLABLE=['PENDING_PAYMENT','CONFIRMED'];
+let myBookingsCache=[];
+
+// mirrors backend lib/cancellationPolicy.ts's 48h math, only to give the
+// customer a heads-up *before* they confirm cancelling (the actual outcome
+// message after cancelling still always comes straight from the backend
+// response above — this never replaces that, only previews it)
+const REFUND_ELIGIBLE_HOURS=48;
+function hoursUntilAppointment(dateStr,time){
+  const [hh,mm]=time.split(':').map(Number);
+  const d=new Date(dateStr);
+  const appt=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),hh,mm);
+  return (appt-Date.now())/3600000;
+}
 
 function openMyBookings(){
   if(!AUTH_TOKEN){ openAuth('login'); return; }
@@ -2603,7 +2622,8 @@ async function loadMyBookings(){
     const res=await fetch('/api/bookings/mine',{headers:{Authorization:`Bearer ${AUTH_TOKEN}`}});
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||'خطا در دریافت نوبت‌ها.');
-    renderMyBookings(data.bookings||[]);
+    myBookingsCache=data.bookings||[];
+    renderMyBookings(myBookingsCache);
   }catch(e){
     list.innerHTML=`<div class="mb-empty">${esc(e.message)}</div>`;
   }
@@ -2636,7 +2656,17 @@ function renderMyBookings(bookings){
 }
 
 window.cancelMyBooking=async(id)=>{
-  if(!confirm('آیا از لغو این نوبت مطمئن هستید؟'))return;
+  const b=myBookingsCache.find(x=>x.id===id);
+  let msg='آیا از لغو این نوبت مطمئن هستید؟';
+  // a deposit is only actually at risk if it was paid — PENDING_PAYMENT
+  // bookings never charged anything, so there's nothing to warn about
+  if(b&&b.payment&&b.payment.status==='PAID'){
+    const eligible=hoursUntilAppointment(b.date,b.time)>=REFUND_ELIGIBLE_HOURS;
+    msg+=eligible
+      ?' چون بیش از ۴۸ ساعت تا نوبت مانده، بیعانه‌ی شما بازگردانده می‌شود.'
+      :' چون کمتر از ۴۸ ساعت تا نوبت مانده، طبق قوانین لغو، بیعانه‌ی شما قابل بازگشت نیست.';
+  }
+  if(!confirm(msg))return;
   try{
     const res=await fetch(`/api/bookings/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${AUTH_TOKEN}`}});
     const data=await res.json();

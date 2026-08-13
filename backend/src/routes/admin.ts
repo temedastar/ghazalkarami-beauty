@@ -387,7 +387,16 @@ router.post("/day-exceptions", async (req, res) => {
     create: { ...parsed.data, date },
     update: { isOpen: parsed.data.isOpen, openTime: parsed.data.openTime, closeTime: parsed.data.closeTime, reason: parsed.data.reason },
   });
-  res.status(201).json({ exception });
+
+  // DayException is purely a day-open flag — it never touches Booking rows,
+  // so closing a day that already has confirmed appointments on it doesn't
+  // cancel them (a refund-policy decision left to the admin, not automated
+  // here). Surface the count so it isn't discovered by surprise later.
+  const affectedBookings = parsed.data.isOpen
+    ? 0
+    : await prisma.booking.count({ where: { date, status: "CONFIRMED" } });
+
+  res.status(201).json({ exception, affectedBookings });
 });
 
 const closureRangeSchema = z.object({
@@ -423,7 +432,14 @@ router.post("/day-exceptions/closure-range", async (req, res) => {
       })
     )
   );
-  res.status(201).json({ exceptions: created });
+
+  // same reasoning as the single-day route above — closing the range never
+  // auto-cancels bookings that already exist inside it
+  const affectedBookings = await prisma.booking.count({
+    where: { date: { gte: start, lte: end }, status: "CONFIRMED" },
+  });
+
+  res.status(201).json({ exceptions: created, affectedBookings });
 });
 
 // the undo counterpart to the bulk close above — a mistaken 90-day close
@@ -498,14 +514,47 @@ const timeSlotPatchSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
+// Booking has no FK to TimeSlot (it only shares categoryId+date+time by
+// convention), so nothing at the DB level stops deleting a slot — or
+// changing its time, which is really "delete the old identity" — out from
+// under an existing future booking. Only checked for the identity-changing
+// operations (delete, time change): isActive only gates *new* bookings, so
+// toggling it off is always safe for bookings that already exist.
+async function countFutureBookingsForSlot(categoryId: string, dayOfWeek: number, time: string): Promise<number> {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const bookings = await prisma.booking.findMany({
+    where: { categoryId, time, date: { gte: new Date(todayStr) }, status: { in: ["CONFIRMED", "PENDING_PAYMENT"] } },
+    select: { date: true },
+  });
+  return bookings.filter((b) => dayOfWeekUTC(b.date) === dayOfWeek).length;
+}
+
 router.patch("/time-slots/:id", async (req, res) => {
   const parsed = timeSlotPatchSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  const existing = await prisma.timeSlot.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "اسلات یافت نشد." });
+
+  if (parsed.data.time && parsed.data.time !== existing.time) {
+    const count = await countFutureBookingsForSlot(existing.categoryId, existing.dayOfWeek, existing.time);
+    if (count > 0) {
+      return res.status(409).json({ error: `${count} نوبت آینده روی این ساعت ثبت شده؛ ابتدا آن‌ها را لغو یا جابه‌جا کنید.` });
+    }
+  }
+
   const slot = await prisma.timeSlot.update({ where: { id: req.params.id }, data: parsed.data });
   res.json({ slot });
 });
 
 router.delete("/time-slots/:id", async (req, res) => {
+  const existing = await prisma.timeSlot.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "اسلات یافت نشد." });
+
+  const count = await countFutureBookingsForSlot(existing.categoryId, existing.dayOfWeek, existing.time);
+  if (count > 0) {
+    return res.status(409).json({ error: `${count} نوبت آینده روی این ساعت ثبت شده؛ ابتدا آن‌ها را لغو یا جابه‌جا کنید.` });
+  }
+
   await prisma.timeSlot.delete({ where: { id: req.params.id } });
   res.json({ ok: true });
 });
@@ -568,8 +617,8 @@ router.get("/services", async (_req, res) => {
 
 const servicePatchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
-  priceMin: z.number().int().nullable().optional(),
-  priceMax: z.number().int().nullable().optional(),
+  priceMin: z.number().int().min(0).nullable().optional(),
+  priceMax: z.number().int().min(0).nullable().optional(),
   priceLabel: z.string().max(120).nullable().optional(),
   priceNote: z.string().max(400).nullable().optional(),
   durationMin: z.number().int().nullable().optional(),
@@ -580,9 +629,42 @@ const servicePatchSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
+// PERCENT deposits are applied as (priceMin * depositValue) / 100 (see
+// lib/schedule.ts) — an unbounded value there (e.g. a typo'd 500 instead of
+// 50) would charge a multiple of the service's own price as the deposit.
+// priceMin/priceMax are cross-checked the same way, using whichever value
+// each field would end up at (patch value if given, else the existing row),
+// since a PATCH only sends the fields actually being changed.
+function validatePriceAndDeposit(effective: {
+  priceMin: number | null;
+  priceMax: number | null;
+  depositType: "FIXED" | "PERCENT";
+  depositValue: number;
+}): string | null {
+  if (effective.priceMin != null && effective.priceMax != null && effective.priceMin > effective.priceMax) {
+    return "حداقل قیمت نمی‌تواند از حداکثر قیمت بیشتر باشد.";
+  }
+  if (effective.depositType === "PERCENT" && effective.depositValue > 100) {
+    return "درصد بیعانه نمی‌تواند بیشتر از ۱۰۰ باشد.";
+  }
+  return null;
+}
+
 router.patch("/services/:id", async (req, res) => {
   const parsed = servicePatchSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+
+  const existing = await prisma.service.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "سرویس یافت نشد." });
+
+  const error = validatePriceAndDeposit({
+    priceMin: parsed.data.priceMin !== undefined ? parsed.data.priceMin : existing.priceMin,
+    priceMax: parsed.data.priceMax !== undefined ? parsed.data.priceMax : existing.priceMax,
+    depositType: parsed.data.depositType ?? existing.depositType,
+    depositValue: parsed.data.depositValue ?? existing.depositValue,
+  });
+  if (error) return res.status(400).json({ error });
+
   const service = await prisma.service.update({ where: { id: req.params.id }, data: parsed.data });
   res.json({ service });
 });
@@ -591,8 +673,8 @@ const serviceCreateSchema = z.object({
   key: z.string().min(1).max(60),
   name: z.string().min(1).max(120),
   categoryId: z.string(),
-  priceMin: z.number().int().nullable().optional(),
-  priceMax: z.number().int().nullable().optional(),
+  priceMin: z.number().int().min(0).nullable().optional(),
+  priceMax: z.number().int().min(0).nullable().optional(),
   priceLabel: z.string().max(120).nullable().optional(),
   durationMin: z.number().int().nullable().optional(),
   allowOnlineBooking: z.boolean().optional(),
@@ -603,6 +685,15 @@ const serviceCreateSchema = z.object({
 router.post("/services", async (req, res) => {
   const parsed = serviceCreateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+
+  const error = validatePriceAndDeposit({
+    priceMin: parsed.data.priceMin ?? null,
+    priceMax: parsed.data.priceMax ?? null,
+    depositType: parsed.data.depositType ?? "FIXED",
+    depositValue: parsed.data.depositValue ?? 0,
+  });
+  if (error) return res.status(400).json({ error });
+
   try {
     const service = await prisma.service.create({ data: parsed.data });
     res.status(201).json({ service });
@@ -631,14 +722,17 @@ const priceListCreateSchema = z.object({
   groupTitle: z.string().min(1).max(120),
   name: z.string().min(1).max(120),
   description: z.string().max(400).nullable().optional(),
-  priceMin: z.number().int().nullable().optional(),
-  priceMax: z.number().int().nullable().optional(),
+  priceMin: z.number().int().min(0).nullable().optional(),
+  priceMax: z.number().int().min(0).nullable().optional(),
   priceLabel: z.string().max(120).nullable().optional(),
 });
 
 router.post("/price-list", async (req, res) => {
   const parsed = priceListCreateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  if (parsed.data.priceMin != null && parsed.data.priceMax != null && parsed.data.priceMin > parsed.data.priceMax) {
+    return res.status(400).json({ error: "حداقل قیمت نمی‌تواند از حداکثر قیمت بیشتر باشد." });
+  }
   // places the new row at the end of its own group: the highest sortOrder
   // among rows sharing the same groupTitle, plus one — a brand-new group
   // (no existing rows) falls back to the end of the whole list instead, so
@@ -656,8 +750,8 @@ router.post("/price-list", async (req, res) => {
 const priceListPatchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   description: z.string().max(400).nullable().optional(),
-  priceMin: z.number().int().nullable().optional(),
-  priceMax: z.number().int().nullable().optional(),
+  priceMin: z.number().int().min(0).nullable().optional(),
+  priceMax: z.number().int().min(0).nullable().optional(),
   priceLabel: z.string().max(120).nullable().optional(),
   active: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
@@ -666,6 +760,16 @@ const priceListPatchSchema = z.object({
 router.patch("/price-list/:id", async (req, res) => {
   const parsed = priceListPatchSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+
+  const existing = await prisma.priceListItem.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "مورد یافت نشد." });
+
+  const effectiveMin = parsed.data.priceMin !== undefined ? parsed.data.priceMin : existing.priceMin;
+  const effectiveMax = parsed.data.priceMax !== undefined ? parsed.data.priceMax : existing.priceMax;
+  if (effectiveMin != null && effectiveMax != null && effectiveMin > effectiveMax) {
+    return res.status(400).json({ error: "حداقل قیمت نمی‌تواند از حداکثر قیمت بیشتر باشد." });
+  }
+
   const item = await prisma.priceListItem.update({ where: { id: req.params.id }, data: parsed.data });
   res.json({ item });
 });
@@ -885,9 +989,161 @@ router.post("/bookings/manual", async (req, res) => {
   }
 });
 
+// generalizes the ADMIN_BLOCK mechanism above (already category-scoped by
+// construction, already proven via SlotHold's unique constraint) into a
+// reusable "close this date range — one category or all of them" tool, so
+// the schedule/calendar tabs don't need a DayException.categoryId schema
+// change to answer "امروز رنگ نمی‌زنم ولی هیرکات انجام می‌دهم".
+const blockRangeSchema = z.object({
+  startDate: z.string(),
+  endDate: z.string(),
+  time: z.string().nullable().optional(),
+  startTime: z.string().nullable().optional(),
+  endTime: z.string().nullable().optional(),
+  categoryId: z.string().nullable().optional(),
+  reason: z.string().max(300).nullable().optional(),
+});
+
+router.post("/bookings/block-range", async (req, res) => {
+  const parsed = blockRangeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  const { startTime, endTime, time } = parsed.data;
+  if (startTime && endTime && endTime <= startTime) {
+    return res.status(400).json({ error: "ساعت پایان باید بعد از ساعت شروع باشد." });
+  }
+
+  const start = parseDateOnly(parsed.data.startDate);
+  const end = parseDateOnly(parsed.data.endDate);
+  if (!start || !end || end < start) return res.status(400).json({ error: "بازه‌ی تاریخ نامعتبر است." });
+
+  const dayCount = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  if (dayCount > 90) return res.status(400).json({ error: "بازه‌ی بسته‌شدن نباید بیشتر از ۹۰ روز باشد." });
+
+  let categoryIds: string[];
+  if (parsed.data.categoryId) {
+    categoryIds = [parsed.data.categoryId];
+  } else {
+    const categories = await prisma.serviceCategory.findMany({ select: { id: true } });
+    categoryIds = categories.map((c) => c.id);
+  }
+
+  const dates: Date[] = [];
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    dates.push(new Date(d));
+  }
+
+  let blocked = 0;
+  let skipped = 0;
+  for (const date of dates) {
+    const dayOfWeek = dayOfWeekUTC(date);
+    const slots = await prisma.timeSlot.findMany({
+      where: {
+        categoryId: { in: categoryIds },
+        dayOfWeek,
+        isActive: true,
+        ...(time ? { time } : startTime && endTime ? { time: { gte: startTime, lt: endTime } } : {}),
+      },
+      select: { categoryId: true, time: true },
+    });
+    for (const slot of slots) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          const created = await tx.booking.create({
+            data: {
+              categoryId: slot.categoryId,
+              date,
+              time: slot.time,
+              status: "CONFIRMED",
+              source: "ADMIN_BLOCK",
+              blockReason: parsed.data.reason || "بسته توسط مدیر",
+            },
+          });
+          await tx.slotHold.create({
+            data: { categoryId: slot.categoryId, date, time: slot.time, bookingId: created.id },
+          });
+        });
+        blocked++;
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+          skipped++;
+        } else {
+          throw err;
+        }
+      }
+    }
+  }
+
+  res.status(201).json({ blocked, skipped });
+});
+
+// the undo counterpart to block-range above — reuses the same cancellation
+// path as a customer self-cancel/admin status-change (deletes the SlotHold,
+// sets CANCELLED), so it stays consistent if an ADMIN_BLOCK row ever does
+// carry a deposit/payment in the future.
+router.delete("/bookings/block-range", async (req, res) => {
+  const parsed = z
+    .object({
+      startDate: z.string(),
+      endDate: z.string(),
+      time: z.string().nullable().optional(),
+      startTime: z.string().nullable().optional(),
+      endTime: z.string().nullable().optional(),
+      categoryId: z.string().nullable().optional(),
+    })
+    .safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  const { startTime, endTime, time, categoryId } = parsed.data;
+  if (startTime && endTime && endTime <= startTime) {
+    return res.status(400).json({ error: "ساعت پایان باید بعد از ساعت شروع باشد." });
+  }
+
+  const start = parseDateOnly(parsed.data.startDate);
+  const end = parseDateOnly(parsed.data.endDate);
+  if (!start || !end || end < start) return res.status(400).json({ error: "بازه‌ی تاریخ نامعتبر است." });
+
+  const dayCount = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  if (dayCount > 90) return res.status(400).json({ error: "بازه‌ی بازکردن نباید بیشتر از ۹۰ روز باشد." });
+
+  const bookings = await prisma.booking.findMany({
+    where: {
+      source: "ADMIN_BLOCK",
+      status: "CONFIRMED",
+      date: { gte: start, lte: end },
+      ...(categoryId ? { categoryId } : {}),
+      ...(time ? { time } : startTime && endTime ? { time: { gte: startTime, lt: endTime } } : {}),
+    },
+    include: { service: true, user: { select: SAFE_USER_SELECT }, payment: true },
+  });
+
+  for (const booking of bookings) {
+    await cancelBookingAndMaybeRefund(booking);
+  }
+
+  res.json({ count: bookings.length });
+});
+
 const bookingStatusSchema = z.object({
   status: z.enum(["CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"]),
 });
+
+// only these starting statuses can be changed by hand at all, and only into
+// one of the listed targets — keeps CANCELLED/COMPLETED/NO_SHOW/EXPIRED
+// terminal (no "un-cancelling" a slot whose SlotHold is already gone, and
+// no re-firing the COMPLETED thank-you SMS on a second click) and keeps a
+// never-paid PENDING_PAYMENT booking from being marked COMPLETED/NO_SHOW
+const ALLOWED_STATUS_TRANSITIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
+  PENDING_PAYMENT: ["CANCELLED"],
+  CONFIRMED: ["COMPLETED", "NO_SHOW", "CANCELLED"],
+};
+
+const BOOKING_STATUS_FA: Record<BookingStatus, string> = {
+  PENDING_PAYMENT: "در انتظار پرداخت",
+  CONFIRMED: "تأیید‌شده",
+  CANCELLED: "لغوشده",
+  EXPIRED: "منقضی‌شده",
+  COMPLETED: "انجام‌شده",
+  NO_SHOW: "عدم حضور مشتری",
+};
 
 router.patch("/bookings/:id/status", async (req, res) => {
   const parsed = bookingStatusSchema.safeParse(req.body);
@@ -898,6 +1154,13 @@ router.patch("/bookings/:id/status", async (req, res) => {
     include: { service: true, user: { select: SAFE_USER_SELECT }, payment: true },
   });
   if (!booking) return res.status(404).json({ error: "رزرو یافت نشد." });
+
+  const allowedTargets = ALLOWED_STATUS_TRANSITIONS[booking.status] || [];
+  if (!allowedTargets.includes(parsed.data.status)) {
+    return res.status(409).json({
+      error: `تغییر وضعیت از «${BOOKING_STATUS_FA[booking.status]}» به «${BOOKING_STATUS_FA[parsed.data.status]}» ممکن نیست.`,
+    });
+  }
 
   if (parsed.data.status === "CANCELLED") {
     // same 48h refund-eligibility policy as the customer's own cancel
@@ -998,6 +1261,14 @@ const settingsPatchSchema = z.object({
 router.patch("/settings", async (req, res) => {
   const parsed = settingsPatchSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+
+  const existing = await prisma.settings.findUnique({ where: { id: "singleton" } });
+  const effectiveType = parsed.data.defaultDepositType ?? existing?.defaultDepositType ?? "FIXED";
+  const effectiveValue = parsed.data.defaultDepositValue ?? existing?.defaultDepositValue ?? 0;
+  if (effectiveType === "PERCENT" && effectiveValue > 100) {
+    return res.status(400).json({ error: "درصد بیعانه پیش‌فرض نمی‌تواند بیشتر از ۱۰۰ باشد." });
+  }
+
   const settings = await prisma.settings.upsert({
     where: { id: "singleton" },
     create: { id: "singleton", ...parsed.data },
