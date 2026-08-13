@@ -2779,6 +2779,8 @@ function toastAlert(msg){ window.alert(msg); }
     playSuccessChime();
   } else if(payment==='cancelled'){
     toastAlert('پرداخت لغو شد. رزرو شما ثبت نهایی نشد.');
+  } else if(payment==='slot_taken'){
+    toastAlert('متاسفانه در فاصله‌ی پرداخت، این ساعت توسط شخص دیگری رزرو شد. مبلغ پرداختی شما بازگردانده می‌شود.');
   } else {
     toastAlert('پرداخت ناموفق بود. لطفاً دوباره تلاش کنید.');
   }

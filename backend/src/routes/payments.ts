@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { env } from "../lib/env";
 import { createZarinpalPayment, verifyZarinpalPayment } from "../services/zarinpal";
-import { sendBookingConfirmationSms } from "../services/kavenegar";
+import { requestZarinpalRefund } from "../services/zarinpalRefund";
+import { sendBookingConfirmationSms, sendRefundSms } from "../services/kavenegar";
 import { toJalaliDateLabel } from "../lib/dates";
 
 const router = Router();
@@ -115,13 +117,52 @@ router.get("/zarinpal/callback", callbackLimiter, async (req, res) => {
     return redirect("/?payment=failed");
   }
 
-  await prisma.$transaction([
-    prisma.payment.update({
-      where: { bookingId: booking.id },
-      data: { status: "PAID", refId: verified.refId, verifiedAt: new Date() },
-    }),
-    prisma.booking.update({ where: { id: booking.id }, data: { status: "CONFIRMED" } }),
-  ]);
+  // ZarinPal has genuinely captured the money at this point — record that
+  // regardless of what happens below. The 15-min hold can expire (and its
+  // SlotHold get deleted by jobs/expireHolds.ts) while this callback was in
+  // flight, so the slot below is re-acquired atomically rather than assumed
+  // still free; if that fails, this Payment row is how the refund gets found.
+  await prisma.payment.update({
+    where: { bookingId: booking.id },
+    data: { status: "PAID", refId: verified.refId, verifiedAt: new Date() },
+  });
+
+  try {
+    await prisma.$transaction([
+      prisma.slotHold.upsert({
+        where: { bookingId: booking.id },
+        create: { categoryId: booking.categoryId, date: booking.date, time: booking.time, bookingId: booking.id },
+        update: {},
+      }),
+      prisma.booking.update({ where: { id: booking.id }, data: { status: "CONFIRMED" } }),
+    ]);
+  } catch (err) {
+    if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002")) throw err;
+
+    // someone else took this exact category/date/time slot while the
+    // delayed callback was still in flight — the appointment can't be
+    // honored, so refund in full. Not subject to the 48h late-cancellation
+    // policy (lib/cancellationPolicy.ts): that's for a customer changing
+    // their mind, not a system race that isn't the customer's fault.
+    await prisma.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+    const result = await requestZarinpalRefund(authority, booking.depositAmount);
+    if (result.success) {
+      await prisma.payment.update({
+        where: { bookingId: booking.id },
+        data: { refundStatus: "SUCCEEDED", refundedAt: new Date(), refundNote: result.note, refId: result.refundRefId },
+      });
+      await sendRefundSms(booking.user.phone, {
+        serviceName: booking.service.name,
+        amountToman: booking.depositAmount,
+      }).catch((refundSmsErr) => console.error("Failed to send refund SMS:", refundSmsErr));
+    } else {
+      await prisma.payment.update({
+        where: { bookingId: booking.id },
+        data: { refundStatus: "NEEDS_MANUAL_FOLLOWUP", refundNote: result.note },
+      });
+    }
+    return redirect("/?payment=slot_taken");
+  }
 
   await sendBookingConfirmationSms(booking.user.phone, {
     serviceName: booking.service.name,

@@ -2,8 +2,9 @@ import cron from "node-cron";
 import { prisma } from "../lib/prisma";
 import { sendBookingReminderSms } from "../services/kavenegar";
 import { toJalaliDateLabel } from "../lib/dates";
+import { getDayOpenInfo } from "../lib/schedule";
 
-async function sendDueReminders() {
+export async function sendDueReminders() {
   const settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
   const reminderHoursBefore = settings?.reminderHoursBefore ?? 24;
 
@@ -26,6 +27,17 @@ async function sendDueReminders() {
     );
     const reminderDueAtMs = apptMs - reminderHoursBefore * 60 * 60 * 1000;
     if (reminderDueAtMs > now || apptMs <= now) continue; // not due yet, or appointment already passed
+
+    // closing a day/range (see routes/admin.ts's day-exceptions and
+    // bookings/block-range endpoints) never auto-cancels bookings that
+    // already exist inside it — that's a separate decision left to the
+    // admin. Until she resolves those bookings one way or another, they
+    // shouldn't get a "your appointment is coming up" reminder for a day
+    // the salon is now actually closed. reminderSentAt is deliberately left
+    // unset here (not "skipped forever") — if the day gets reopened before
+    // the appointment, the next run picks it back up normally.
+    const dayInfo = await getDayOpenInfo(booking.date);
+    if (!dayInfo.open) continue;
 
     try {
       await sendBookingReminderSms(booking.user.phone, {
