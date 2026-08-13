@@ -594,6 +594,28 @@ section{padding:96px 0;}
 .fl2 span{font-size:16.5px;font-weight:700;color:var(--must-t);}
 .dstrip{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:30px;}
 
+/* — quick pick: nearest open slot + a few more, a shortcut alongside the
+   calendar below, not a replacement for it — */
+.qp{background:rgba(223,160,45,.1);border:1.5px solid rgba(223,160,45,.35);
+  border-radius:16px;padding:20px 24px;margin-bottom:30px;}
+.qp-loading{font-size:13.5px;color:rgba(251,247,238,.6);}
+.qp-next{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+.qp-tag{display:block;font-size:12px;color:var(--must-l);letter-spacing:.06em;margin-bottom:6px;font-weight:700;}
+.qp-dt{display:block;font-size:18px;color:#fff;font-weight:900;}
+.qp-more-label{font-size:12.5px;color:rgba(251,247,238,.6);margin:16px 0 10px;}
+.qp-more{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;}
+.qp-chip{flex:0 0 auto;padding:10px 14px;border-radius:12px;border:1.5px solid rgba(223,160,45,.3);
+  background:rgba(255,255,255,.03);color:var(--bone);font-family:'Vazirmatn',sans-serif;font-size:13px;
+  cursor:pointer;transition:.2s;text-align:center;line-height:1.6;white-space:nowrap;}
+.qp-chip:hover{border-color:var(--must);background:rgba(223,160,45,.12);}
+.qp-chip b{display:block;font-size:14.5px;}
+.qp-empty{font-size:13.5px;color:rgba(251,247,238,.65);line-height:1.8;}
+@media(max-width:560px){
+  .qp{padding:16px 18px;}
+  .qp-next{flex-direction:column;align-items:stretch;}
+  .qp-next .btn{width:100%;}
+}
+
 /* — month calendar — */
 .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
 .cal-title{font-size:16.5px;font-weight:700;color:var(--must-t);}
@@ -1161,6 +1183,22 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <button class="db" data-svc="رنگ و لایت" data-type="chem" data-key="color_highlight">رنگ و لایت</button>
         <button class="db" data-svc="دکلره و رنگ موی پیکسی" data-type="chem" data-key="pixie_bleach">دکلره و رنگ موی پیکسی</button>
         <button class="db" data-svc="اسکراب اسکالپ" data-type="s" data-key="scalp_scrub">اسکراب اسکالپ</button>
+      </div>
+
+      <div class="qp" id="quickPick" style="display:none;">
+        <p class="qp-loading" id="qpLoading">در حال جستجوی نزدیک‌ترین نوبت خالی…</p>
+        <div id="qpContent" style="display:none;">
+          <div class="qp-next">
+            <div>
+              <span class="qp-tag">نزدیک‌ترین نوبت خالی</span>
+              <b class="qp-dt" id="qpNextDt"></b>
+            </div>
+            <button type="button" class="btn b-gold" id="qpBookBtn">رزرو همین</button>
+          </div>
+          <p class="qp-more-label">چند نوبت خالی دیگر:</p>
+          <div class="qp-more" id="qpMore"></div>
+        </div>
+        <p class="qp-empty" id="qpEmpty" style="display:none;">در حال حاضر نوبت خالی نزدیکی پیدا نشد — می‌توانید از تقویم پایین یک تاریخ دیگر را امتحان کنید.</p>
       </div>
 
       <div class="fl2"><b>۲</b><span>چه روزی؟</span></div>
@@ -1839,28 +1877,103 @@ if(fcta&&footerEl){
    but whether a given service can be booked online at all (رنگ و لایت can't;
    it's Instagram-DM-only) is a per-SERVICE flag, not per-category. */
 let svcInfo={}; /* service key -> {allowOnlineBooking, ...} */
+
+// hand-authored icons for the services this salon actually launched with —
+// any service key not in this map (i.e. anything Ghazal adds later from the
+// admin panel) falls back to GENERIC_SVC_ICON rather than having no icon
+const SERVICE_ICONS={
+  haircut:'<path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/><path d="M4 21c1-3 2-4 4-4"/><circle class="ic-dot" cx="7" cy="17" r="2.1" fill="currentColor" stroke="none"/>',
+  protein_therapy:'<path d="M12 2c3 4 5 7.5 5 10.5a5 5 0 0 1-10 0C7 9.5 9 6 12 2z"/><circle class="ic-dot" cx="12" cy="14" r="2.1" fill="currentColor" stroke="none"/>',
+  keratin:'<rect x="3" y="5" width="18" height="4.2" rx="2"/><path class="ic-wave" d="M5 13c3 2.5 5 2.5 7 0s4 2.5 7 0"/>',
+  botox:'<path d="M9 2h6l1 4H8l1-4z"/><path d="M8 6h8l1.2 12.2A2 2 0 0 1 15.2 20H8.8a2 2 0 0 1-2-1.8L7 6z"/><path class="ic-wave" d="M9 13c1 .8 2 .8 3 0s2-.8 3 0"/>',
+  crabotox:'<path class="ic-wave" d="M6 3v13a2.5 2.5 0 0 0 5 0V6"/><path d="M15 4c1.5 2 2.5 3.6 2.5 5A2.5 2.5 0 0 1 15 11.5 2.5 2.5 0 0 1 12.5 9c0-1.4 1-3 2.5-5z" class="ic-dot"/>',
+  color_highlight:'<path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/><path d="M4 21c1-3 2-4 4-4"/><circle class="ic-dot" cx="7" cy="17" r="2.1" fill="currentColor" stroke="none"/>',
+  pixie_bleach:'<path d="M12 2c1.5 2.5 2.5 4.5 2.5 6.2A2.5 2.5 0 0 1 12 10.7 2.5 2.5 0 0 1 9.5 8.2C9.5 6.5 10.5 4.5 12 2z"/><path class="ic-wave" d="M6 14c1.5 3 2.5 6 2.5 7.5M12 14c1.5 3 2.5 6 2.5 7.5M18 14c1.5 3 2.5 6 2.5 7.5"/>',
+  scalp_scrub:'<path d="M5 19a7 7 0 0 1 14 0" /><circle cx="12" cy="9" r="4"/><path class="ic-dot" d="M12 3.2v1.2M17.5 5.5l-.85.85M6.5 5.5l.85.85" stroke-linecap="round"/>',
+};
+const GENERIC_SVC_ICON='<circle cx="12" cy="12" r="8"/><path class="ic-dot" d="M9.5 12.5l1.8 1.8 3.4-3.6"/>';
+
+// the original hand-written blurbs for the services this salon launched
+// with — used whenever a service has no admin-entered priceNote of its own,
+// so re-rendering the services section from live data never blanks out
+// this copy for services nobody has bothered customizing yet. A service
+// added later with no priceNote just shows no blurb, same as it would in
+// the admin panel's own preview.
+const SERVICE_DEFAULT_DESC={
+  haircut:'کوتاهی حرفه‌ای و شخصی‌سازی‌شده متناسب با بافت مو و فرم صورت — هر مدلی که دوست دارید، با چشمی که سال‌ها برای استایل‌دهی تربیت شده.',
+  protein_therapy:'احیا و بازسازی موهای آسیب‌دیده با متدهای تخصصی.',
+  keratin:'صافی، رفع وز و زیبایی ماندگار موها.',
+  botox:'صافی و احیا به‌همراه بازگرداندن درخشندگی و لطافت تارها.',
+  crabotox:'صافی صد درصدی و درمان ساقه‌ی موها.',
+  color_highlight:'خدمات تخصصی رنگ با تکنیک‌های به‌روز و متریال باکیفیت.',
+  pixie_bleach:'دکلره و رنگ‌گذاری تخصصی برای مدل‌های کوتاه.',
+  scalp_scrub:'پاک‌سازی و تغذیه پوست سر برای رشد سالم مو.',
+};
+
+// hero card is always the first active service overall (matches the
+// original hardcoded markup, where "هیرکات" — this salon's actual main
+// service — is both first in sortOrder and the featured card); "محبوب"
+// only makes sense for the exact two services it was originally curated
+// for, so a service Ghazal adds later just doesn't get that badge rather
+// than guessing at a new "popular" pick
+const POPULAR_SVC_KEYS=new Set(['crabotox','color_highlight']);
+
+function renderServicePicker(activeServices){
+  const ss=document.getElementById('ss');
+  if(!ss || !activeServices.length)return; // keep the static fallback markup already in the HTML
+  ss.innerHTML=activeServices.map((s,i)=>
+    `<button class="db${i===0?' on':''}" data-svc="${esc(s.name)}" data-type="${esc(s.categoryKey)}" data-key="${esc(s.key)}">${esc(s.name)}</button>`
+  ).join('');
+  cType=activeServices[0].categoryKey;
+  cKey=activeServices[0].key;
+}
+
+function renderServicesSection(activeServices){
+  const featWrap=document.querySelector('#services .feat-popular');
+  const sg=document.querySelector('#services .sg');
+  if(!featWrap || !sg || !activeServices.length)return; // keep the static fallback already in the HTML
+
+  const [hero,...rest]=activeServices;
+  featWrap.querySelector('h3').textContent=hero.name;
+  const heroDesc=featWrap.querySelector('[data-svc-desc]');
+  if(heroDesc){ heroDesc.textContent=hero.priceNote||SERVICE_DEFAULT_DESC[hero.key]||''; heroDesc.dataset.svcDesc=hero.key; }
+
+  sg.innerHTML=rest.map(s=>{
+    const badge=POPULAR_SVC_KEYS.has(s.key)?'<span class="svc-badge">محبوب</span>':'';
+    const cls=badge?'svc svc-featured rv':'svc rv';
+    const icon=SERVICE_ICONS[s.key]||GENERIC_SVC_ICON;
+    return `<div class="${cls}">${badge}<div class="svc-ic svc-ic-anim"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${icon}</svg></div><h3></h3><p data-svc-desc="${esc(s.key)}"></p></div>`;
+  }).join('');
+  sg.querySelectorAll('.svc').forEach((card,i)=>{
+    card.querySelector('h3').textContent=rest[i].name;
+    card.querySelector('p').textContent=rest[i].priceNote||SERVICE_DEFAULT_DESC[rest[i].key]||'';
+  });
+}
+
 async function loadCatalog(){
   try{
     const res=await fetch('/api/services');
     const data=await res.json();
+    const activeServices=[];
     (data.categories||[]).forEach(c=>{
-      (c.services||[]).forEach(s=>{ svcInfo[s.key]=s; });
+      (c.services||[]).forEach(s=>{
+        const withCategory={...s, categoryKey:c.key};
+        svcInfo[s.key]=withCategory;
+        activeServices.push(withCategory);
+      });
     });
-    /* service description blurbs in the "خدمات تخصصی" section are editable
-       via the admin Services tab (Service.priceNote) — only overwritten when
-       the owner has actually set one, so the original copy is the fallback */
-    document.querySelectorAll('[data-svc-desc]').forEach(p=>{
-      const svc=svcInfo[p.dataset.svcDesc];
-      if(svc && svc.priceNote) p.textContent=svc.priceNote;
-    });
+    // both sections are driven live from here so a service Ghazal adds,
+    // edits, or deactivates from the admin panel shows up (or disappears)
+    // everywhere on the public site without any other manual step
+    renderServicePicker(activeServices);
+    renderServicesSection(activeServices);
+    syncBookOnlineWarning();
+    loadNextSlots();
   }catch(e){ /* booking widget still degrades gracefully — availability calls will just fail per-slot */ }
 }
 
 let cType='h',cKey='haircut',selectedDate=null,sTime=null;
-document.getElementById('ss').addEventListener('click',e=>{
-  const b=e.target.closest('button');if(!b)return;
-  document.querySelectorAll('#ss .db').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on');cType=b.dataset.type;cKey=b.dataset.key;
+function syncBookOnlineWarning(){
   const cb=document.getElementById('cb'),m=document.getElementById('cbm');
   const svc=svcInfo[cKey];
   if(svc && !svc.allowOnlineBooking){
@@ -1869,6 +1982,79 @@ document.getElementById('ss').addEventListener('click',e=>{
   } else {
     cb.classList.remove('on');
   }
+}
+
+/* «نزدیک‌ترین نوبت خالی» — میان‌بر کنار تقویم، نه جایگزینش: سالن پرمشتریه و
+   خیلی از روزها پرن؛ گشتن روز‌به‌روز تو تقویم برای پیدا کردن یک ساعت خالی
+   تجربه‌ی بدیه. /api/availability/next همون قوانین تک‌روزه (تداخل هم‌خط،
+   روزهای بسته، فاصله‌ی ۳۰ دقیقه‌ای) رو رعایت می‌کنه، فقط رو یک بازه‌ی
+   جلوتر یک‌جا. */
+function fmtQpDateTime(dateStr,time){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  const [jy,jm,jd]=toJalali(y,m,d);
+  const weekday=dn[new Date(y,m-1,d).getDay()];
+  return `${weekday} ${pd(jd)} ${jalaliMonths[jm-1]} — ساعت ${pd(time)}`;
+}
+let qpToken=0;
+async function loadNextSlots(){
+  const qp=document.getElementById('quickPick');
+  if(!qp)return;
+  const svc=svcInfo[cKey];
+  if(svc && !svc.allowOnlineBooking){ qp.style.display='none'; return; }
+  qp.style.display='block';
+  document.getElementById('qpLoading').style.display='block';
+  document.getElementById('qpContent').style.display='none';
+  document.getElementById('qpEmpty').style.display='none';
+  const myToken=++qpToken; // اگه تا برگشتن پاسخ، سرویس دیگه‌ای انتخاب بشه، این نتیجه‌ی قدیمی نادیده گرفته می‌شه
+  let slots=[];
+  try{
+    const res=await fetch(`/api/availability/next?categoryKey=${encodeURIComponent(cType)}&limit=8`);
+    const data=await res.json();
+    slots=data.slots||[];
+  }catch(e){ /* این فقط یک میان‌بره — اگه fetch شکست بخوره، تقویم پایین همچنان کار می‌کنه */ }
+  if(myToken!==qpToken)return;
+  document.getElementById('qpLoading').style.display='none';
+  if(!slots.length){ document.getElementById('qpEmpty').style.display='block'; return; }
+  document.getElementById('qpContent').style.display='block';
+  const [first,...rest]=slots;
+  document.getElementById('qpNextDt').textContent=fmtQpDateTime(first.date,first.time);
+  document.getElementById('qpBookBtn').onclick=()=>selectQuickSlot(first.date,first.time,true);
+  const moreEl=document.getElementById('qpMore');
+  moreEl.innerHTML='';
+  rest.forEach(s=>{
+    const [y,m,d]=s.date.split('-').map(Number);
+    const [jy,jm,jd]=toJalali(y,m,d);
+    const chip=document.createElement('button');
+    chip.type='button';chip.className='qp-chip';
+    chip.innerHTML=`<span>${dn[new Date(y,m-1,d).getDay()]} ${pd(jd)} ${jalaliMonths[jm-1]}</span><b>${pd(s.time)}</b>`;
+    chip.onclick=()=>selectQuickSlot(s.date,s.time,false);
+    moreEl.appendChild(chip);
+  });
+}
+async function selectQuickSlot(dateStr,time,autoAdvance){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  selectedDate=new Date(y,m-1,d);
+  [calViewJYear,calViewJMonth]=toJalali(y,m,d);
+  buildCal();
+  await renderTimes();
+  const target=pd(time);
+  const btn=[...document.querySelectorAll('#tg .tb')].find(b=>!b.disabled && b.textContent===target);
+  if(btn){
+    btn.click();
+    if(autoAdvance) startBookingAuth();
+  }else{
+    updateSummary();
+    if(autoAdvance) toastAlert('این ساعت همین الان توسط یک مشتری دیگر رزرو شد. لطفاً یکی دیگر را انتخاب کنید.');
+  }
+  document.querySelector('.pick')?.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+document.getElementById('ss').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#ss .db').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');cType=b.dataset.type;cKey=b.dataset.key;
+  syncBookOnlineWarning();
+  loadNextSlots();
   buildCal();renderTimes();updateSummary();
 });
 

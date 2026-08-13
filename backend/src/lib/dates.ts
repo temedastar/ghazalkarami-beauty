@@ -32,7 +32,7 @@ function nowInTehran(): Date {
 /** Today's calendar date in Tehran, as a UTC-midnight Date — the same
  * representation parseDateOnly() produces, so it's directly comparable to
  * a Booking.date value. */
-function todayInTehran(): Date {
+export function todayInTehran(): Date {
   const t = nowInTehran();
   return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()));
 }

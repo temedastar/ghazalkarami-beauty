@@ -313,10 +313,18 @@ table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
 .jdp-trigger{padding:10px 13px;border-radius:10px;border:1.5px solid var(--gline);font-family:inherit;font-size:13.5px;
   width:130px;background:rgba(255,255,255,.04);color:#fff;text-align:right;cursor:pointer;transition:border-color .2s ease,background .2s ease;}
 .jdp-trigger:hover{border-color:rgba(223,160,45,.4);}
-.jdp-popup{position:absolute;top:calc(100% + 8px);right:0;z-index:250;background:var(--night-2);
+/* position:fixed + appended straight to <body> (see attachJalaliPicker) —
+   NOT a child of .jdp-wrap. A date field inside any container with
+   overflow:hidden (e.g. the collapsible details.add-form used by several
+   tabs, including نظرات's "افزودن دستی نظر") used to clip this popup no
+   matter how its own top/left were computed, since position:absolute is
+   clipped by *any* overflow:hidden ancestor, not just its containing
+   block. Rendering at the body level sidesteps every such ancestor at
+   once, current or future. top/left are set entirely in JS
+   (positionPopup) — there's no meaningful static position left for CSS
+   to express once the popup no longer sits next to its trigger in the DOM. */
+.jdp-popup{position:fixed;z-index:9999;background:var(--night-2);
   border:1px solid rgba(223,160,45,.3);border-radius:14px;padding:14px;width:240px;box-shadow:0 20px 45px -15px rgba(0,0,0,.6);}
-/* وقتی فضای زیر فیلد کافی نباشه، جاوااسکریپت این کلاس رو اضافه می‌کنه تا تقویم به‌جای پایین، بالای فیلد باز بشه */
-.jdp-popup.jdp-up{top:auto;bottom:calc(100% + 8px);}
 .jdp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:13.5px;font-weight:700;color:#fff;}
 .jdp-nav{background:none;border:none;color:var(--must-l);font-size:16px;cursor:pointer;padding:2px 9px;border-radius:8px;line-height:1;}
 .jdp-nav:hover{background:rgba(223,160,45,.12);}
@@ -341,7 +349,10 @@ table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
   input[type=text].wide,input[type=tel].wide{width:100%;}
   .jdp-wrap{width:100%;}
   .jdp-trigger{width:100%;}
-  .jdp-popup{width:100%;right:0;}
+  /* width no longer comes from "100% of .jdp-wrap" — .jdp-popup isn't
+     inside .jdp-wrap anymore, so that would mean 100% of the viewport.
+     positionPopup() sets an explicit pixel width matching the trigger
+     instead (see attachJalaliPicker). */
   .stat-tile .n{font-size:24px;}
   .popular-row .name{width:100px;font-size:12.5px;}
   .day-row{padding:12px 2px;}
@@ -479,29 +490,34 @@ function jdpDaysInMonth(jy,jm){
   return totalDays-336; /* ۶×۳۱ + ۵×۳۰ روزِ ۱۱ ماه اول، باقی‌مانده طول اسفند است */
 }
 
-// موقعیت پیش‌فرض popup (پایینِ فیلد، چسبیده به لبه‌ی راست) فقط وقتی درست
-// جواب می‌ده که فیلد نه به لبه‌ی پایین صفحه نزدیک باشه، نه به لبه‌ی چپ —
-// نسخه‌ی قبلی این تابع فقط سرریزِ پایین رو چک می‌کرد، برای همین وقتی خودِ
-// popup بالاتر از بالای صفحه هم می‌رفت (روی صفحه‌های کوتاه) یا فیلد نزدیک
-// لبه‌ی چپ بود (که در RTL یعنی popup که به راست می‌چسبد و به چپ باز می‌شه، از
-// چپ صفحه بیرون می‌زنه)، هیچ اصلاحی روش اعمال نمی‌شد. این نسخه بعد از رندر
-// واقعی، سرریز هر چهار جهت رو اندازه می‌گیره و با transform جابه‌جا می‌کنه —
-// مستقل از اینکه popup با top/bottom و right/left چطور در CSS چیده شده.
-function positionPopup(popup){
-  popup.style.transform="";
-  popup.classList.remove("jdp-up");
+// popup زیر فیلد است و به جای body چسبیده (نه داخل .jdp-wrap — به همین
+// دلیل هیچ ancestor ای با overflow:hidden، از جمله details.add-form که چند
+// تب ازش استفاده می‌کنن، دیگه نمی‌تونه ببرتش)؛ پس موقعیت اولیه‌اش کاملاً
+// دستیه: زیر دکمه‌ی trigger، چسبیده به لبه‌ی راستش (هم‌سو با چیدمان RTL).
+// بعد از آن، سرریز هر چهار جهت صفحه اندازه‌گیری و جابه‌جا می‌شود — اگر پایین
+// صفحه جا نبود، به‌جای پایینِ فیلد، بالای فیلد باز می‌شه.
+function positionPopup(popup, trigger){
   const margin=8;
+  const isMobile=window.innerWidth<=760;
+  if(isMobile) popup.style.width=`${trigger.getBoundingClientRect().width}px`;
+
+  const t=trigger.getBoundingClientRect();
+  popup.style.top=`${t.bottom+margin}px`;
+  popup.style.left=`${t.right-popup.offsetWidth}px`;
+
   let rect=popup.getBoundingClientRect();
-  if(rect.bottom>window.innerHeight-margin && rect.height<window.innerHeight-margin*2){
-    popup.classList.add("jdp-up");
+  if(rect.bottom>window.innerHeight-margin && t.top-margin>rect.height){
+    popup.style.top=`${t.top-margin-popup.offsetHeight}px`;
     rect=popup.getBoundingClientRect();
   }
+
   let dx=0, dy=0;
   if(rect.left<margin) dx=margin-rect.left;
   else if(rect.right>window.innerWidth-margin) dx=(window.innerWidth-margin)-rect.right;
   if(rect.top<margin) dy=margin-rect.top;
   else if(rect.bottom>window.innerHeight-margin) dy=(window.innerHeight-margin)-rect.bottom;
-  if(dx||dy) popup.style.transform=`translate(${dx}px, ${dy}px)`;
+  if(dx) popup.style.left=`${parseFloat(popup.style.left)+dx}px`;
+  if(dy) popup.style.top=`${parseFloat(popup.style.top)+dy}px`;
 }
 
 /* تقویم انتخاب تاریخِ شمسی — یک <input type="date"> موجود را می‌گیرد (مخفی‌اش
@@ -558,14 +574,22 @@ function attachJalaliPicker(inputId){
       real.value=b.dataset.iso;
       real.dispatchEvent(new Event("change",{bubbles:true}));
       trigger.textContent=label();
-      wrap.querySelector(".jdp-popup")?.remove();
+      popupEl?.remove();
+      popupEl=null;
     });
   }
 
+  // popup به body وصل می‌شه (نه wrap)، پس دیگه با یک DOM query نسبت به wrap
+  // قابل پیدا کردن نیست — رفرنسش رو همین‌جا نگه می‌داریم
+  let popupEl=null;
   trigger.onclick=(e)=>{
     e.stopPropagation();
-    const existing=wrap.querySelector(".jdp-popup");
-    if(existing){ existing.remove(); return; }
+    // popupEl.isConnected is false if something else (outside click, scroll)
+    // already removed it from the DOM — that must be treated as "already
+    // closed", not "still open", or the trigger would need two clicks to
+    // reopen it
+    if(popupEl && popupEl.isConnected){ popupEl.remove(); popupEl=null; return; }
+    popupEl=null;
     document.querySelectorAll(".jdp-popup").forEach(p=>p.remove());
     const now=new Date();
     if(real.value){
@@ -583,7 +607,8 @@ function attachJalaliPicker(inputId){
     </div>
     <div class="jdp-dow">${["ش","ی","د","س","چ","پ","ج"].map(s=>`<span>${s}</span>`).join("")}</div>
     <div class="jdp-grid"></div>`;
-    wrap.appendChild(popup);
+    document.body.appendChild(popup);
+    popupEl=popup;
     const monthLabelEl=popup.querySelector(".jdp-head span");
     const gridEl=popup.querySelector(".jdp-grid");
     popup.querySelectorAll(".jdp-nav").forEach(b=>b.onclick=(e2)=>{
@@ -592,10 +617,10 @@ function attachJalaliPicker(inputId){
       if(viewJM>12){viewJM=1;viewJY++;}
       if(viewJM<1){viewJM=12;viewJY--;}
       renderGrid(monthLabelEl, gridEl);
-      positionPopup(popup);
+      positionPopup(popup, trigger);
     });
     renderGrid(monthLabelEl, gridEl);
-    positionPopup(popup);
+    positionPopup(popup, trigger);
   };
   // اگه جای دیگه‌ای مقدار input واقعی رو مستقیم عوض کنه (کمتر پیش میاد، ولی
   // برای اطمینان)، برچسبِ دکمه هم به‌روز بمونه
@@ -611,9 +636,18 @@ document.addEventListener("click",(e)=>{
   // شده) closest() روی هیچی رو برنمی‌گردونه — نباید این حالت به معنیِ
   // «کلیک بیرون از تقویم» تعبیر بشه
   if(!e.target.isConnected) return;
-  if(e.target.closest(".jdp-wrap")) return;
+  // popup دیگه فرزند wrap نیست (به body وصله)، پس کلیک روی خودِ popup باید
+  // جدا از کلیک روی trigger چک بشه، وگرنه کلیک روی فضای خالیِ popup (نه
+  // دقیقاً یک دکمه) به‌اشتباه «کلیک بیرون» حساب می‌شه و همون لحظه می‌بندتش
+  if(e.target.closest(".jdp-wrap") || e.target.closest(".jdp-popup")) return;
   document.querySelectorAll(".jdp-popup").forEach(p=>p.remove());
 });
+// اسکرول هر ظرفِ داخل صفحه (نه فقط کل صفحه) رو هم می‌گیره چون روی document
+// با capture:true ثبت شده — popup با position:fixed دیگه با trigger‌اش
+// اسکرول نمی‌شه، پس به‌جای اینکه جا بمونه، بسته می‌شه
+document.addEventListener("scroll",()=>{
+  document.querySelectorAll(".jdp-popup").forEach(p=>p.remove());
+},true);
 
 /* every tab render goes through this instead of a raw innerHTML assignment,
    so switching tabs gets a consistent subtle fade instead of an abrupt swap */
@@ -1418,6 +1452,12 @@ tabs.schedule = async () => {
   html += `<div class="section-title">استثنا روی یک تاریخ خاص (باز کردن یه روز تعطیل، یا بستن یه روز عادی)</div><div class="card">
     <div class="form-grid">
       <label class="field">تاریخ<input type="date" id="exDate"></label>
+      <label class="field">برای کدام سرویس‌ها<select id="exScope" onchange="renderExScopeVisibility()">
+        <option value="">همه‌ی سرویس‌ها (کل سالن)</option>
+        ${categories.map(c=>`<option value="${c.id}">فقط «${esc(c.name)}»</option>`).join("")}
+      </select></label>
+    </div>
+    <div class="form-grid" id="exGlobalRow" style="margin-top:14px;">
       <label class="field">وضعیت<select id="exOpen" onchange="renderExHoursVisibility()"><option value="true">باز</option><option value="false">تعطیل</option></select></label>
       <label class="field">دلیل (اختیاری)<input type="text" class="wide" id="exReason" placeholder="مثلاً باز کردن ویژه"></label>
       <button class="btn btn-gold btn-sm" onclick="addDayException()">ثبت استثنا</button>
@@ -1425,6 +1465,11 @@ tabs.schedule = async () => {
     <div class="form-grid" id="exHoursRow" style="margin-top:14px;">
       <label class="field">از ساعت (اختیاری — خالی=ساعت عادی)<input type="time" id="exOpenTime"></label>
       <label class="field">تا ساعت (اختیاری)<input type="time" id="exCloseTime"></label>
+    </div>
+    <div class="form-grid" id="exScopedRow" style="margin-top:14px;display:none;">
+      <label class="field">دلیل (اختیاری، فقط برای بستن)<input type="text" class="wide" id="exScopedReason" placeholder="مثلاً هماهنگی حضوری از قبل"></label>
+      <button class="btn btn-danger btn-sm" onclick="closeScopedDay()">بستن این روز برای این سرویس</button>
+      <button class="btn btn-ghost btn-sm" onclick="reopenScopedDay()">بازکردن این روز برای این سرویس</button>
     </div>
     <div style="margin-top:16px;">
       ${exceptions.length? exceptions.map(e=>`
@@ -1476,10 +1521,14 @@ tabs.schedule = async () => {
         <div class="form-grid">
           <label class="field">از ساعت<input type="time" id="rangeStart"></label>
           <label class="field">تا ساعت<input type="time" id="rangeEnd"></label>
+          <label class="field">برای کدام سرویس‌ها<select id="rangeCat">
+            <option value="">همه‌ی سرویس‌ها</option>
+            ${categories.map(c=>`<option value="${c.id}">فقط «${esc(c.name)}»</option>`).join("")}
+          </select></label>
           <button id="rangeDisableBtn" class="btn btn-danger btn-sm" onclick="closeSlotRange(false)">غیرفعال کردن این بازه</button>
           <button id="rangeEnableBtn" class="btn btn-ghost btn-sm" onclick="closeSlotRange(true)">فعال کردن این بازه</button>
         </div>
-        <p class="muted" style="margin-top:10px;">برای همون دسته‌بندی و روز هفته‌ای که بالا انتخاب کردی؛ فقط اسلات‌های داخل این بازه غیرفعال/فعال می‌شن، بقیه‌ی روز دست‌نخورده می‌مونه.</p>
+        <p class="muted" style="margin-top:10px;">روز هفته از بخش بالا خونده می‌شه؛ فقط اسلات‌های داخل این بازه‌ی ساعتی غیرفعال/فعال می‌شن، بقیه‌ی روز دست‌نخورده می‌مونه.</p>
 
         <div class="section-title" style="margin-top:22px;">تولید خودکار اسلات (بازه‌ی ساعتی + مدت هر نوبت)</div>
         <div class="form-grid">
@@ -1497,20 +1546,64 @@ tabs.schedule = async () => {
   setMainContent(html);
   window._scheduleCategories = categories;
   renderSlotDay();
-  renderExHoursVisibility();
+  renderExScopeVisibility();
   attachJalaliPicker("exDate");
   attachJalaliPicker("closureStart");
   attachJalaliPicker("closureEnd");
 };
 
 /* custom hours only make sense when the exception marks the day open — no
-   point asking for a start/end time on a day being closed entirely */
+   point asking for a start/end time on a day being closed entirely. Also
+   hidden entirely once a specific category is chosen — see
+   renderExScopeVisibility below. */
 function renderExHoursVisibility(){
   const row=document.getElementById("exHoursRow");
+  const scope=document.getElementById("exScope")?.value;
   const isOpen=document.getElementById("exOpen")?.value!=="false";
-  if(row) row.style.display=isOpen?"flex":"none";
+  if(row) row.style.display=(!scope && isOpen)?"flex":"none";
 }
 window.renderExHoursVisibility = renderExHoursVisibility;
+
+/* DayException (وضعیت باز/تعطیل + ساعات ویژه) is a whole-salon, day-level
+   concept — WorkingDay/TimeSlot don't have a per-category "open" flag, so
+   "open just one service on an otherwise-closed day" isn't a coherent
+   action. Once a specific category is picked here, the form switches to
+   the same close/reopen pair the bulk date-range tool uses (block-range),
+   scoped to just this one day. */
+function renderExScopeVisibility(){
+  const scope=document.getElementById("exScope")?.value;
+  const globalRow=document.getElementById("exGlobalRow");
+  const scopedRow=document.getElementById("exScopedRow");
+  if(globalRow) globalRow.style.display=scope?"none":"flex";
+  if(scopedRow) scopedRow.style.display=scope?"flex":"none";
+  renderExHoursVisibility();
+}
+window.renderExScopeVisibility = renderExScopeVisibility;
+
+window.closeScopedDay = withSubmitGuard(async () => {
+  const date=document.getElementById("exDate").value;
+  const categoryId=document.getElementById("exScope").value;
+  if(!date) return toast("تاریخ را انتخاب کنید.",true);
+  if(!categoryId) return; // shouldn't be reachable — this row is hidden for "همه‌ی سرویس‌ها"
+  const reason=document.getElementById("exScopedReason").value.trim()||null;
+  if(!confirm(`${fmtJalaliDate(date)} فقط برای این سرویس بسته بشه؟`)) return;
+  try{
+    const r=await api("/admin/bookings/block-range",{method:"POST",body:JSON.stringify({startDate:date,endDate:date,categoryId,reason})});
+    toast(`${r.blocked} تایم بسته شد.${r.skipped?` (${r.skipped} تایم از قبل رزرو/بسته بود و رد شد)`:""}`);
+    tabs.schedule();
+  }catch(e){ toast(e.message,true); }
+});
+window.reopenScopedDay = withSubmitGuard(async () => {
+  const date=document.getElementById("exDate").value;
+  const categoryId=document.getElementById("exScope").value;
+  if(!date) return toast("تاریخ را انتخاب کنید.",true);
+  if(!categoryId) return;
+  try{
+    const r=await api(`/admin/bookings/block-range?startDate=${date}&endDate=${date}&categoryId=${categoryId}`,{method:"DELETE"});
+    toast(`${r.count} تایم باز شد.`);
+    tabs.schedule();
+  }catch(e){ toast(e.message,true); }
+});
 
 window.toggleDay = async (dayOfWeek, isOpen) => {
   // instant feedback — the hour inputs and open/closed tag update as soon as
@@ -1637,18 +1730,22 @@ window.addSingleSlot = withSubmitGuard(async () => {
   }catch(e){ toast(e.message,true); }
 });
 /* batches the same PATCH toggleSlot() already does for one slot, across
-   every slot in [start,end) for the currently-selected category/day — same
-   "reopen" button just runs it again with isActive:true, so nothing needs
-   to be remembered between closing and reopening a range */
+   every slot in [start,end) for the day-of-week selected above and
+   whichever category(ies) "rangeCat" picks — empty value means every
+   category, e.g. for a salon-wide lunch break. Same "reopen" button just
+   runs it again with isActive:true, so nothing needs to be remembered
+   between closing and reopening a range. */
 window.closeSlotRange = withSubmitGuard(async (enable) => {
   const start=document.getElementById("rangeStart").value;
   const end=document.getElementById("rangeEnd").value;
   if(!start||!end) return toast("ساعت شروع و پایان بازه را وارد کنید.",true);
   if(end<=start) return toast("ساعت پایان باید بعد از ساعت شروع باشد.",true);
-  const catId=document.getElementById("slotCat").value;
+  const catId=document.getElementById("rangeCat").value;
   const dow=Number(document.getElementById("slotDow").value);
-  const category=(window._scheduleCategories||[]).find(c=>c.id===catId);
-  const slots=(category?.timeSlots||[]).filter(s=>s.dayOfWeek===dow && s.time>=start && s.time<end);
+  const scopeCategories=catId
+    ? (window._scheduleCategories||[]).filter(c=>c.id===catId)
+    : (window._scheduleCategories||[]);
+  const slots=scopeCategories.flatMap(c=>(c.timeSlots||[]).filter(s=>s.dayOfWeek===dow && s.time>=start && s.time<end));
   if(!slots.length) return toast("اسلاتی در این بازه برای این روز/دسته یافت نشد.",true);
   if(!enable && !confirm(`${slots.length} اسلات (از ${start} تا ${end}) غیرفعال بشه؟`)) return;
   try{
