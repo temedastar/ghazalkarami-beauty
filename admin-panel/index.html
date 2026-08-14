@@ -1502,16 +1502,23 @@ tabs.schedule = async () => {
   </div>`;
 
   html += `<div class="section-title">اسلات‌های رزرو هر سرویس</div><div class="card">
+    <p class="muted" style="margin-bottom:14px;">سرویس‌های یک خط زمانی مشترک (مثلاً پروتئین‌تراپی، کراتینه، بوتاکس، ...) هر کدوم اینجا جدا فهرست شدن — هر کدوم رو انتخاب کنی، فقط اسلات‌های همون یکی رو می‌بینی و تغییر می‌دی. گزینه‌ی «همه‌ی سرویس‌های این گروه» برای اسلاتی‌ه که بین همه‌ی اون‌ها مشترکه.</p>
     <div class="form-grid" style="margin-bottom:18px;">
-      <label class="field">دسته‌بندی<select id="slotCat" onchange="onSlotCategoryChange()">
-        ${categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}
+      <label class="field">سرویس<select id="slotSvc" onchange="onSlotSelectionChange()">
+        ${categories.map(c=>{
+          const activeServices=(c.services||[]).filter(sv=>sv.active);
+          const groupOption=activeServices.length>1
+            ?`<option value="group:${c.id}" data-category-id="${c.id}" data-service-id="">همه‌ی سرویس‌های این گروه (اسلات مشترک)</option>`
+            :"";
+          const serviceOptions=activeServices.map(sv=>`<option value="svc:${sv.id}" data-category-id="${c.id}" data-service-id="${sv.id}">${esc(sv.name)}</option>`).join("");
+          return `<optgroup label="${esc(c.name)}">${groupOption}${serviceOptions}</optgroup>`;
+        }).join("")}
       </select></label>
       <label class="field">روز هفته<select id="slotDow" onchange="renderSlotDay()">
         ${DOW_NAMES.map((n,i)=>`<option value="${i}">${n}</option>`).join("")}
       </select></label>
-      <label class="field" id="slotSvcWrap" style="display:none;">برای کدام سرویس اضافه شود؟<select id="slotSvc"></select></label>
     </div>
-    <p class="muted" id="slotSharedNote" style="margin-bottom:14px;display:none;">این دسته‌بندی یک خط زمانی مشترک است: رزرو هر سرویس، همون ساعت رو برای همه‌ی سرویس‌های گروه می‌بنده. می‌تونی برای هر سرویس ساعت‌های متفاوتی تعریف کنی («برای کدام سرویس» بالا)، ولی وقتی یکی از اون ساعت‌ها رزرو بشه، برای بقیه هم بسته می‌شه — چون فیزیکاً یک نفر بیشتر کار نمی‌کنه.</p>
+    <p class="muted" id="slotSharedNote" style="margin-bottom:14px;display:none;">این یک خط زمانی مشترک است: رزرو هر سرویس، همون ساعت رو برای همه‌ی سرویس‌های گروه می‌بنده — حتی اگه هر کدوم ساعت‌های اختصاصی خودشون رو داشته باشن. اسلات‌های «مشترک» بین همه‌شون هم اینجا با برچسب مشخص شدن.</p>
     <div class="form-grid" style="margin-bottom:14px;">
       <label class="field">افزودن اسلات تکی (ساعت)<input type="time" id="addSlotTime" style="width:130px;"></label>
       <button class="btn btn-gold btn-sm" onclick="addSingleSlot()">+ افزودن اسلات</button>
@@ -1549,7 +1556,7 @@ tabs.schedule = async () => {
 
   setMainContent(html);
   window._scheduleCategories = categories;
-  onSlotCategoryChange();
+  onSlotSelectionChange();
   renderExScopeVisibility();
   attachJalaliPicker("exDate");
   attachJalaliPicker("closureStart");
@@ -1687,51 +1694,66 @@ window.removeClosureRange = withSubmitGuard(async () => {
   }catch(e){ toast(e.message,true); }
 });
 
-// دسته‌بندی‌های تک‌سرویسی (هیرکات، اسکراب اسکالپ) هیچ فایده‌ای از انتخاب
-// سرویس ندارن — فقط برای دسته‌بندی‌های خط‌مشترک (پروتئین‌تراپی/کراتینه/...)
-// نشون داده می‌شه، جایی که واقعاً معنی داره
-function onSlotCategoryChange(){
-  const catId=document.getElementById("slotCat").value;
-  const category=(window._scheduleCategories||[]).find(c=>c.id===catId);
-  // an inactive service is irrelevant here — a category left with only one
-  // *active* service has nothing to differentiate slots by, even if
-  // deactivated services still exist underneath
-  const services=(category?.services||[]).filter(s=>s.active);
-  const svcWrap=document.getElementById("slotSvcWrap");
-  const svcSelect=document.getElementById("slotSvc");
-  const sharedNote=document.getElementById("slotSharedNote");
-  const showSvcPicker=services.length>1;
-  svcWrap.style.display=showSvcPicker?"flex":"none";
-  sharedNote.style.display=showSvcPicker?"block":"none";
-  svcSelect.innerHTML=`<option value="">همه‌ی سرویس‌های این گروه</option>` + services.map(s=>`<option value="${s.id}">فقط «${esc(s.name)}»</option>`).join("");
+// اسلات‌های تک‌سرویسی (هیرکات، اسکراب اسکالپ) هیچ فایده‌ای از انتخاب سرویس
+// ندارن، ولی دیگه نیازی هم نیست جداشون کرد — سرویس، نه دسته‌بندی، انتخاب
+// اصلیه؛ برای این‌ها همون یک گزینه (خودشون) تنها گزینه‌ی داخل optgroup‌شونه.
+function getSlotSelection(){
+  const opt=document.getElementById("slotSvc")?.selectedOptions?.[0];
+  return { categoryId: opt?.dataset.categoryId||"", serviceId: opt?.dataset.serviceId||"" };
+}
+window.getSlotSelection = getSlotSelection;
+
+function onSlotSelectionChange(){
+  const {categoryId}=getSlotSelection();
+  const category=(window._scheduleCategories||[]).find(c=>c.id===categoryId);
+  const isSharedLine=((category?.services||[]).filter(sv=>sv.active)).length>1;
+  document.getElementById("slotSharedNote").style.display=isSharedLine?"block":"none";
   renderSlotDay();
 }
-window.onSlotCategoryChange = onSlotCategoryChange;
+window.onSlotSelectionChange = onSlotSelectionChange;
 
 function renderSlotDay(){
-  const catId=document.getElementById("slotCat").value;
+  const {categoryId, serviceId}=getSlotSelection();
   const dow=Number(document.getElementById("slotDow").value);
-  const category=(window._scheduleCategories||[]).find(c=>c.id===catId);
+  const category=(window._scheduleCategories||[]).find(c=>c.id===categoryId);
   const list=document.getElementById("slotDayList");
   if(!category){ list.innerHTML=""; return; }
-  const activeServices=(category.services||[]).filter(sv=>sv.active);
-  const showOwner=activeServices.length>1;
-  const slots=category.timeSlots.filter(s=>s.dayOfWeek===dow).sort((a,b)=>a.time.localeCompare(b.time));
-  if(!slots.length){ list.innerHTML='<p class="muted">هنوز اسلاتی برای این روز/دسته ثبت نشده.</p>'; return; }
-  list.innerHTML = `<div class="slot-grid">` + slots.map(s=>{
-    // an existing slot could be owned by a service that's since been
-    // deactivated — still show it (labeled), rather than silently acting
-    // like it's unowned
-    const owner=(category.services||[]).find(sv=>sv.id===s.serviceId);
-    const ownerOptions=activeServices.slice();
-    if(owner && !owner.active) ownerOptions.push(owner);
+  const selectedService=(category.services||[]).find(sv=>sv.id===serviceId);
+  const daySlots=category.timeSlots.filter(s=>s.dayOfWeek===dow);
+
+  // انتخاب یک سرویس مشخص: اسلات‌های اختصاصیِ همون سرویس + اسلات‌های
+  // مشترکِ کل گروه (چون این‌ها هم قابل‌رزرو برای همین سرویس‌ان).
+  // انتخاب «همه‌ی سرویس‌های این گروه»: فقط اسلات‌های مشترک، به‌علاوه‌ی هر
+  // اسلاتی که مالکش یک سرویسِ غیرفعال‌شده باشه — تا گم نشه، نه اینکه قایم بشه.
+  const visibleSlots=(serviceId
+    ? daySlots.filter(s=>s.serviceId===serviceId || !s.serviceId)
+    : daySlots.filter(s=>{
+        if(!s.serviceId) return true;
+        const owner=(category.services||[]).find(sv=>sv.id===s.serviceId);
+        return owner && !owner.active;
+      })
+  ).slice().sort((a,b)=>a.time.localeCompare(b.time));
+
+  if(!visibleSlots.length){ list.innerHTML='<p class="muted">هنوز اسلاتی برای این روز/انتخاب ثبت نشده.</p>'; return; }
+  list.innerHTML = `<div class="slot-grid">` + visibleSlots.map(s=>{
+    let ownerControl="";
+    if(serviceId){
+      // این نما فقط دو حالت ممکن داره: مشترک، یا اختصاصیِ همین سرویس
+      const isShared=!s.serviceId;
+      ownerControl=`<select class="slot-owner" onchange="reassignSlotOwner('${s.id}', this.value)">
+        <option value="" ${isShared?"selected":""}>مشترک بین گروه</option>
+        <option value="${serviceId}" ${!isShared?"selected":""}>فقط «${esc(selectedService?.name||"")}»</option>
+      </select>`;
+    }else{
+      const owner=(category.services||[]).find(sv=>sv.id===s.serviceId);
+      if(owner){
+        ownerControl=`<button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:10.5px;" title="این اسلات هنوز به «${esc(owner.name)}» (غیرفعال) تعلق دارد" onclick="reassignSlotOwner('${s.id}', '')">مشترک کردن</button>`;
+      }
+    }
     return `
     <div class="slot-cell ${s.isActive?'':'off'}">
       <span class="t">${s.time}</span>
-      ${showOwner||owner?`<select class="slot-owner" onchange="reassignSlotOwner('${s.id}', this.value)">
-        <option value="" ${!s.serviceId?"selected":""}>همه</option>
-        ${ownerOptions.map(sv=>`<option value="${sv.id}" ${s.serviceId===sv.id?"selected":""}>${esc(sv.name)}${sv.active?"":" (غیرفعال)"}</option>`).join("")}
-      </select>`:""}
+      ${ownerControl}
       <div class="actions">
         <button title="${s.isActive?'غیرفعال کردن':'فعال کردن'}" aria-label="${s.isActive?'غیرفعال کردن':'فعال کردن'}" onclick="toggleSlot('${s.id}', ${!s.isActive})">${s.isActive?'⏸':'▶'}</button>
         <button class="del" title="حذف" aria-label="حذف این اسلات" onclick="deleteSlot('${s.id}')">✕</button>
@@ -1763,11 +1785,10 @@ window.toggleSlot = async (id, isActive) => {
 window.addSingleSlot = withSubmitGuard(async () => {
   const time=document.getElementById("addSlotTime").value;
   if(!time) return toast("ساعت را وارد کنید.",true);
-  const categoryId=document.getElementById("slotCat").value;
+  const {categoryId, serviceId}=getSlotSelection();
   const dayOfWeek=Number(document.getElementById("slotDow").value);
-  const serviceId=document.getElementById("slotSvc").value||null;
   try{
-    await api("/admin/time-slots",{method:"POST",body:JSON.stringify({categoryId,dayOfWeek,time,serviceId})});
+    await api("/admin/time-slots",{method:"POST",body:JSON.stringify({categoryId,dayOfWeek,time,serviceId:serviceId||null})});
     toast("اسلات اضافه شد.");
     document.getElementById("addSlotTime").value="";
     await refreshScheduleSlots();
@@ -1804,15 +1825,14 @@ window.deleteSlot = async (id) => {
   catch(e){ toast(e.message,true); }
 };
 window.generateSlots = withSubmitGuard(async () => {
-  const categoryId=document.getElementById("slotCat").value;
+  const {categoryId, serviceId}=getSlotSelection();
   const dayOfWeek=Number(document.getElementById("slotDow").value);
   const startTime=document.getElementById("genStart").value;
   const endTime=document.getElementById("genEnd").value;
   const durationMin=Number(document.getElementById("genDuration").value);
   const gapMin=Number(document.getElementById("genGap").value)||0;
-  const serviceId=document.getElementById("slotSvc").value||null;
   try{
-    const r=await api("/admin/time-slots/generate",{method:"POST",body:JSON.stringify({categoryId,dayOfWeek,startTime,endTime,durationMin,gapMin,serviceId})});
+    const r=await api("/admin/time-slots/generate",{method:"POST",body:JSON.stringify({categoryId,dayOfWeek,startTime,endTime,durationMin,gapMin,serviceId:serviceId||null})});
     toast(`${r.slots.length} اسلات ساخته/به‌روزرسانی شد.`);
     await refreshScheduleSlots();
   }catch(e){ toast(e.message,true); }
