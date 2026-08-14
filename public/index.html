@@ -1940,7 +1940,14 @@ function renderServicesSection(activeServices){
 
   sg.innerHTML=rest.map(s=>{
     const badge=POPULAR_SVC_KEYS.has(s.key)?'<span class="svc-badge">محبوب</span>':'';
-    const cls=badge?'svc svc-featured rv':'svc rv';
+    // "in" (not just "rv") is required here — the page's one scroll-reveal
+    // IntersectionObserver (see io.observe below) only ever ran once,
+    // against the static cards present at initial page load. A card built
+    // later by this function was never handed to it, so without "in" it
+    // was stuck permanently at .rv's opacity:0 — the exact bug that made
+    // every service but the untouched hero card vanish. Same fix
+    // loadPriceList() already uses for its own dynamically-built cards.
+    const cls=badge?'svc svc-featured rv in':'svc rv in';
     const icon=SERVICE_ICONS[s.key]||GENERIC_SVC_ICON;
     return `<div class="${cls}">${badge}<div class="svc-ic svc-ic-anim"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${icon}</svg></div><h3></h3><p data-svc-desc="${esc(s.key)}"></p></div>`;
   }).join('');
@@ -2008,7 +2015,7 @@ async function loadNextSlots(){
   const myToken=++qpToken; // اگه تا برگشتن پاسخ، سرویس دیگه‌ای انتخاب بشه، این نتیجه‌ی قدیمی نادیده گرفته می‌شه
   let slots=[];
   try{
-    const res=await fetch(`/api/availability/next?categoryKey=${encodeURIComponent(cType)}&limit=8`);
+    const res=await fetch(`/api/availability/next?categoryKey=${encodeURIComponent(cType)}&serviceKey=${encodeURIComponent(cKey)}&limit=8`);
     const data=await res.json();
     slots=data.slots||[];
   }catch(e){ /* این فقط یک میان‌بره — اگه fetch شکست بخوره، تقویم پایین همچنان کار می‌کنه */ }
@@ -2226,7 +2233,7 @@ async function renderTimes(){
   tg.innerHTML='<div style="grid-column:1/-1;text-align:center;color:rgba(251,247,238,.55);font-size:13.5px;padding:10px 0;">در حال دریافت ساعات خالی…</div>';
   let slots=[],dayOpen=true;
   try{
-    const res=await fetch(`/api/availability?categoryKey=${encodeURIComponent(cType)}&date=${toApiDateStr(d)}`);
+    const res=await fetch(`/api/availability?categoryKey=${encodeURIComponent(cType)}&serviceKey=${encodeURIComponent(cKey)}&date=${toApiDateStr(d)}`);
     const data=await res.json();
     slots=data.slots||[];
     dayOpen=data.dayOpen!==false;

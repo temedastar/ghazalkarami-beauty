@@ -492,11 +492,28 @@ const timeSlotSchema = z.object({
   time: z.string().min(1),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
+  // null/omitted = offered to every service in the category (unchanged
+  // default behavior). A specific id makes this time exclusive to that one
+  // service — see the migration/schema comments on TimeSlot.serviceId.
+  serviceId: z.string().nullable().optional(),
 });
+
+// same mismatch guard as manualBookingSchema's serviceId/categoryId check
+// above — the admin panel's own service dropdown is populated from
+// whichever category is selected, so this can't happen through normal UI
+// use, but nothing stops a direct API call from sending them out of sync
+async function assertServiceInCategory(serviceId: string | null | undefined, categoryId: string): Promise<string | null> {
+  if (!serviceId) return null;
+  const service = await prisma.service.findUnique({ where: { id: serviceId } });
+  if (!service || service.categoryId !== categoryId) return "سرویس انتخاب‌شده متعلق به این دسته‌بندی نیست.";
+  return null;
+}
 
 router.post("/time-slots", async (req, res) => {
   const parsed = timeSlotSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  const mismatchError = await assertServiceInCategory(parsed.data.serviceId, parsed.data.categoryId);
+  if (mismatchError) return res.status(400).json({ error: mismatchError });
   try {
     const slot = await prisma.timeSlot.create({ data: parsed.data });
     res.status(201).json({ slot });
@@ -512,6 +529,7 @@ const timeSlotPatchSchema = z.object({
   isActive: z.boolean().optional(),
   time: z.string().optional(),
   sortOrder: z.number().int().optional(),
+  serviceId: z.string().nullable().optional(),
 });
 
 // Booking has no FK to TimeSlot (it only shares categoryId+date+time by
@@ -534,6 +552,11 @@ router.patch("/time-slots/:id", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
   const existing = await prisma.timeSlot.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: "اسلات یافت نشد." });
+
+  if (parsed.data.serviceId !== undefined) {
+    const mismatchError = await assertServiceInCategory(parsed.data.serviceId, existing.categoryId);
+    if (mismatchError) return res.status(400).json({ error: mismatchError });
+  }
 
   if (parsed.data.time && parsed.data.time !== existing.time) {
     const count = await countFutureBookingsForSlot(existing.categoryId, existing.dayOfWeek, existing.time);
@@ -583,11 +606,14 @@ const generateSlotsSchema = z.object({
   endTime: z.string(),
   durationMin: z.number().int().min(5).max(600),
   gapMin: z.number().int().min(0).max(240).default(0),
+  serviceId: z.string().nullable().optional(),
 });
 
 router.post("/time-slots/generate", async (req, res) => {
   const parsed = generateSlotsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  const mismatchError = await assertServiceInCategory(parsed.data.serviceId, parsed.data.categoryId);
+  if (mismatchError) return res.status(400).json({ error: mismatchError });
   const times = timesBetween(parsed.data.startTime, parsed.data.endTime, parsed.data.durationMin, parsed.data.gapMin);
   if (!times.length) return res.status(400).json({ error: "با این تنظیمات هیچ اسلاتی ساخته نمی‌شود." });
 
@@ -597,8 +623,8 @@ router.post("/time-slots/generate", async (req, res) => {
         where: {
           categoryId_dayOfWeek_time: { categoryId: parsed.data.categoryId, dayOfWeek: parsed.data.dayOfWeek, time },
         },
-        create: { categoryId: parsed.data.categoryId, dayOfWeek: parsed.data.dayOfWeek, time, sortOrder: i },
-        update: { isActive: true, sortOrder: i },
+        create: { categoryId: parsed.data.categoryId, dayOfWeek: parsed.data.dayOfWeek, time, sortOrder: i, serviceId: parsed.data.serviceId ?? null },
+        update: { isActive: true, sortOrder: i, serviceId: parsed.data.serviceId ?? null },
       })
     )
   );

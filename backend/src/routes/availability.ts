@@ -5,8 +5,22 @@ import { getDayOpenInfo, isTimeAllowed, isSlotTooSoon, DayOpenInfo } from "../li
 
 const router = Router();
 
+// a TimeSlot with serviceId:null is offered to every service in the
+// category (the only state that existed before per-service slots); one
+// with a specific serviceId is exclusive to that service. No serviceKey
+// given (or one that doesn't resolve) falls back to category-wide slots
+// only, rather than showing a service-exclusive time for an unspecified
+// service.
+async function resolveServiceScope(categoryId: string, serviceKey: string): Promise<{ serviceId: string } | null> {
+  if (!serviceKey) return null;
+  const service = await prisma.service.findUnique({ where: { key: serviceKey } });
+  if (!service || service.categoryId !== categoryId) return null;
+  return { serviceId: service.id };
+}
+
 router.get("/", async (req, res) => {
   const categoryKey = typeof req.query.categoryKey === "string" ? req.query.categoryKey : "";
+  const serviceKey = typeof req.query.serviceKey === "string" ? req.query.serviceKey : "";
   const dateStr = typeof req.query.date === "string" ? req.query.date : "";
 
   const category = await prisma.serviceCategory.findUnique({ where: { key: categoryKey } });
@@ -19,6 +33,7 @@ router.get("/", async (req, res) => {
   const dayInfo = await getDayOpenInfo(date);
   if (!dayInfo.open) return res.json({ dayOpen: false, slots: [] });
 
+  const scope = await resolveServiceScope(category.id, serviceKey);
   const dow = dayOfWeekUTC(date);
   // chronological order by time, not sortOrder — sortOrder only reflects
   // generation sequence for slots created together via the bulk generator
@@ -28,7 +43,12 @@ router.get("/", async (req, res) => {
   // "time" is always a zero-padded "HH:MM" string, so a plain string sort
   // is already correct chronological order — no parsing needed.
   const timeSlots = await prisma.timeSlot.findMany({
-    where: { categoryId: category.id, dayOfWeek: dow, isActive: true },
+    where: {
+      categoryId: category.id,
+      dayOfWeek: dow,
+      isActive: true,
+      ...(scope ? { OR: [{ serviceId: null }, { serviceId: scope.serviceId }] } : { serviceId: null }),
+    },
     orderBy: { time: "asc" },
   });
 
@@ -77,16 +97,25 @@ const NEXT_SLOTS_HORIZON_DAYS = 90;
 
 router.get("/next", async (req, res) => {
   const categoryKey = typeof req.query.categoryKey === "string" ? req.query.categoryKey : "";
+  const serviceKey = typeof req.query.serviceKey === "string" ? req.query.serviceKey : "";
   const limit = Math.min(Math.max(Number(req.query.limit) || 8, 1), 20);
 
   const category = await prisma.serviceCategory.findUnique({ where: { key: categoryKey } });
   if (!category) return res.status(404).json({ error: "دسته‌بندی خدمت یافت نشد." });
+  const scope = await resolveServiceScope(category.id, serviceKey);
 
   const start = todayInTehran();
   const end = new Date(start.getTime() + (NEXT_SLOTS_HORIZON_DAYS - 1) * 86400000);
 
   const [timeSlots, exceptions, workingDays] = await Promise.all([
-    prisma.timeSlot.findMany({ where: { categoryId: category.id, isActive: true }, orderBy: { time: "asc" } }),
+    prisma.timeSlot.findMany({
+      where: {
+        categoryId: category.id,
+        isActive: true,
+        ...(scope ? { OR: [{ serviceId: null }, { serviceId: scope.serviceId }] } : { serviceId: null }),
+      },
+      orderBy: { time: "asc" },
+    }),
     prisma.dayException.findMany({ where: { date: { gte: start, lte: end } } }),
     prisma.workingDay.findMany(),
   ]);

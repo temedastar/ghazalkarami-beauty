@@ -163,7 +163,8 @@ model Service {
   category   ServiceCategory @relation(fields: [categoryId], references: [id])
   categoryId String
 
-  bookings Booking[]
+  bookings  Booking[]
+  timeSlots TimeSlot[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -228,6 +229,19 @@ model TimeSlot {
 
   category   ServiceCategory @relation(fields: [categoryId], references: [id])
   categoryId String
+
+  // null (the default, and the only state that existed before this field
+  // was added) = offered to every service in the category, same as always.
+  // Set to a specific service to make this exact time exclusive to that
+  // service instead — e.g. کراتینه only at 10:00, پروتئین‌تراپی only at
+  // 15:00, within the same shared "chem" timeline. This never touches how
+  // conflicts are enforced: SlotHold is still keyed on categoryId (not
+  // serviceId), so booking any one service in the group still locks that
+  // date+time for the whole group exactly as before — a service-scoped
+  // TimeSlot only changes which services are ever *offered* that time in
+  // the first place.
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  serviceId String?
 
   @@unique([categoryId, dayOfWeek, time])
 }
