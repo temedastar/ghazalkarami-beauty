@@ -355,6 +355,20 @@ table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
   main h1{font-size:19px;margin-bottom:20px;}
   .card{padding:18px;border-radius:14px;}
   .form-grid{gap:12px;}
+  /* every input below is set to width:100% on mobile, but that 100% only
+     ever resolved against label.field's own box — and .field, as a child
+     of a flex-wrap row (.form-grid/.row) with no width or flex-basis of
+     its own, was never actually stretched to the full row: its width came
+     from shrink-to-fit sizing of its content instead (classic flexbox
+     percentage-in-auto-sized-parent circularity). For a plain text input
+     this just meant a narrower-than-intended field; for the Jalali picker
+     it was much worse — positionPopup() copies .jdp-trigger's *rendered*
+     width onto the popup, so a trigger stuck at ~95px (its own label-text
+     width, not the row width) produced a ~95px calendar with 7 columns
+     inside it — day cells only a few px wide, numbers crammed on top of
+     each other. Giving .field an explicit width breaks the circularity
+     for every field at once, calendars included. */
+  label.field{width:100%;}
   input[type=text],input[type=number],input[type=date],input[type=time],input[type=tel],select{width:100%;}
   input[type=text].wide,input[type=tel].wide{width:100%;}
   .jdp-wrap{width:100%;}
