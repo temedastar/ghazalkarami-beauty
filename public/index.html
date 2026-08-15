@@ -818,6 +818,9 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
 .fc p,.fc a{display:block;color:rgba(251,247,238,.58);margin-bottom:8px;transition:.2s;}
 .f-social{display:flex;align-items:center;gap:8px;}
 .f-social svg{flex-shrink:0;color:var(--must-l);}
+.dir-btns{display:flex;gap:8px;flex-wrap:wrap;}
+.fc .dir-btn{padding:5px 13px;border:1px solid var(--must-l);border-radius:20px;color:var(--must-l);font-size:12.5px;white-space:nowrap;margin-bottom:0;}
+.fc .dir-btn:hover{background:rgba(223,160,45,.15);}
 .fc a:hover{color:var(--must-l);}
 .f-nas{font-size:21px;color:var(--must-l);margin-top:8px;}
 .fb{border-top:1px solid rgba(251,247,238,.08);padding-top:16px;font-size:12px;opacity:.6;
@@ -1414,7 +1417,14 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <a href="tel:+982188776655" class="f-social" data-contact="phone"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span data-contact-label>۰۲۱-۸۸۷۷۶۶۵۵</span></a>
         <a href="tel:+989121234567" class="f-social" data-contact="whatsapp"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span data-contact-label>۰۹۱۲-۱۲۳۴۵۶۷</span></a>
         <div class="f-social" style="align-items:flex-start;" data-contact="address"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-top:2px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>تهران، خیابان ولیعصر، نرسیده به میدان ونک</span></div>
-        <a class="f-social" href="#" target="_blank" rel="noopener" data-contact="directions" style="display:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg><span>مسیریابی با نشان</span></a>
+        <div class="f-social" style="align-items:flex-start;display:none;" data-contact="directions-group">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-top:2px;"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+          <div class="dir-btns">
+            <a class="dir-btn" href="#" target="_blank" rel="noopener" data-directions="neshan">نشان</a>
+            <a class="dir-btn" href="#" target="_blank" rel="noopener" data-directions="google">گوگل‌مپ</a>
+            <a class="dir-btn" href="#" target="_blank" rel="noopener" data-directions="waze">ویز</a>
+          </div>
+        </div>
       </div>
       <div class="fc">
         <h4>شبکه‌های اجتماعی</h4>
@@ -1729,17 +1739,29 @@ async function loadContactInfo(){
   document.querySelectorAll('[data-contact="address"]').forEach(el=>{
     if(contact.address)el.textContent=contact.address;
   });
-  // nshn.ir is Neshan's own short-link domain: on a phone with the Neshan
-  // app installed, opening it hands off straight to the app already pinned
-  // at this spot; otherwise it falls back to nshn.ir's own web map — no
-  // custom scheme/UA-sniffing needed, that fallback is automatic.
-  const directionsEl=document.querySelector('[data-contact="directions"]');
-  if(directionsEl){
+  // each is the app's own official universal/deep-link format: on a phone
+  // with that app installed, opening the link hands off straight to the
+  // app already pinned at this spot; otherwise it falls back to that app's
+  // own web map. No custom scheme/UA-sniffing needed, the fallback is
+  // automatic — same as the single-app Neshan link before this.
+  //   نشان:    https://nshn.ir/?lat=..&lng=..
+  //   گوگل‌مپ: Maps URLs API, "search" action — developers.google.com/maps/documentation/urls
+  //   ویز:      Waze Deep Links, ll+navigate=yes — developers.google.com/waze/deeplinks
+  const directionsGroup=document.querySelector('[data-contact="directions-group"]');
+  if(directionsGroup){
     if(contact.lat!=null && contact.lng!=null){
-      directionsEl.href=`https://nshn.ir/?lat=${contact.lat}&lng=${contact.lng}`;
-      directionsEl.style.display='';
+      const ll=`${contact.lat},${contact.lng}`;
+      const hrefs={
+        neshan:`https://nshn.ir/?lat=${contact.lat}&lng=${contact.lng}`,
+        google:`https://www.google.com/maps/search/?api=1&query=${ll}`,
+        waze:`https://www.waze.com/ul?ll=${ll}&navigate=yes`,
+      };
+      directionsGroup.querySelectorAll('[data-directions]').forEach(el=>{
+        el.href=hrefs[el.dataset.directions];
+      });
+      directionsGroup.style.display='';
     } else {
-      directionsEl.style.display='none';
+      directionsGroup.style.display='none';
     }
   }
   renderSocialLinks(socialLinks);

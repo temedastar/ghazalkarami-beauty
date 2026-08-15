@@ -2662,16 +2662,15 @@ tabs.contact = async () => {
     </div>
   </div>`;
 
-  html += `<div class="section-title">موقعیت روی نقشه (برای دکمه‌ی «مسیریابی با نشان»)</div>
+  html += `<div class="section-title">موقعیت روی نقشه (برای دکمه‌های مسیریابی)</div>
   <div class="card">
-    <p class="muted" style="margin-bottom:16px;">این دو مقدار، دکمه‌ی مسیریابی را در بخش «ارتباط با ما» سایت فعال می‌کنند. برای پیدا کردن مختصات: در نشان یا گوگل‌مپ، روی نقطه‌ی دقیق سالن نگه دارید تا پین بیفتد، سپس مختصات (عرض و طول جغرافیایی) را از آنجا کپی کنید.</p>
+    <p class="muted" style="margin-bottom:16px;">این دو مقدار، سه دکمه‌ی مسیریابی (نشان، گوگل‌مپ، ویز) را در بخش «ارتباط با ما» سایت فعال می‌کنند. برای پیدا کردن مختصات: در نشان یا گوگل‌مپ، روی نقطه‌ی دقیق سالن نگه دارید تا پین بیفتد، سپس مختصات (عرض و طول جغرافیایی) را از آنجا کپی کنید.</p>
     <div class="form-grid">
       <label class="field">عرض جغرافیایی (lat)<input type="text" inputmode="decimal" id="ciLat" value="${contact.lat??''}" placeholder="مثلاً 35.700562" onchange="updateContactCoord('lat',this.value)"></label>
       <label class="field">طول جغرافیایی (lng)<input type="text" inputmode="decimal" id="ciLng" value="${contact.lng??''}" placeholder="مثلاً 51.401235" onchange="updateContactCoord('lng',this.value)"></label>
     </div>
     <div id="ciMapPreview" style="margin-top:10px;"></div>
   </div>`;
-  renderMapPreview(contact.lat, contact.lng);
 
   html += `<div class="section-title">مشاوره‌ی رنگ و لایت (دنیا سلیمانی)</div>
   <div class="card">
@@ -2707,20 +2706,34 @@ tabs.contact = async () => {
   });
 
   setMainContent(html);
+  renderMapPreview(contact.lat, contact.lng);
 };
 window.updateContact = async (field, value) => {
   try{ await api("/admin/contact-info",{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }
 };
-// نشان لینک کوتاه رسمی برای نمایش یک مختصات — روی موبایل اگر اپ نشان نصب
-// باشد مستقیم در اپ باز می‌شود، وگرنه به نسخه‌ی وب nshn.ir سقوط می‌کند
-function neshanLink(lat, lng){ return `https://nshn.ir/?lat=${lat}&lng=${lng}`; }
+// هر سه، لینک/deep-link رسمی خودِ همون اپ‌ان — روی موبایل اگر اپ نصب باشد
+// مستقیم در اپ باز می‌شود، وگرنه به نسخه‌ی وب همون سرویس سقوط می‌کند. سایت
+// عمومی همین سه لینک را زیر «مسیریابی» در فوتر نشان می‌دهد.
+function directionLinks(lat, lng){
+  const ll = `${lat},${lng}`;
+  return {
+    "نشان": `https://nshn.ir/?lat=${lat}&lng=${lng}`,
+    "گوگل‌مپ": `https://www.google.com/maps/search/?api=1&query=${ll}`,
+    "ویز": `https://www.waze.com/ul?ll=${ll}&navigate=yes`,
+  };
+}
 function renderMapPreview(lat, lng){
   const el = document.getElementById("ciMapPreview");
   if(!el) return;
-  el.innerHTML = (lat!=null && lng!=null)
-    ? `<a class="btn btn-line btn-sm" target="_blank" rel="noopener" href="${neshanLink(lat,lng)}">پیش‌نمایش لینک مسیریابی ↗</a>`
-    : `<p class="muted">هر دو مقدار را وارد کنید تا دکمه‌ی مسیریابی روی سایت فعال شود.</p>`;
+  if(lat==null || lng==null){
+    el.innerHTML = `<p class="muted">هر دو مقدار را وارد کنید تا دکمه‌های مسیریابی روی سایت فعال شوند.</p>`;
+    return;
+  }
+  el.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;">` +
+    Object.entries(directionLinks(lat,lng)).map(([label,href])=>
+      `<a class="btn btn-line btn-sm" target="_blank" rel="noopener" href="${href}">پیش‌نمایش ${label} ↗</a>`
+    ).join("") + `</div>`;
 }
 window.updateContactCoord = async (field, raw) => {
   const trimmed = raw.trim();
