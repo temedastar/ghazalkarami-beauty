@@ -29,7 +29,7 @@ test.describe("cancellation policy: 48h refund-eligibility math", () => {
 });
 
 test.describe("cancelling a CONFIRMED+PAID booking", () => {
-  test("far enough in the future: refund is attempted (needs manual follow-up without live ZarinPal refund credentials)", async ({
+  test("far enough in the future: eligible, card details required, refund lands as needs-manual-followup (ZarinPal's refund service is permanently disabled)", async ({
     request,
   }) => {
     const token = testPool().customers[2].token;
@@ -47,13 +47,28 @@ test.describe("cancelling a CONFIRMED+PAID booking", () => {
     const { paymentUrl } = await paymentReq.json();
     await request.get(paymentUrl); // dev-mode auto-approves -> CONFIRMED + PAID
 
-    const cancel = await request.delete(`/api/bookings/${bookingId}`, { headers: auth });
+    // omitting the card details on an eligible cancellation is rejected —
+    // there's no automatic refund path anymore, so without them the money
+    // would have nowhere to go
+    const missingCard = await request.delete(`/api/bookings/${bookingId}`, { headers: auth });
+    expect(missingCard.status(), await missingCard.text()).toBe(400);
+
+    const cancel = await request.delete(`/api/bookings/${bookingId}`, {
+      headers: auth,
+      data: { refundCardNumber: "6037-9911 2233 4455", refundCardHolder: "  مشتری تست  " },
+    });
     expect(cancel.status(), await cancel.text()).toBe(200);
     const body = await cancel.json();
-    // NOT "succeeded" — there are no live ZarinPal refund credentials in
-    // this environment (see services/zarinpalRefund.ts), so an eligible
-    // cancellation always lands here for now
+    // NOT "succeeded" — ZarinPal's refund service via Shaparak is
+    // permanently disabled, so every eligible cancellation lands here now
     expect(body.refund).toBe("needs_manual_followup");
+
+    const adminAuth = { Authorization: `Bearer ${testPool().adminToken}` };
+    const bookingsRes = await request.get(`/api/admin/bookings?date=${date}`, { headers: adminAuth });
+    const cancelled = (await bookingsRes.json()).bookings.find((b: { id: string }) => b.id === bookingId);
+    // spaces/dashes stripped, name trimmed — stored exactly as typed otherwise
+    expect(cancelled.payment.refundCardNumber).toBe("6037991122334455");
+    expect(cancelled.payment.refundCardHolder).toBe("مشتری تست");
   });
 
   test("admin can resolve a needs-manual-followup refund, and a resolved one can't be resolved twice", async ({
@@ -76,7 +91,10 @@ test.describe("cancelling a CONFIRMED+PAID booking", () => {
     const { paymentUrl } = await paymentReq.json();
     await request.get(paymentUrl);
 
-    await request.delete(`/api/bookings/${bookingId}`, { headers: { Authorization: `Bearer ${token}` } });
+    await request.delete(`/api/bookings/${bookingId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { refundCardNumber: "6037991122334455", refundCardHolder: "مشتری تست ۲" },
+    });
 
     const bookingsRes = await request.get("/api/admin/bookings", { headers: adminAuth });
     const { bookings } = await bookingsRes.json();

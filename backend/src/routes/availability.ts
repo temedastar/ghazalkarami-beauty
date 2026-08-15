@@ -52,6 +52,19 @@ router.get("/", async (req, res) => {
     orderBy: { time: "asc" },
   });
 
+  // one-off additions for this exact date (e.g. "open until 20:00 today
+  // only") — deliberately NOT run through isTimeAllowed()'s weekly
+  // openTime/closeTime filter, since overriding that is the whole point;
+  // the day still has to be open at all, which was already checked above.
+  const specialSlots = await prisma.specialSlot.findMany({
+    where: {
+      categoryId: category.id,
+      date,
+      isActive: true,
+      ...(scope ? { OR: [{ serviceId: null }, { serviceId: scope.serviceId }] } : { serviceId: null }),
+    },
+  });
+
   // release any holds whose payment window has expired, so they show as free again
   await prisma.booking.updateMany({
     where: {
@@ -79,12 +92,14 @@ router.get("/", async (req, res) => {
   // POST /api/bookings independently re-checks isSlotTooSoon() regardless
   // of what this endpoint returns, since the frontend list is only ever a
   // suggestion. isSlotTooSoon() is always false for a future date.
-  const slots = timeSlots
-    .filter((s) => isTimeAllowed(s.time, dayInfo))
-    .map((s) => {
-      const past = isSlotTooSoon(date, s.time);
-      return { time: s.time, available: !past && !takenTimes.has(s.time), past };
-    });
+  const weeklyTimes = timeSlots.filter((s) => isTimeAllowed(s.time, dayInfo)).map((s) => s.time);
+  const specialTimes = specialSlots.map((s) => s.time);
+  const times = Array.from(new Set([...weeklyTimes, ...specialTimes])).sort();
+
+  const slots = times.map((time) => {
+    const past = isSlotTooSoon(date, time);
+    return { time, available: !past && !takenTimes.has(time), past };
+  });
   res.json({ dayOpen: true, slots });
 });
 
@@ -107,7 +122,7 @@ router.get("/next", async (req, res) => {
   const start = todayInTehran();
   const end = new Date(start.getTime() + (NEXT_SLOTS_HORIZON_DAYS - 1) * 86400000);
 
-  const [timeSlots, exceptions, workingDays] = await Promise.all([
+  const [timeSlots, specialSlots, exceptions, workingDays] = await Promise.all([
     prisma.timeSlot.findMany({
       where: {
         categoryId: category.id,
@@ -116,10 +131,25 @@ router.get("/next", async (req, res) => {
       },
       orderBy: { time: "asc" },
     }),
+    prisma.specialSlot.findMany({
+      where: {
+        categoryId: category.id,
+        date: { gte: start, lte: end },
+        isActive: true,
+        ...(scope ? { OR: [{ serviceId: null }, { serviceId: scope.serviceId }] } : { serviceId: null }),
+      },
+    }),
     prisma.dayException.findMany({ where: { date: { gte: start, lte: end } } }),
     prisma.workingDay.findMany(),
   ]);
-  if (!timeSlots.length) return res.json({ slots: [] });
+  if (!timeSlots.length && !specialSlots.length) return res.json({ slots: [] });
+
+  const specialTimesByDate = new Map<string, string[]>();
+  for (const s of specialSlots) {
+    const key = toDateOnlyString(s.date);
+    if (!specialTimesByDate.has(key)) specialTimesByDate.set(key, []);
+    specialTimesByDate.get(key)!.push(s.time);
+  }
 
   // same expired-hold cleanup the single-day endpoint does, batched across
   // the whole scanned range instead of one date at a time
@@ -165,11 +195,13 @@ router.get("/next", async (req, res) => {
     if (!dayInfo.open) continue;
 
     const taken = takenByDate.get(dateStr);
-    const daySlots = (slotsByDow.get(dayOfWeekUTC(d)) || []).filter((s) => isTimeAllowed(s.time, dayInfo));
-    for (const s of daySlots) {
-      if (taken?.has(s.time)) continue;
-      if (isSlotTooSoon(d, s.time)) continue;
-      results.push({ date: dateStr, time: s.time });
+    const weeklyTimes = (slotsByDow.get(dayOfWeekUTC(d)) || []).filter((s) => isTimeAllowed(s.time, dayInfo)).map((s) => s.time);
+    const specialTimes = specialTimesByDate.get(dateStr) || [];
+    const dayTimes = Array.from(new Set([...weeklyTimes, ...specialTimes])).sort();
+    for (const time of dayTimes) {
+      if (taken?.has(time)) continue;
+      if (isSlotTooSoon(d, time)) continue;
+      results.push({ date: dateStr, time });
       if (results.length >= limit) break;
     }
   }

@@ -1414,6 +1414,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <a href="tel:+982188776655" class="f-social" data-contact="phone"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span data-contact-label>۰۲۱-۸۸۷۷۶۶۵۵</span></a>
         <a href="tel:+989121234567" class="f-social" data-contact="whatsapp"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span data-contact-label>۰۹۱۲-۱۲۳۴۵۶۷</span></a>
         <div class="f-social" style="align-items:flex-start;" data-contact="address"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-top:2px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>تهران، خیابان ولیعصر، نرسیده به میدان ونک</span></div>
+        <a class="f-social" href="#" target="_blank" rel="noopener" data-contact="directions" style="display:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg><span>مسیریابی با نشان</span></a>
       </div>
       <div class="fc">
         <h4>شبکه‌های اجتماعی</h4>
@@ -1519,6 +1520,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
       <h3 style="font-size:17px;margin-bottom:16px;">پرداخت بیعانه</h3>
       <div class="pay">مبلغ بیعانه قابل پرداخت<b id="pay-amount">—</b></div>
       <p style="font-size:13px;color:var(--ink-2);text-align:center;margin-bottom:16px;">باقی‌مانده‌ی مبلغ در سالن و پس از دریافت خدمت پرداخت می‌شود.</p>
+      <p style="font-size:12.5px;color:var(--ink-2);text-align:center;margin-bottom:16px;">با پرداخت، <a href="/refund-policy.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">قوانین لغو و بازگشت وجه</a> را می‌پذیرید — لغو تا ۴۸ ساعت قبل از نوبت، بیعانه را کامل بازمی‌گرداند؛ دیرتر از آن، بیعانه غیرقابل‌بازگشت است.</p>
       <button class="btn b-gold btn-full" onclick="startPayment()" id="pay-btn">پرداخت آنلاین بیعانه</button>
       <p class="auth-why" id="pay-err" style="color:var(--danger);display:none;"></p>
     </div>
@@ -1539,6 +1541,22 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
     <button class="mx" onclick="closeMyBookings()" aria-label="بستن">✕</button>
     <h3 style="margin-bottom:18px;">نوبت‌های من</h3>
     <div id="myBookingsList"><div class="mb-loading">در حال بارگذاری…</div></div>
+  </div>
+</div>
+
+<div class="mbg" id="rcBg" onclick="if(event.target===this)closeRefundCardModal()">
+  <div class="modal" style="max-width:420px;">
+    <button class="mx" onclick="closeRefundCardModal()" aria-label="بستن">✕</button>
+    <h3 style="margin-bottom:10px;">بازگشت بیعانه</h3>
+    <p class="muted" style="margin-bottom:16px;">چون بیش از ۴۸ ساعت تا نوبت مانده، بیعانه‌ی شما بازگردانده می‌شود. چون بازگشت وجه به‌صورت کارت‌به‌کارت انجام می‌شود، لطفاً شماره کارت و نام صاحب کارت را وارد کنید — طی چند روز کاری مبلغ به همین کارت واریز می‌شود.</p>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <label>شماره کارت (۱۶ رقم)<input type="text" inputmode="numeric" id="rcCardNumber" placeholder="6037XXXXXXXXXXXX" maxlength="19" style="width:100%;margin-top:6px;"></label>
+      <label>نام صاحب کارت<input type="text" id="rcCardHolder" style="width:100%;margin-top:6px;"></label>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button class="btn b-danger" onclick="confirmRefundCardCancel()">لغو نوبت و ثبت بازگشت</button>
+      <button class="btn" onclick="closeRefundCardModal()">انصراف</button>
+    </div>
   </div>
 </div>
 
@@ -1711,6 +1729,19 @@ async function loadContactInfo(){
   document.querySelectorAll('[data-contact="address"]').forEach(el=>{
     if(contact.address)el.textContent=contact.address;
   });
+  // nshn.ir is Neshan's own short-link domain: on a phone with the Neshan
+  // app installed, opening it hands off straight to the app already pinned
+  // at this spot; otherwise it falls back to nshn.ir's own web map — no
+  // custom scheme/UA-sniffing needed, that fallback is automatic.
+  const directionsEl=document.querySelector('[data-contact="directions"]');
+  if(directionsEl){
+    if(contact.lat!=null && contact.lng!=null){
+      directionsEl.href=`https://nshn.ir/?lat=${contact.lat}&lng=${contact.lng}`;
+      directionsEl.style.display='';
+    } else {
+      directionsEl.style.display='none';
+    }
+  }
   renderSocialLinks(socialLinks);
 
   /* رنگ‌ولایت consultation modal — each button only shows up if the admin
@@ -2848,26 +2879,54 @@ function renderMyBookings(bookings){
   }).join('');
 }
 
+let _pendingCancelId=null;
 window.cancelMyBooking=async(id)=>{
   const b=myBookingsCache.find(x=>x.id===id);
-  let msg='آیا از لغو این نوبت مطمئن هستید؟';
   // a deposit is only actually at risk if it was paid — PENDING_PAYMENT
   // bookings never charged anything, so there's nothing to warn about
-  if(b&&b.payment&&b.payment.status==='PAID'){
-    const eligible=hoursUntilAppointment(b.date,b.time)>=REFUND_ELIGIBLE_HOURS;
-    msg+=eligible
-      ?' چون بیش از ۴۸ ساعت تا نوبت مانده، بیعانه‌ی شما بازگردانده می‌شود.'
-      :' چون کمتر از ۴۸ ساعت تا نوبت مانده، طبق قوانین لغو، بیعانه‌ی شما قابل بازگشت نیست.';
+  const hadDeposit=Boolean(b&&b.payment&&b.payment.status==='PAID');
+  if(hadDeposit && hoursUntilAppointment(b.date,b.time)>=REFUND_ELIGIBLE_HOURS){
+    // eligible for a refund — since it's now always a manual card-to-card
+    // transfer (ZarinPal's automatic refund is permanently disabled), the
+    // card details have to be collected before the cancel actually goes
+    // through, not after
+    _pendingCancelId=id;
+    document.getElementById('rcCardNumber').value='';
+    document.getElementById('rcCardHolder').value='';
+    document.getElementById('rcBg').classList.add('on');
+    return;
   }
+  const msg='آیا از لغو این نوبت مطمئن هستید؟'+(hadDeposit?' چون کمتر از ۴۸ ساعت تا نوبت مانده، طبق قوانین لغو، بیعانه‌ی شما قابل بازگشت نیست.':'');
   if(!confirm(msg))return;
+  await doCancelMyBooking(id,null);
+};
+window.closeRefundCardModal=()=>{
+  document.getElementById('rcBg').classList.remove('on');
+  _pendingCancelId=null;
+};
+window.confirmRefundCardCancel=async()=>{
+  const cardNumber=document.getElementById('rcCardNumber').value.replace(/[\s-]/g,'');
+  const cardHolder=document.getElementById('rcCardHolder').value.trim();
+  if(!/^\d{16}$/.test(cardNumber)){ toastAlert('شماره کارت باید ۱۶ رقم باشد.'); return; }
+  if(!cardHolder){ toastAlert('نام صاحب کارت را وارد کنید.'); return; }
+  const id=_pendingCancelId;
+  document.getElementById('rcBg').classList.remove('on');
+  _pendingCancelId=null;
+  await doCancelMyBooking(id,{refundCardNumber:cardNumber,refundCardHolder:cardHolder});
+};
+async function doCancelMyBooking(id,cardBody){
   try{
-    const res=await fetch(`/api/bookings/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${AUTH_TOKEN}`}});
+    const res=await fetch(`/api/bookings/${id}`,{
+      method:'DELETE',
+      headers:{Authorization:`Bearer ${AUTH_TOKEN}`,'Content-Type':'application/json'},
+      body:cardBody?JSON.stringify(cardBody):undefined,
+    });
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||'خطا در لغو نوبت.');
     toastAlert(data.message||'نوبت با موفقیت لغو شد.');
     await loadMyBookings();
   }catch(e){ toastAlert(e.message); }
-};
+}
 
 function startBookingAuth(){
   const svc=svcInfo[cKey];

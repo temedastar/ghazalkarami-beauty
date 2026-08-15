@@ -69,6 +69,9 @@ enum SmsType {
   REMINDER
   THANK_YOU_REVIEW
   REFUND
+  // to Ghazal, not the customer — "a customer just cancelled, check بازگشت
+  // وجه در انتظار" (see services/kavenegar.ts's sendCancellationNotifySms)
+  CANCEL_NOTIFY
 }
 
 // NOT_APPLICABLE: booking was never paid, or was cancelled less than
@@ -137,9 +140,10 @@ model ServiceCategory {
   name      String
   sortOrder Int      @default(0)
 
-  services  Service[]
-  timeSlots TimeSlot[]
-  bookings  Booking[]
+  services     Service[]
+  timeSlots    TimeSlot[]
+  specialSlots SpecialSlot[]
+  bookings     Booking[]
 }
 
 model Service {
@@ -163,8 +167,9 @@ model Service {
   category   ServiceCategory @relation(fields: [categoryId], references: [id])
   categoryId String
 
-  bookings  Booking[]
-  timeSlots TimeSlot[]
+  bookings     Booking[]
+  timeSlots    TimeSlot[]
+  specialSlots SpecialSlot[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -244,6 +249,30 @@ model TimeSlot {
   serviceId String?
 
   @@unique([categoryId, dayOfWeek, time])
+}
+
+model SpecialSlot {
+  // a one-off bookable time added for exactly one calendar date, on top of
+  // the weekly recurring TimeSlot pattern — e.g. "stay open until 20:00 on
+  // 1405-05-30 only" without changing every other Wednesday. Unlike
+  // TimeSlot, its time is NOT filtered through the weekly day's
+  // openTime/closeTime (see lib/schedule.ts) — that's the whole point of an
+  // override — but the day still has to be open at all (a DayException
+  // marking the date fully closed still wins). Same serviceId scoping
+  // semantics as TimeSlot: null = offered to the whole category.
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  time      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  serviceId String?
+
+  @@unique([categoryId, date, time])
 }
 
 model Booking {
@@ -336,6 +365,12 @@ model Payment {
   refundStatus RefundStatus @default(NOT_APPLICABLE)
   refundedAt   DateTime?
   refundNote   String? // failure reason, or a note for whoever follows up manually
+  // ZarinPal's refund service (via Shaparak) is permanently disabled — every
+  // eligible refund is now a manual card-to-card transfer, so these are
+  // collected at cancel time and shown in the admin "بازگشت وجه در انتظار"
+  // list until Ghazal marks the transfer done.
+  refundCardNumber String?
+  refundCardHolder String?
 
   booking   Booking @relation(fields: [bookingId], references: [id])
   bookingId String  @unique
@@ -390,6 +425,10 @@ model Settings {
   reminderHoursBefore Int         @default(24)
   defaultDepositType  DepositType @default(FIXED)
   defaultDepositValue Int         @default(0)
+  // Ghazal's own mobile — where the "a customer just cancelled" SMS goes
+  // (see services/kavenegar.ts's sendCancellationNotifySms). Separate from
+  // ContactInfo.phone/whatsapp, which are customer-facing.
+  ownerNotifyPhone    String?
   updatedAt           DateTime    @updatedAt
 }
 
@@ -407,6 +446,11 @@ model ContactInfo {
   phone          String?
   whatsapp       String? // used for the header "tap to call" shortcut and the wa.me chat link — a single primary number, distinct from the social-icon row below
   address        String?
+  // salon's map coordinates, admin-editable — power the "مسیریابی با نشان"
+  // link in the footer/contact section (public/index.html). Both must be
+  // set together for the link to appear; either null hides it.
+  lat            Float?
+  lng            Float?
   doniaPhone     String? // direct line for the رنگ‌ولایت consultation drawer (public/index.html) — separate from the salon's main phone above
   doniaInstagram String? // handle without "@", same drawer
   updatedAt      DateTime @updatedAt

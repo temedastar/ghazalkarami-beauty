@@ -6,7 +6,8 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { parseDateOnly, dayOfWeekUTC, isPastDate } from "../lib/dates";
 import { getDayOpenInfo, isTimeAllowed, isSlotTooSoon, computeDepositAmount } from "../lib/schedule";
-import { cancelBookingAndMaybeRefund } from "../services/bookingCancellation";
+import { cancelBookingAndMaybeRefund, validateRefundCard } from "../services/bookingCancellation";
+import { isRefundEligible } from "../lib/cancellationPolicy";
 
 const router = Router();
 
@@ -170,7 +171,20 @@ router.delete("/:id", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "این رزرو قبلاً لغو یا منقضی شده است." });
   }
 
-  const result = await cancelBookingAndMaybeRefund(booking);
+  // ZarinPal's refund API via Shaparak is permanently disabled — every
+  // eligible refund is now a manual card-to-card transfer, so the card
+  // details have to be collected up front, before the booking is actually
+  // cancelled below (see services/bookingCancellation.ts).
+  const hadPaidDeposit = booking.status === "CONFIRMED" && booking.payment?.status === "PAID";
+  const eligible = hadPaidDeposit && isRefundEligible(booking.date, booking.time);
+  let refundCard: { number: string; holder: string } | undefined;
+  if (eligible) {
+    const validated = validateRefundCard(req.body);
+    if (!validated.ok) return res.status(400).json({ error: validated.error });
+    refundCard = validated.card;
+  }
+
+  const result = await cancelBookingAndMaybeRefund(booking, refundCard);
   res.json({ ok: true, refund: result.refund, message: result.message });
 });
 

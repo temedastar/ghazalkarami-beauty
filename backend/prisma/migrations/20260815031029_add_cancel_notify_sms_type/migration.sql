@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "SmsType" ADD VALUE 'CANCEL_NOTIFY';

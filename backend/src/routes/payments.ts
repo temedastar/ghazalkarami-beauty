@@ -6,8 +6,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { env } from "../lib/env";
 import { createZarinpalPayment, verifyZarinpalPayment } from "../services/zarinpal";
-import { requestZarinpalRefund } from "../services/zarinpalRefund";
-import { sendBookingConfirmationSms, sendRefundSms } from "../services/kavenegar";
+import { sendBookingConfirmationSms } from "../services/kavenegar";
 import { toJalaliDateLabel } from "../lib/dates";
 
 const router = Router();
@@ -144,23 +143,21 @@ router.get("/zarinpal/callback", callbackLimiter, async (req, res) => {
     // honored, so refund in full. Not subject to the 48h late-cancellation
     // policy (lib/cancellationPolicy.ts): that's for a customer changing
     // their mind, not a system race that isn't the customer's fault.
+    //
+    // ZarinPal's refund API via Shaparak is permanently disabled — there is
+    // no automatic refund path anymore (see services/bookingCancellation.ts
+    // for the same fact applied to customer-initiated cancellations). This
+    // rare race has no cancel-flow UI to collect the customer's card details
+    // through, so it lands in the admin "بازگشت وجه در انتظار" list without
+    // them; Ghazal has to reach out to the customer directly for this one.
     await prisma.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED", cancelledAt: new Date() } });
-    const result = await requestZarinpalRefund(authority, booking.depositAmount);
-    if (result.success) {
-      await prisma.payment.update({
-        where: { bookingId: booking.id },
-        data: { refundStatus: "SUCCEEDED", refundedAt: new Date(), refundNote: result.note, refId: result.refundRefId },
-      });
-      await sendRefundSms(booking.user.phone, {
-        serviceName: booking.service.name,
-        amountToman: booking.depositAmount,
-      }).catch((refundSmsErr) => console.error("Failed to send refund SMS:", refundSmsErr));
-    } else {
-      await prisma.payment.update({
-        where: { bookingId: booking.id },
-        data: { refundStatus: "NEEDS_MANUAL_FOLLOWUP", refundNote: result.note },
-      });
-    }
+    await prisma.payment.update({
+      where: { bookingId: booking.id },
+      data: {
+        refundStatus: "NEEDS_MANUAL_FOLLOWUP",
+        refundNote: "این تایم هم‌زمان توسط شخص دیگری رزرو شد؛ بیعانه باید به مشتری بازگردانده شود (شماره کارت مشتری هنوز ثبت نشده — باید از او گرفته شود).",
+      },
+    });
     return redirect("/?payment=slot_taken");
   }
 

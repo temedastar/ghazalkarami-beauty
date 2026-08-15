@@ -52,7 +52,9 @@ export const env = {
       bookingConfirm: process.env.KAVENEGAR_TEMPLATE_BOOKING_CONFIRM ?? "",
       reminder: process.env.KAVENEGAR_TEMPLATE_REMINDER ?? "",
       thankYouReview: process.env.KAVENEGAR_TEMPLATE_THANKYOU_REVIEW ?? "",
-      refund: process.env.KAVENEGAR_TEMPLATE_REFUND ?? "",
+      // sent to Ghazal (Settings.ownerNotifyPhone), not the customer — see
+      // services/kavenegar.ts's sendCancellationNotifySms
+      cancelNotify: process.env.KAVENEGAR_TEMPLATE_CANCEL_NOTIFY ?? "",
     },
   },
 

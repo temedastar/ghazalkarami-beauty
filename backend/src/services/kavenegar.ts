@@ -131,16 +131,16 @@ export async function sendBookingReminderSms(
   });
 }
 
-export async function sendRefundSms(
-  phone: string,
-  opts: { serviceName: string; amountToman: number }
-): Promise<void> {
+// tells Ghazal (not the customer) that a customer just cancelled — see
+// services/bookingCancellation.ts. Zero dynamic content: who/what/when is
+// already visible the moment she opens the "بازگشت وجه در انتظار" panel
+// section, so the SMS only needs to prompt her to check it, not repeat the
+// details and cost a second segment for no reason.
+export async function sendCancellationNotifySms(phone: string): Promise<void> {
   await sendLookup({
     phone,
-    type: "REFUND",
-    template: env.kavenegar.templates.refund,
-    token: opts.serviceName,
-    token2: String(opts.amountToman),
+    type: "CANCEL_NOTIFY",
+    template: env.kavenegar.templates.cancelNotify,
   });
 }
 

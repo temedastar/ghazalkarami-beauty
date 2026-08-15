@@ -9,11 +9,12 @@ import { Prisma, BookingStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { normalizePhone } from "../lib/phone";
-import { parseDateOnly, toDateOnlyString, dayOfWeekUTC } from "../lib/dates";
+import { parseDateOnly, toDateOnlyString, dayOfWeekUTC, isPastDate } from "../lib/dates";
 import { sendThankYouReviewSms } from "../services/kavenegar";
 import { isObjectStorageConfigured, uploadBuffer, deleteObject, headBucket, describeStorageError } from "../lib/objectStorage";
 import { env } from "../lib/env";
-import { cancelBookingAndMaybeRefund } from "../services/bookingCancellation";
+import { cancelBookingAndMaybeRefund, validateRefundCard } from "../services/bookingCancellation";
+import { isRefundEligible } from "../lib/cancellationPolicy";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -82,6 +83,7 @@ router.get("/dashboard", async (_req, res) => {
     last7Days,
     topServiceGroups,
     recentBookings,
+    pendingRefundCount,
   ] = await Promise.all([
     prisma.booking.count({ where: { date: today, status: { notIn: NOT_CANCELLED } } }),
     prisma.booking.count({ where: { date: { gte: weekStart, lte: weekEnd }, status: { notIn: NOT_CANCELLED } } }),
@@ -107,6 +109,11 @@ router.get("/dashboard", async (_req, res) => {
       orderBy: { createdAt: "desc" },
       take: 8,
       include: { service: true, user: { select: SAFE_USER_SELECT } },
+    }),
+    // "بازگشت وجه در انتظار" badge — only counts refunds actually waiting on
+    // Ghazal to act (NOT_APPLICABLE/forfeited ones need no action)
+    prisma.payment.count({
+      where: { status: "PAID", refundStatus: "NEEDS_MANUAL_FOLLOWUP", booking: { status: "CANCELLED" } },
     }),
   ]);
 
@@ -135,6 +142,7 @@ router.get("/dashboard", async (_req, res) => {
     month: { count: monthCount, revenue: monthRevenue._sum.amount ?? 0 },
     last7Days,
     popularServices,
+    pendingRefundCount,
     recentBookings: recentBookings.map((b) => ({
       id: b.id,
       date: b.date,
@@ -486,6 +494,46 @@ router.get("/categories", async (_req, res) => {
   res.json({ categories });
 });
 
+// lets the "افزودن/ویرایش سرویس" form create a brand-new shared-timeline
+// group on the spot (either "این سرویس مستقل باشد" or "گروه جدید") instead
+// of only being able to pick among categories that already exist
+const categoryCreateSchema = z.object({
+  key: z.string().min(1).max(60),
+  name: z.string().min(1).max(120),
+});
+
+router.post("/categories", async (req, res) => {
+  const parsed = categoryCreateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  try {
+    const category = await prisma.serviceCategory.create({ data: parsed.data });
+    res.status(201).json({ category });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return res.status(409).json({ error: "دسته‌بندی/گروهی با این شناسه (key) از قبل وجود دارد." });
+    }
+    throw err;
+  }
+});
+
+// cleans up a group created by mistake (e.g. the wrong option picked in
+// "+ ساخت گروه جدید") — only while it's still genuinely empty, since a
+// group with services/slots/bookings on it is a real shared timeline, not
+// a typo to undo
+router.delete("/categories/:id", async (req, res) => {
+  const category = await prisma.serviceCategory.findUnique({
+    where: { id: req.params.id },
+    include: { _count: { select: { services: true, timeSlots: true, specialSlots: true, bookings: true } } },
+  });
+  if (!category) return res.status(404).json({ error: "دسته‌بندی یافت نشد." });
+  const inUse = category._count.services + category._count.timeSlots + category._count.specialSlots + category._count.bookings > 0;
+  if (inUse) {
+    return res.status(409).json({ error: "این گروه سرویس/اسلات/رزرو دارد و قابل حذف نیست." });
+  }
+  await prisma.serviceCategory.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
 const timeSlotSchema = z.object({
   categoryId: z.string(),
   dayOfWeek: z.number().int().min(0).max(6),
@@ -631,6 +679,74 @@ router.post("/time-slots/generate", async (req, res) => {
   res.status(201).json({ slots: created });
 });
 
+/* ---------- special slots (one-off additions for a single date) ---------- */
+// covers cases like "stay open until 20:00 on this one Wednesday only" —
+// see routes/availability.ts for how these merge with the weekly TimeSlot
+// pattern at read time.
+
+router.get("/special-slots", async (req, res) => {
+  const categoryId = typeof req.query.categoryId === "string" ? req.query.categoryId : "";
+  const dateStr = typeof req.query.date === "string" ? req.query.date : "";
+  if (!categoryId) return res.status(400).json({ error: "دسته‌بندی را مشخص کنید." });
+  const date = parseDateOnly(dateStr);
+  if (!date) return res.status(400).json({ error: "تاریخ نامعتبر است." });
+
+  const slots = await prisma.specialSlot.findMany({
+    where: { categoryId, date },
+    orderBy: { time: "asc" },
+  });
+  res.json({ slots });
+});
+
+const specialSlotSchema = z.object({
+  categoryId: z.string(),
+  date: z.string(),
+  time: z.string().min(1),
+  serviceId: z.string().nullable().optional(),
+});
+
+router.post("/special-slots", async (req, res) => {
+  const parsed = specialSlotSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
+  const date = parseDateOnly(parsed.data.date);
+  if (!date) return res.status(400).json({ error: "تاریخ نامعتبر است." });
+  if (isPastDate(date)) return res.status(400).json({ error: "نمی‌توان برای تاریخ گذشته اسلات اضافه کرد." });
+  const mismatchError = await assertServiceInCategory(parsed.data.serviceId, parsed.data.categoryId);
+  if (mismatchError) return res.status(400).json({ error: mismatchError });
+
+  try {
+    const slot = await prisma.specialSlot.create({
+      data: { categoryId: parsed.data.categoryId, date, time: parsed.data.time, serviceId: parsed.data.serviceId ?? null },
+    });
+    res.status(201).json({ slot });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return res.status(409).json({ error: "این ساعت از قبل برای این دسته‌بندی و تاریخ ثبت شده است." });
+    }
+    throw err;
+  }
+});
+
+router.delete("/special-slots/:id", async (req, res) => {
+  const existing = await prisma.specialSlot.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "اسلات یافت نشد." });
+
+  const booking = await prisma.booking.findFirst({
+    where: {
+      categoryId: existing.categoryId,
+      date: existing.date,
+      time: existing.time,
+      status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
+    },
+  });
+  if (booking) {
+    return res.status(409).json({ error: "برای این تاریخ و ساعت نوبتی ثبت شده؛ ابتدا آن را لغو یا جابه‌جا کنید." });
+  }
+
+  await prisma.specialSlot.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
 /* ---------- services / pricing ---------- */
 
 router.get("/services", async (_req, res) => {
@@ -643,6 +759,7 @@ router.get("/services", async (_req, res) => {
 
 const servicePatchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
+  categoryId: z.string().optional(),
   priceMin: z.number().int().min(0).nullable().optional(),
   priceMax: z.number().int().min(0).nullable().optional(),
   priceLabel: z.string().max(120).nullable().optional(),
@@ -690,6 +807,29 @@ router.patch("/services/:id", async (req, res) => {
     depositValue: parsed.data.depositValue ?? existing.depositValue,
   });
   if (error) return res.status(400).json({ error });
+
+  // moving a service to a different group can orphan any TimeSlot/SpecialSlot
+  // rows that were exclusively scoped to it under the OLD category — a slot's
+  // categoryId doesn't follow the service, so a stale serviceId there would
+  // silently stop matching anyone (see resolveServiceScope in
+  // routes/availability.ts). Reverting them to serviceId:null keeps them
+  // alive as shared slots in the old category instead of going dark.
+  let reassignedSlotCount = 0;
+  if (parsed.data.categoryId && parsed.data.categoryId !== existing.categoryId) {
+    const [timeSlotResult, specialSlotResult, service] = await prisma.$transaction([
+      prisma.timeSlot.updateMany({
+        where: { categoryId: existing.categoryId, serviceId: existing.id },
+        data: { serviceId: null },
+      }),
+      prisma.specialSlot.updateMany({
+        where: { categoryId: existing.categoryId, serviceId: existing.id },
+        data: { serviceId: null },
+      }),
+      prisma.service.update({ where: { id: req.params.id }, data: parsed.data }),
+    ]);
+    reassignedSlotCount = timeSlotResult.count + specialSlotResult.count;
+    return res.json({ service, reassignedSlotCount });
+  }
 
   const service = await prisma.service.update({ where: { id: req.params.id }, data: parsed.data });
   res.json({ service });
@@ -1150,6 +1290,11 @@ router.delete("/bookings/block-range", async (req, res) => {
 
 const bookingStatusSchema = z.object({
   status: z.enum(["CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"]),
+  // only meaningful when status is CANCELLED and the booking turns out to be
+  // refund-eligible — e.g. Ghazal is cancelling on the phone with the
+  // customer and can type in the card details they just gave her
+  refundCardNumber: z.string().optional(),
+  refundCardHolder: z.string().optional(),
 });
 
 // only these starting statuses can be changed by hand at all, and only into
@@ -1190,8 +1335,19 @@ router.patch("/bookings/:id/status", async (req, res) => {
 
   if (parsed.data.status === "CANCELLED") {
     // same 48h refund-eligibility policy as the customer's own cancel
-    // button — see services/bookingCancellation.ts
-    await cancelBookingAndMaybeRefund(booking);
+    // button — see services/bookingCancellation.ts. Card details are only
+    // required when the cancellation actually turns out to be eligible;
+    // if Ghazal didn't have them handy yet, this fails clearly instead of
+    // silently cancelling without ever capturing where the refund should go.
+    const hadPaidDeposit = booking.status === "CONFIRMED" && booking.payment?.status === "PAID";
+    const eligible = hadPaidDeposit && isRefundEligible(booking.date, booking.time);
+    let refundCard: { number: string; holder: string } | undefined;
+    if (eligible) {
+      const validated = validateRefundCard(parsed.data);
+      if (!validated.ok) return res.status(400).json({ error: validated.error });
+      refundCard = validated.card;
+    }
+    await cancelBookingAndMaybeRefund(booking, refundCard);
   } else {
     await prisma.booking.update({ where: { id: booking.id }, data: { status: parsed.data.status } });
   }
@@ -1210,10 +1366,10 @@ router.patch("/bookings/:id/status", async (req, res) => {
   res.json({ booking: updated });
 });
 
-// lets Ghazal close out a NEEDS_MANUAL_FOLLOWUP refund after she's issued it
-// herself directly in the ZarinPal panel (automatic refunds always land in
-// that state for now — see services/zarinpalRefund.ts) — otherwise the
-// admin panel's cancellation view would show it as unresolved forever
+// lets Ghazal close out a NEEDS_MANUAL_FOLLOWUP refund after she's actually
+// transferred it card-to-card — ZarinPal's refund API via Shaparak is
+// permanently disabled, so this manual mark-as-paid step is the only way a
+// refund is ever closed out now
 const refundStatusSchema = z.object({ refundStatus: z.literal("SUCCEEDED") });
 
 router.patch("/payments/:id/refund-status", async (req, res) => {
@@ -1231,6 +1387,25 @@ router.patch("/payments/:id/refund-status", async (req, res) => {
     data: { refundStatus: "SUCCEEDED", refundedAt: new Date() },
   });
   res.json({ payment: updated });
+});
+
+// dedicated "بازگشت وجه در انتظار" list — every cancelled+paid-deposit
+// booking whose refund hasn't been marked SUCCEEDED yet, whichever way it
+// ended up (eligible & waiting on a manual transfer, or forfeited per the
+// 48h policy). SUCCEEDED rows drop out once resolved via the PATCH above.
+router.get("/refunds/pending", async (_req, res) => {
+  const payments = await prisma.payment.findMany({
+    where: {
+      status: "PAID",
+      refundStatus: { in: ["NEEDS_MANUAL_FOLLOWUP", "NOT_APPLICABLE"] },
+      booking: { status: "CANCELLED" },
+    },
+    include: {
+      booking: { include: { service: true, category: true, user: { select: SAFE_USER_SELECT } } },
+    },
+    orderBy: { booking: { cancelledAt: "desc" } },
+  });
+  res.json({ payments });
 });
 
 /* ---------- customers ---------- */
@@ -1282,6 +1457,7 @@ const settingsPatchSchema = z.object({
   reminderHoursBefore: z.number().int().min(1).max(168).optional(),
   defaultDepositType: z.enum(["FIXED", "PERCENT"]).optional(),
   defaultDepositValue: z.number().int().min(0).optional(),
+  ownerNotifyPhone: z.string().max(20).nullable().optional(),
 });
 
 router.patch("/settings", async (req, res) => {
@@ -1368,6 +1544,8 @@ const contactInfoPatchSchema = z.object({
   phone: z.string().max(40).nullable().optional(),
   whatsapp: z.string().max(40).nullable().optional(),
   address: z.string().max(300).nullable().optional(),
+  lat: z.number().min(-90).max(90).nullable().optional(),
+  lng: z.number().min(-180).max(180).nullable().optional(),
   doniaPhone: z.string().max(40).nullable().optional(),
   doniaInstagram: z.string().max(60).nullable().optional(),
 });

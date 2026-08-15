@@ -1,9 +1,9 @@
+import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { isRefundEligible } from "../lib/cancellationPolicy";
-import { requestZarinpalRefund } from "./zarinpalRefund";
-import { sendRefundSms } from "./kavenegar";
+import { sendCancellationNotifySms } from "./kavenegar";
 
-export type RefundOutcome = "not_applicable" | "succeeded" | "needs_manual_followup";
+export type RefundOutcome = "not_applicable" | "needs_manual_followup";
 
 export interface CancelResult {
   refund: RefundOutcome;
@@ -15,20 +15,61 @@ interface CancellableBooking {
   date: Date;
   time: string;
   status: string;
-  payment: { id: string; status: string; authority: string | null; amount: number } | null;
+  payment: { id: string; status: string; amount: number } | null;
   user: { phone: string } | null;
   service: { name: string } | null;
+}
+
+export const refundCardSchema = z.object({
+  refundCardNumber: z.string().trim().min(1),
+  refundCardHolder: z.string().trim().min(1, "نام صاحب کارت را وارد کنید.").max(120),
+});
+
+function normalizeCardNumber(raw: string): string {
+  return raw.replace(/[\s-]/g, "");
+}
+
+export interface RefundCard {
+  number: string;
+  holder: string;
+}
+
+/**
+ * Validates the card-number/cardholder-name pair collected at cancel time —
+ * required whenever a cancellation is refund-eligible, since ZarinPal's
+ * refund service (via Shaparak) is permanently disabled and every eligible
+ * refund is now a manual card-to-card transfer (see cancelBookingAndMaybeRefund).
+ */
+export function validateRefundCard(input: unknown): { ok: true; card: RefundCard } | { ok: false; error: string } {
+  const parsed = refundCardSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "برای بازگشت بیعانه، شماره کارت و نام صاحب کارت را وارد کنید." };
+  }
+  const number = normalizeCardNumber(parsed.data.refundCardNumber);
+  if (!/^\d{16}$/.test(number)) {
+    return { ok: false, error: "شماره کارت باید ۱۶ رقم باشد." };
+  }
+  return { ok: true, card: { number, holder: parsed.data.refundCardHolder.trim() } };
 }
 
 /**
  * Cancels a booking (deletes its SlotHold, sets status CANCELLED) and, if it
  * was CONFIRMED with a PAID deposit, decides refund eligibility (see
- * lib/cancellationPolicy.ts) and attempts the refund. Shared by both the
- * customer self-service cancel (routes/bookings.ts) and the admin
- * status-change endpoint (routes/admin.ts) so the same 48h policy applies
- * no matter who initiates the cancellation.
+ * lib/cancellationPolicy.ts). Shared by the customer self-service cancel
+ * (routes/bookings.ts) and the admin status-change/block-range endpoints
+ * (routes/admin.ts) so the same 48h policy applies no matter who initiates
+ * the cancellation.
+ *
+ * ZarinPal's refund API via Shaparak is permanently disabled — there is no
+ * automatic refund path anymore. Every eligible refund is a manual
+ * card-to-card transfer, so `refundCard` (validated by whichever route
+ * called this, via validateRefundCard above) is stored on the Payment and
+ * surfaced in the admin "بازگشت وجه در انتظار" list until Ghazal marks it paid.
  */
-export async function cancelBookingAndMaybeRefund(booking: CancellableBooking): Promise<CancelResult> {
+export async function cancelBookingAndMaybeRefund(
+  booking: CancellableBooking,
+  refundCard?: RefundCard
+): Promise<CancelResult> {
   const hadPaidDeposit = booking.status === "CONFIRMED" && booking.payment?.status === "PAID";
   const eligible = hadPaidDeposit && isRefundEligible(booking.date, booking.time);
 
@@ -50,28 +91,26 @@ export async function cancelBookingAndMaybeRefund(booking: CancellableBooking): 
     };
   }
 
-  const result = await requestZarinpalRefund(booking.payment!.authority ?? "", booking.payment!.amount);
-
-  if (result.success) {
-    await prisma.payment.update({
-      where: { id: booking.payment!.id },
-      data: { refundStatus: "SUCCEEDED", refundedAt: new Date(), refundNote: result.note, refId: result.refundRefId },
-    });
-    if (booking.user && booking.service) {
-      await sendRefundSms(booking.user.phone, {
-        serviceName: booking.service.name,
-        amountToman: booking.payment!.amount,
-      }).catch((err) => console.error("Failed to send refund SMS:", err));
-    }
-    return { refund: "succeeded", message: "نوبت لغو شد و بیعانه با موفقیت به حساب شما بازگردانده شد." };
-  }
-
   await prisma.payment.update({
     where: { id: booking.payment!.id },
-    data: { refundStatus: "NEEDS_MANUAL_FOLLOWUP", refundNote: result.note },
+    data: {
+      refundStatus: "NEEDS_MANUAL_FOLLOWUP",
+      refundCardNumber: refundCard?.number ?? null,
+      refundCardHolder: refundCard?.holder ?? null,
+      refundNote: "بازگشت به‌صورت کارت‌به‌کارت توسط سالن انجام می‌شود.",
+    },
   });
+
+  notifyOwnerOfCancellation().catch((err) => console.error("Failed to send cancellation-notify SMS:", err));
+
   return {
     refund: "needs_manual_followup",
-    message: "نوبت لغو شد. بازگشت خودکار بیعانه در حال حاضر ممکن نشد؛ تیم سالن به‌زودی بیعانه را به‌صورت دستی بازمی‌گرداند.",
+    message: "نوبت لغو شد. بیعانه طی چند روز کاری به شماره کارت اعلام‌شده واریز خواهد شد.",
   };
+}
+
+async function notifyOwnerOfCancellation(): Promise<void> {
+  const settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
+  if (!settings?.ownerNotifyPhone) return;
+  await sendCancellationNotifySms(settings.ownerNotifyPhone);
 }

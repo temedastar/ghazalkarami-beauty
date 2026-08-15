@@ -396,6 +396,7 @@ table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
     <button data-tab="calendar">تقویم</button>
     <button data-tab="schedule">زمان‌بندی سالن</button>
     <button data-tab="bookings">رزروها</button>
+    <button data-tab="refunds">بازگشت وجه در انتظار<span id="refundBadge" style="display:none;background:#c0392b;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-right:6px;"></span></button>
     <div class="group-label">محتوای سایت</div>
     <button data-tab="prices">قیمت‌ها</button>
     <button data-tab="gallery">گالری</button>
@@ -746,6 +747,7 @@ tabs.dashboard = async () => {
     <div class="stat-tile"><span class="n" style="font-size:18px;">${d.popularServices[0]?esc(d.popularServices[0].name):'—'}</span><div class="l">محبوب‌ترین سرویس</div></div>
   </div>
   <p class="muted" style="margin:-6px 0 18px;">درآمد فقط شامل بیعانه‌های واقعاً پرداخت‌شده از طریق زرین‌پال است؛ نوبت‌های ثبت‌دستی/حضوری در این عدد حساب نمی‌شوند.</p>`;
+  updateRefundBadge(d.pendingRefundCount);
 
   const todayStr = new Date().toISOString().slice(0, 10);
   html += `<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
@@ -1554,6 +1556,28 @@ tabs.schedule = async () => {
     </details>
   </div>`;
 
+  html += `<div class="section-title">اسلات اختصاصی یک تاریخ خاص (بدون تغییر الگوی هفتگی)</div><div class="card">
+    <p class="muted" style="margin-bottom:14px;">برای روزهایی که فقط همون یک روز می‌خوای دیرتر/زودتر از حالت عادی باز باشی — مثلاً «امروز تا ساعت ۲۰ کار می‌کنم»، بدون این‌که الگوی هفتگی این روز از هفته هم عوض بشه. این اسلات‌ها فقط برای همون تاریخ دقیق فعالن و از ساعت‌های عادی روز (بالا) عبور می‌کنن.</p>
+    <div class="form-grid" style="margin-bottom:14px;">
+      <label class="field">سرویس<select id="dsSvc" onchange="renderSpecialSlotsForDate()">
+        ${categories.map(c=>{
+          const activeServices=(c.services||[]).filter(sv=>sv.active);
+          const groupOption=activeServices.length>1
+            ?`<option value="group:${c.id}" data-category-id="${c.id}" data-service-id="">همه‌ی سرویس‌های این گروه (اسلات مشترک)</option>`
+            :"";
+          const serviceOptions=activeServices.map(sv=>`<option value="svc:${sv.id}" data-category-id="${c.id}" data-service-id="${sv.id}">${esc(sv.name)}</option>`).join("");
+          return `<optgroup label="${esc(c.name)}">${groupOption}${serviceOptions}</optgroup>`;
+        }).join("")}
+      </select></label>
+      <label class="field">تاریخ<input type="date" id="dsDate" onchange="renderSpecialSlotsForDate()"></label>
+    </div>
+    <div class="form-grid" style="margin-bottom:14px;">
+      <label class="field">افزودن ساعت<input type="time" id="dsTime" style="width:130px;"></label>
+      <button class="btn btn-gold btn-sm" onclick="addSpecialSlot()">+ افزودن اسلات اختصاصی</button>
+    </div>
+    <div id="dsList"><p class="muted">تاریخ را انتخاب کنید.</p></div>
+  </div>`;
+
   setMainContent(html);
   window._scheduleCategories = categories;
   onSlotSelectionChange();
@@ -1561,6 +1585,7 @@ tabs.schedule = async () => {
   attachJalaliPicker("exDate");
   attachJalaliPicker("closureStart");
   attachJalaliPicker("closureEnd");
+  attachJalaliPicker("dsDate");
 };
 
 /* custom hours only make sense when the exception marks the day open — no
@@ -1824,6 +1849,46 @@ window.deleteSlot = async (id) => {
   try{ await api(`/admin/time-slots/${id}`,{method:"DELETE"}); toast("حذف شد."); await refreshScheduleSlots(); }
   catch(e){ toast(e.message,true); }
 };
+function getDsSelection(){
+  const opt=document.getElementById("dsSvc")?.selectedOptions?.[0];
+  return { categoryId: opt?.dataset.categoryId||"", serviceId: opt?.dataset.serviceId||"" };
+}
+async function renderSpecialSlotsForDate(){
+  const {categoryId}=getDsSelection();
+  const date=document.getElementById("dsDate").value;
+  const list=document.getElementById("dsList");
+  if(!categoryId||!date){ list.innerHTML='<p class="muted">تاریخ را انتخاب کنید.</p>'; return; }
+  list.innerHTML='<p class="muted">در حال بارگذاری…</p>';
+  try{
+    const {slots}=await api(`/admin/special-slots?categoryId=${categoryId}&date=${date}`);
+    if(!slots.length){ list.innerHTML='<p class="muted">هنوز اسلات اختصاصی‌ای برای این تاریخ ثبت نشده.</p>'; return; }
+    list.innerHTML = `<div class="slot-grid">` + slots.slice().sort((a,b)=>a.time.localeCompare(b.time)).map(s=>`
+      <div class="slot-cell ${s.isActive?'':'off'}">
+        <span class="t">${s.time}</span>
+        <div class="actions">
+          <button class="del" title="حذف" aria-label="حذف این اسلات" onclick="deleteSpecialSlot('${s.id}')">✕</button>
+        </div>
+      </div>`).join("") + `</div>`;
+  }catch(e){ toast(e.message,true); }
+}
+window.renderSpecialSlotsForDate = renderSpecialSlotsForDate;
+window.addSpecialSlot = withSubmitGuard(async () => {
+  const {categoryId, serviceId}=getDsSelection();
+  const date=document.getElementById("dsDate").value;
+  const time=document.getElementById("dsTime").value;
+  if(!categoryId||!date||!time) return toast("سرویس، تاریخ و ساعت را کامل کنید.",true);
+  try{
+    await api("/admin/special-slots",{method:"POST",body:JSON.stringify({categoryId,date,time,serviceId:serviceId||null})});
+    toast("اسلات اختصاصی اضافه شد.");
+    document.getElementById("dsTime").value="";
+    await renderSpecialSlotsForDate();
+  }catch(e){ toast(e.message,true); }
+});
+window.deleteSpecialSlot = async (id) => {
+  if(!confirm("این اسلات اختصاصی حذف شود؟")) return;
+  try{ await api(`/admin/special-slots/${id}`,{method:"DELETE"}); toast("حذف شد."); await renderSpecialSlotsForDate(); }
+  catch(e){ toast(e.message,true); }
+};
 window.generateSlots = withSubmitGuard(async () => {
   const {categoryId, serviceId}=getSlotSelection();
   const dayOfWeek=Number(document.getElementById("slotDow").value);
@@ -1901,8 +1966,48 @@ window.resolveRefund = async (paymentId) => {
   try{
     await api(`/admin/payments/${paymentId}/refund-status`,{method:"PATCH",body:JSON.stringify({refundStatus:"SUCCEEDED"})});
     toast("ثبت شد.");
-    tabs.bookings();
+    const activeTab=document.querySelector(".sidebar button[data-tab].on")?.dataset.tab||"bookings";
+    tabs[activeTab]();
   }catch(e){ toast(e.message,true); }
+};
+function updateRefundBadge(count){
+  const el=document.getElementById("refundBadge");
+  if(!el) return;
+  if(count>0){ el.textContent=pd(String(count)); el.style.display="inline-block"; }
+  else el.style.display="none";
+}
+
+/* =====================================================================
+   بازگشت وجه در انتظار
+   ===================================================================== */
+tabs.refunds = async () => {
+  const {payments} = await api("/admin/refunds/pending");
+  updateRefundBadge(payments.filter(p=>p.refundStatus==="NEEDS_MANUAL_FOLLOWUP").length);
+  let html = `<h1>بازگشت وجه در انتظار</h1>`;
+  if(!payments.length){
+    html += `<div class="card muted">در حال حاضر موردی در انتظار بازگشت وجه یا اطلاع‌رسانی نیست.</div>`;
+    setMainContent(html);
+    return;
+  }
+  html += `<div class="card">` + payments.map(p=>{
+    const b=p.booking;
+    const who=b.user?esc(`${b.user.firstName} ${b.user.lastName} (${b.user.phone})`):"بدون مشتری";
+    const svc=b.service?esc(b.service.name):esc(b.blockReason||"—");
+    const eligible=p.refundStatus==="NEEDS_MANUAL_FOLLOWUP";
+    return `<div class="row" style="flex-wrap:wrap;">
+      <div>
+        <b>${who}</b>
+        <div class="muted">${svc} — ${fmtJalaliDate(b.date)} ساعت ${b.time} — بیعانه ${toman(p.amount)}</div>
+        <div class="muted">تاریخ لغو: ${b.cancelledAt?fmtJalaliDate(b.cancelledAt):'—'}</div>
+        ${eligible?`<div class="muted" style="margin-top:4px;">شماره کارت: <b>${esc(p.refundCardNumber||'هنوز ثبت نشده')}</b> — به‌نام: <b>${esc(p.refundCardHolder||'هنوز ثبت نشده')}</b></div>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="tag ${eligible?'tag-pending':'tag-closed'}">${eligible?'مشمول بازگشت ✅':'بیعانه سوخته ❌'}</span>
+        ${eligible?`<button class="btn btn-gold btn-sm" onclick="resolveRefund('${p.id}')">پرداخت شد</button>`:''}
+      </div>
+    </div>`;
+  }).join("") + `</div>`;
+  setMainContent(html);
 };
 
 tabs.bookings = async () => {
@@ -2345,6 +2450,14 @@ tabs.services = async () => {
         <label class="field">مدت (دقیقه)<input type="number" value="${s.durationMin??''}" style="width:90px;" onchange="updateService('${s.id}','durationMin',this.value===''?null:Number(this.value))"></label>
       </div>
       <div class="row">
+        <label class="field" style="flex:1;">گروه/دسته‌بندی (خط زمانی مشترک — رزرو هر سرویس این گروه، همون ساعت رو برای بقیه‌ی گروه هم می‌بنده)
+          <select onchange="changeServiceCategory('${s.id}', this)">
+            ${categories.map(c=>`<option value="${c.id}" ${c.id===s.categoryId?'selected':''}>${esc(c.name)}</option>`).join("")}
+            <option value="__new__">+ ساخت گروه جدید (این سرویس مستقل شود)</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
         <label class="field" style="flex:1;">توضیح سرویس (نمایش‌داده‌شده در بخش «خدمات تخصصی» سایت)
           <textarea rows="2" data-autogrow maxlength="400" oninput="document.getElementById('cnt-note-${s.id}').textContent=this.value.length+' / 400'" onchange="updateService('${s.id}','priceNote',this.value)">${esc(s.priceNote||"")}</textarea>
           <div class="muted" id="cnt-note-${s.id}" style="font-size:12px;margin-top:2px;">${(s.priceNote||"").length} / 400</div>
@@ -2372,7 +2485,7 @@ tabs.services = async () => {
       <div class="form-grid" style="margin-top:14px;">
         <label class="field">شناسه (key، انگلیسی و یکتا)<input type="text" id="nsKey" placeholder="مثلاً hair_spa"></label>
         <label class="field">نام<input type="text" id="nsName"></label>
-        <label class="field">دسته‌بندی<select id="nsCat">${categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></label>
+        <label class="field">گروه/دسته‌بندی (خط زمانی مشترک با بقیه‌ی سرویس‌های این گروه)<select id="nsCat" onchange="handleNewGroupOption(this)">${categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}<option value="__new__">+ ساخت گروه جدید (این سرویس مستقل باشد)</option></select></label>
         <label class="field">مدت (دقیقه)<input type="number" id="nsDuration" style="width:90px;"></label>
         <label class="field">بیعانه (تومان)<input type="number" id="nsDeposit" style="width:120px;"></label>
         <label class="field">رزرو آنلاین<label class="switch"><input type="checkbox" id="nsOnline" checked><span class="slider"></span></label></label>
@@ -2386,6 +2499,46 @@ tabs.services = async () => {
 window.updateService = async (id, field, value) => {
   try{ await api(`/admin/services/${id}`,{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }
+};
+// خودِ key فقط یک شناسه‌ی داخلیه که هیچ‌جا به غزل نشون داده نمی‌شه — از روی
+// نام + یک مقدار تصادفی ساخته می‌شه تا مجبور نباشه چیز فنی وارد کنه
+function slugifyCategoryKey(name){
+  const base=name.trim().toLowerCase().replace(/\s+/g,"_").replace(/[^a-z0-9آ-ی_]/g,"").slice(0,40);
+  return `cat_${base||"group"}_${Date.now().toString(36)}`;
+}
+async function promptCreateCategory(){
+  const name=prompt("نام گروه جدید چیه؟ (اگه می‌خوای این سرویس کاملاً مستقل باشه، می‌تونی اسم خودِ سرویس رو بذاری)");
+  if(!name||!name.trim()) return null;
+  try{
+    const {category}=await api("/admin/categories",{method:"POST",body:JSON.stringify({key:slugifyCategoryKey(name),name:name.trim()})});
+    toast("گروه جدید ساخته شد.");
+    return category;
+  }catch(e){ toast(e.message,true); return null; }
+}
+window.handleNewGroupOption = async (selectEl) => {
+  if(selectEl.value!=="__new__") return;
+  const category=await promptCreateCategory();
+  const fallback=[...selectEl.options].find(o=>o.value!=="__new__");
+  if(!category){ if(fallback) selectEl.value=fallback.value; return; }
+  const opt=document.createElement("option");
+  opt.value=category.id; opt.textContent=category.name;
+  selectEl.insertBefore(opt, selectEl.querySelector('option[value="__new__"]'));
+  selectEl.value=category.id;
+};
+window.changeServiceCategory = async (id, selectEl) => {
+  let categoryId=selectEl.value;
+  if(categoryId==="__new__"){
+    const category=await promptCreateCategory();
+    if(!category){ tabs.services(); return; }
+    categoryId=category.id;
+  }
+  try{
+    const r=await api(`/admin/services/${id}`,{method:"PATCH",body:JSON.stringify({categoryId})});
+    toast(r.reassignedSlotCount
+      ? `گروه سرویس تغییر کرد. توجه: ${r.reassignedSlotCount} اسلات اختصاصیِ این سرویس در گروه قبلی، حالا «مشترک» بین بقیه‌ی گروه شد.`
+      : "گروه سرویس تغییر کرد.");
+    tabs.services();
+  }catch(e){ toast(e.message,true); tabs.services(); }
 };
 window.createService = withSubmitGuard(async () => {
   const key=document.getElementById("nsKey").value.trim();
@@ -2426,10 +2579,34 @@ window.showCustomerHistory = async (id) => {
   try{
     const {customer} = await api(`/admin/customers/${id}`);
     const statusFa = {PENDING_PAYMENT:"در انتظار پرداخت",CONFIRMED:"تاییدشده",CANCELLED:"لغوشده",EXPIRED:"منقضی",COMPLETED:"انجام‌شده",NO_SHOW:"مشتری نیامد"};
-    let html = `<div class="card"><h3>تاریخچه‌ی ${esc(`${customer.firstName} ${customer.lastName}`)}</h3>`;
-    if(!customer.bookings.length) html += `<p class="muted">نوبتی ثبت نشده.</p>`;
-    customer.bookings.forEach(b=>{
-      html += `<div class="row"><div>${b.service?esc(b.service.name):"—"} — ${fmtJalaliDate(b.date)} ساعت ${b.time}</div><span class="tag tag-muted">${statusFa[b.status]||b.status}</span></div>`;
+    const statusTagClass = {PENDING_PAYMENT:"tag-pending",CONFIRMED:"tag-open",CANCELLED:"tag-closed",EXPIRED:"tag-muted",COMPLETED:"tag-open",NO_SHOW:"tag-closed"};
+    const bookings = customer.bookings;
+
+    // برای شناسایی مشتری‌های وفادار و مشتری‌هایی که مکرر لغو می‌کنن/نمیان —
+    // همه‌چیز از همون لیست کامل نوبت‌ها که سرور برمی‌گردونه محاسبه می‌شه
+    const completed = bookings.filter(b=>b.status==="COMPLETED");
+    const cancelled = bookings.filter(b=>b.status==="CANCELLED");
+    const noShows = bookings.filter(b=>b.status==="NO_SHOW");
+    const totalPaid = bookings.reduce((sum,b)=>sum+(b.payment&&b.payment.status==="PAID"?b.payment.amount:0),0);
+    const lastVisit = completed.length ? completed.reduce((a,b)=>new Date(a.date)>new Date(b.date)?a:b) : null;
+
+    let html = `<div class="card"><h3>تاریخچه‌ی ${esc(`${customer.firstName} ${customer.lastName}`)}</h3>
+      <div class="stat-grid" style="margin-top:14px;">
+        <div class="stat-tile"><span class="n">${pd(String(completed.length))}</span><div class="l">نوبت انجام‌شده</div></div>
+        <div class="stat-tile"><span class="n" style="font-size:18px;">${toman(totalPaid)}</span><div class="l">مجموع بیعانه‌ی پرداختی</div></div>
+        <div class="stat-tile"><span class="n" style="font-size:16px;">${lastVisit?fmtJalaliDate(lastVisit.date):"—"}</span><div class="l">آخرین مراجعه</div></div>
+        <div class="stat-tile"><span class="n">${pd(String(cancelled.length))}</span><div class="l">تعداد لغو</div></div>
+        <div class="stat-tile"><span class="n">${pd(String(noShows.length))}</span><div class="l">عدم حضور (No-show)</div></div>
+      </div>`;
+
+    if(cancelled.length){
+      html += `<div class="muted" style="margin-top:14px;">تاریخ لغوها: ${cancelled.map(b=>fmtJalaliDate(b.cancelledAt||b.date)).join("، ")}</div>`;
+    }
+
+    html += `<div class="section-title" style="margin-top:18px;">لیست کامل نوبت‌ها</div>`;
+    if(!bookings.length) html += `<p class="muted">نوبتی ثبت نشده.</p>`;
+    bookings.forEach(b=>{
+      html += `<div class="row"><div>${b.service?esc(b.service.name):"—"} — ${fmtJalaliDate(b.date)} ساعت ${b.time}</div><span class="tag ${statusTagClass[b.status]||'tag-muted'}">${statusFa[b.status]||b.status}</span></div>`;
     });
     html += `</div>`;
     document.getElementById("customerHistory").innerHTML = html;
@@ -2485,6 +2662,17 @@ tabs.contact = async () => {
     </div>
   </div>`;
 
+  html += `<div class="section-title">موقعیت روی نقشه (برای دکمه‌ی «مسیریابی با نشان»)</div>
+  <div class="card">
+    <p class="muted" style="margin-bottom:16px;">این دو مقدار، دکمه‌ی مسیریابی را در بخش «ارتباط با ما» سایت فعال می‌کنند. برای پیدا کردن مختصات: در نشان یا گوگل‌مپ، روی نقطه‌ی دقیق سالن نگه دارید تا پین بیفتد، سپس مختصات (عرض و طول جغرافیایی) را از آنجا کپی کنید.</p>
+    <div class="form-grid">
+      <label class="field">عرض جغرافیایی (lat)<input type="text" inputmode="decimal" id="ciLat" value="${contact.lat??''}" placeholder="مثلاً 35.700562" onchange="updateContactCoord('lat',this.value)"></label>
+      <label class="field">طول جغرافیایی (lng)<input type="text" inputmode="decimal" id="ciLng" value="${contact.lng??''}" placeholder="مثلاً 51.401235" onchange="updateContactCoord('lng',this.value)"></label>
+    </div>
+    <div id="ciMapPreview" style="margin-top:10px;"></div>
+  </div>`;
+  renderMapPreview(contact.lat, contact.lng);
+
   html += `<div class="section-title">مشاوره‌ی رنگ و لایت (دنیا سلیمانی)</div>
   <div class="card">
     <p class="muted" style="margin-bottom:16px;">این دو مقدار در دکمه‌ی «مشاوره» بخش «رنگ و لایت موی بلند» صفحه‌ی قیمت‌ها استفاده می‌شوند — با کلیک روی آن دکمه، کاربر این دو گزینه را می‌بیند.</p>
@@ -2523,6 +2711,28 @@ tabs.contact = async () => {
 window.updateContact = async (field, value) => {
   try{ await api("/admin/contact-info",{method:"PATCH",body:JSON.stringify({[field]:value})}); toast("ذخیره شد."); }
   catch(e){ toast(e.message,true); }
+};
+// نشان لینک کوتاه رسمی برای نمایش یک مختصات — روی موبایل اگر اپ نشان نصب
+// باشد مستقیم در اپ باز می‌شود، وگرنه به نسخه‌ی وب nshn.ir سقوط می‌کند
+function neshanLink(lat, lng){ return `https://nshn.ir/?lat=${lat}&lng=${lng}`; }
+function renderMapPreview(lat, lng){
+  const el = document.getElementById("ciMapPreview");
+  if(!el) return;
+  el.innerHTML = (lat!=null && lng!=null)
+    ? `<a class="btn btn-line btn-sm" target="_blank" rel="noopener" href="${neshanLink(lat,lng)}">پیش‌نمایش لینک مسیریابی ↗</a>`
+    : `<p class="muted">هر دو مقدار را وارد کنید تا دکمه‌ی مسیریابی روی سایت فعال شود.</p>`;
+}
+window.updateContactCoord = async (field, raw) => {
+  const trimmed = raw.trim();
+  const value = trimmed === "" ? null : Number(trimmed);
+  if(value !== null && !Number.isFinite(value)){ toast("مقدار عددی معتبر وارد کنید.",true); return; }
+  try{
+    await api("/admin/contact-info",{method:"PATCH",body:JSON.stringify({[field]:value})});
+    toast("ذخیره شد.");
+    const lat = document.getElementById("ciLat").value.trim();
+    const lng = document.getElementById("ciLng").value.trim();
+    renderMapPreview(lat===""?null:Number(lat), lng===""?null:Number(lng));
+  }catch(e){ toast(e.message,true); }
 };
 window.addSocialLink = withSubmitGuard(async (platform) => {
   const labelEl=document.getElementById(`newLabel-${platform}`), valueEl=document.getElementById(`newValue-${platform}`);
@@ -2581,6 +2791,13 @@ tabs.settings = async () => {
         <option value="PERCENT" ${settings.defaultDepositType==='PERCENT'?'selected':''}>درصدی</option>
       </select></label>
       <label class="field">مقدار پیش‌فرض<input type="number" value="${settings.defaultDepositValue}" onchange="updateSettings('defaultDepositValue',Number(this.value))" style="width:120px;"></label>
+    </div>
+  </div>`;
+
+  html += `<div class="section-title">شماره موبایل شما (برای اطلاع لغو نوبت)</div><div class="card">
+    <p class="muted" style="margin-bottom:14px;">هر بار مشتری نوبتی رو خودش لغو کنه، یک پیامک کوتاه به این شماره ارسال می‌شه تا خبردار بشید و بخش «بازگشت وجه در انتظار» رو چک کنید.</p>
+    <div class="form-grid">
+      <label class="field">موبایل<input type="tel" class="wide" value="${esc(settings.ownerNotifyPhone||'')}" placeholder="09xxxxxxxxx" onchange="updateSettings('ownerNotifyPhone',this.value||null)"></label>
     </div>
   </div>`;
 
