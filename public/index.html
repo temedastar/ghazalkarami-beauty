@@ -1554,6 +1554,21 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
   </div>
 </div>
 
+<div class="mbg" id="cancelConfirmBg" onclick="if(event.target===this)closeCancelConfirm()">
+  <div class="modal" style="max-width:420px;">
+    <button class="mx" onclick="closeCancelConfirm()" aria-label="بستن">✕</button>
+    <h3 style="margin-bottom:10px;">لغو نوبت</h3>
+    <p>آیا از لغو این نوبت مطمئن هستید؟</p>
+    <p style="font-weight:700;margin:10px 0;" id="ccSummary"></p>
+    <p class="muted" style="margin-bottom:10px;">این عمل قابل بازگشت نیست و ممکن است این نوبت فوراً توسط شخص دیگری رزرو شود.</p>
+    <p style="margin-bottom:18px;" id="ccRefundNote"></p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn b-danger" onclick="confirmCancelStep()">بله، لغو کن</button>
+      <button class="btn b-line" onclick="closeCancelConfirm()">انصراف</button>
+    </div>
+  </div>
+</div>
+
 <div class="mbg" id="rcBg" onclick="if(event.target===this)closeRefundCardModal()">
   <div class="modal" style="max-width:420px;">
     <button class="mx" onclick="closeRefundCardModal()" aria-label="بستن">✕</button>
@@ -2902,25 +2917,42 @@ function renderMyBookings(bookings){
 }
 
 let _pendingCancelId=null;
-window.cancelMyBooking=async(id)=>{
+window.cancelMyBooking=(id)=>{
   const b=myBookingsCache.find(x=>x.id===id);
+  if(!b)return;
+  _pendingCancelId=id;
+  const svcName=b.service?b.service.name:(b.blockReason||'بدون سرویس');
+  document.getElementById('ccSummary').textContent=`${svcName} — ${fmtRvDate(b.date)} ساعت ${b.time}`;
   // a deposit is only actually at risk if it was paid — PENDING_PAYMENT
-  // bookings never charged anything, so there's nothing to warn about
-  const hadDeposit=Boolean(b&&b.payment&&b.payment.status==='PAID');
+  // bookings never charged anything, so there's nothing to say about refunds
+  const hadDeposit=Boolean(b.payment&&b.payment.status==='PAID');
+  const eligible=hadDeposit && hoursUntilAppointment(b.date,b.time)>=REFUND_ELIGIBLE_HOURS;
+  document.getElementById('ccRefundNote').textContent = !hadDeposit ? '' : eligible
+    ? 'بیعانه‌ی شما بازگردانده خواهد شد.'
+    : 'طبق قوانین لغو، بیعانه‌ی شما قابل بازگشت نیست.';
+  document.getElementById('cancelConfirmBg').classList.add('on');
+};
+window.closeCancelConfirm=()=>{
+  document.getElementById('cancelConfirmBg').classList.remove('on');
+  _pendingCancelId=null;
+};
+window.confirmCancelStep=()=>{
+  const id=_pendingCancelId;
+  document.getElementById('cancelConfirmBg').classList.remove('on');
+  const b=myBookingsCache.find(x=>x.id===id);
+  if(!b)return;
+  const hadDeposit=Boolean(b.payment&&b.payment.status==='PAID');
   if(hadDeposit && hoursUntilAppointment(b.date,b.time)>=REFUND_ELIGIBLE_HOURS){
     // eligible for a refund — since it's now always a manual card-to-card
     // transfer (ZarinPal's automatic refund is permanently disabled), the
     // card details have to be collected before the cancel actually goes
     // through, not after
-    _pendingCancelId=id;
     document.getElementById('rcCardNumber').value='';
     document.getElementById('rcCardHolder').value='';
     document.getElementById('rcBg').classList.add('on');
     return;
   }
-  const msg='آیا از لغو این نوبت مطمئن هستید؟'+(hadDeposit?' چون کمتر از ۴۸ ساعت تا نوبت مانده، طبق قوانین لغو، بیعانه‌ی شما قابل بازگشت نیست.':'');
-  if(!confirm(msg))return;
-  await doCancelMyBooking(id,null);
+  doCancelMyBooking(id,null);
 };
 window.closeRefundCardModal=()=>{
   document.getElementById('rcBg').classList.remove('on');
