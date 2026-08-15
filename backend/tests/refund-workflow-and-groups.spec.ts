@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
+import fs from "fs";
 import { testPool, randomPhone, nextWeekday } from "./helpers";
+import { SERVER_LOG_PATH } from "../playwright.config";
 
 test.describe("special slots (date-specific additions to the weekly pattern)", () => {
   test("a special slot appears only on its exact date, respects service scoping, and is protected from deletion once booked", async ({
@@ -241,5 +243,57 @@ test.describe("manual refund workflow", () => {
       data: { status: "CANCELLED", refundCardNumber: "5022291234567890", refundCardHolder: "غزل کرمی" },
     });
     expect(withCard.status(), await withCard.text()).toBe(200);
+  });
+
+  test("an eligible cancellation notifies the owner's phone with the customer's name and the appointment date (Kavenegar rejects a template with zero tokens)", async ({
+    request,
+  }) => {
+    const adminAuth = { Authorization: `Bearer ${testPool().adminToken}` };
+    const token = testPool().customers[1].token;
+    const auth = { Authorization: `Bearer ${token}` };
+    const date = nextWeekday(230);
+
+    const settingsBefore = (await (await request.get("/api/admin/settings", { headers: adminAuth })).json()).settings;
+    const ownerPhone = randomPhone();
+    await request.patch("/api/admin/settings", { headers: adminAuth, data: { ownerNotifyPhone: ownerPhone } });
+
+    try {
+      const booking = await request.post("/api/bookings", {
+        headers: auth,
+        data: { serviceKey: "haircut", date, time: "10:00", womenOnlyConfirmed: true },
+      });
+      const bookingId = (await booking.json()).booking.id;
+
+      const paymentReq = await request.post("/api/payments/zarinpal/request", { headers: auth, data: { bookingId } });
+      const { paymentUrl } = await paymentReq.json();
+      await request.get(paymentUrl);
+
+      await request.delete(`/api/bookings/${bookingId}`, {
+        headers: auth,
+        data: { refundCardNumber: "6104331234567890", refundCardHolder: "تست اطلاع‌رسانی" },
+      });
+
+      // sendLookup logs a dev-mode line (no live Kavenegar credentials in
+      // this environment) instead of failing — see services/kavenegar.ts
+      let logLine: string | undefined;
+      for (let attempt = 0; attempt < 20 && !logLine; attempt++) {
+        const log = fs.readFileSync(SERVER_LOG_PATH, "utf8");
+        logLine = log
+          .split("\n")
+          .reverse()
+          .find((l) => l.includes(`would send CANCEL_NOTIFY to ${ownerPhone}`));
+        if (!logLine) await new Promise((r) => setTimeout(r, 150));
+      }
+      expect(logLine, "expected a dev-mode CANCEL_NOTIFY log line").toBeTruthy();
+      // sanitizeToken() (space -> hyphen) only runs on the real Kavenegar
+      // HTTP request, not this dev-mode log line — it logs the raw tokens
+      expect(logLine).toContain("مشتری تست 2"); // customers[1]'s seeded name
+      expect(logLine).toMatch(/[۰-۹]{4}/); // Jalali year, as part of the date token
+    } finally {
+      await request.patch("/api/admin/settings", {
+        headers: adminAuth,
+        data: { ownerNotifyPhone: settingsBefore.ownerNotifyPhone ?? null },
+      });
+    }
   });
 });

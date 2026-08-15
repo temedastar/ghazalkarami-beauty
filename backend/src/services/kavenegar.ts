@@ -132,15 +132,21 @@ export async function sendBookingReminderSms(
 }
 
 // tells Ghazal (not the customer) that a customer just cancelled — see
-// services/bookingCancellation.ts. Zero dynamic content: who/what/when is
-// already visible the moment she opens the "بازگشت وجه در انتظار" panel
-// section, so the SMS only needs to prompt her to check it, not repeat the
-// details and cost a second segment for no reason.
-export async function sendCancellationNotifySms(phone: string): Promise<void> {
+// services/bookingCancellation.ts. Kavenegar rejects a template with zero
+// tokens ("در متن الگوی پیامک توکن وجود ندارد"), so this carries who and
+// when — both fit in the same 2-segment budget a single token would have
+// needed anyway (customer name alone already crosses the 70-char single-
+// segment limit), so adding the date costs nothing extra.
+export async function sendCancellationNotifySms(
+  phone: string,
+  opts: { customerName: string; dateLabel: string }
+): Promise<void> {
   await sendLookup({
     phone,
     type: "CANCEL_NOTIFY",
     template: env.kavenegar.templates.cancelNotify,
+    token: opts.customerName,
+    token2: opts.dateLabel,
   });
 }
 

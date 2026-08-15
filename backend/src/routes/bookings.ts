@@ -8,6 +8,7 @@ import { parseDateOnly, dayOfWeekUTC, isPastDate } from "../lib/dates";
 import { getDayOpenInfo, isTimeAllowed, isSlotTooSoon, computeDepositAmount } from "../lib/schedule";
 import { cancelBookingAndMaybeRefund, validateRefundCard } from "../services/bookingCancellation";
 import { isRefundEligible } from "../lib/cancellationPolicy";
+import { env } from "../lib/env";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ const HOLD_MINUTES = 15;
 // single hold window
 const createLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: env.rateLimits.bookingCreatePer15Min,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "تعداد درخواست رزرو زیاد بوده، کمی بعد دوباره تلاش کنید." },

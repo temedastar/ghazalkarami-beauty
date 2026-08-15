@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { isRefundEligible } from "../lib/cancellationPolicy";
+import { toJalaliDateLabel } from "../lib/dates";
 import { sendCancellationNotifySms } from "./kavenegar";
 
 export type RefundOutcome = "not_applicable" | "needs_manual_followup";
@@ -16,7 +17,7 @@ interface CancellableBooking {
   time: string;
   status: string;
   payment: { id: string; status: string; amount: number } | null;
-  user: { phone: string } | null;
+  user: { phone: string; firstName: string; lastName: string } | null;
   service: { name: string } | null;
 }
 
@@ -101,7 +102,10 @@ export async function cancelBookingAndMaybeRefund(
     },
   });
 
-  notifyOwnerOfCancellation().catch((err) => console.error("Failed to send cancellation-notify SMS:", err));
+  const customerName = booking.user ? `${booking.user.firstName} ${booking.user.lastName}`.trim() : "مشتری";
+  notifyOwnerOfCancellation(customerName, booking.date).catch((err) =>
+    console.error("Failed to send cancellation-notify SMS:", err)
+  );
 
   return {
     refund: "needs_manual_followup",
@@ -109,8 +113,11 @@ export async function cancelBookingAndMaybeRefund(
   };
 }
 
-async function notifyOwnerOfCancellation(): Promise<void> {
+async function notifyOwnerOfCancellation(customerName: string, date: Date): Promise<void> {
   const settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
   if (!settings?.ownerNotifyPhone) return;
-  await sendCancellationNotifySms(settings.ownerNotifyPhone);
+  await sendCancellationNotifySms(settings.ownerNotifyPhone, {
+    customerName,
+    dateLabel: toJalaliDateLabel(date),
+  });
 }

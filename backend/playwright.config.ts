@@ -43,15 +43,18 @@ export default defineConfig({
     baseURL: "http://localhost:4000",
   },
   webServer: {
-    // OTP_RATE_LIMIT_MAX is only bumped here, for the test server process —
-    // it lets global-setup register its account pool in one burst without
-    // tripping the OTP limiter it isn't trying to test. LOGIN_RATE_LIMIT_MAX
+    // OTP_RATE_LIMIT_MAX and BOOKING_CREATE_RATE_LIMIT_MAX are only bumped
+    // here, for the test server process — they let global-setup register
+    // its account pool in one burst, and the full suite's own
+    // POST /api/bookings calls (spread across many spec files, well over
+    // the production 20/15min budget in one run) go through, without
+    // tripping limiters this suite isn't trying to test. LOGIN_RATE_LIMIT_MAX
     // is deliberately left at its production default (10/15min) so
     // tests/zz-rate-limit.spec.ts exercises the real limit. DATABASE_URL is
     // force-overridden to the test database here — this is what actually
     // makes every route in the spawned server process read/write the
     // isolated DB, regardless of what's in the shell environment or .env.
-    command: `OTP_RATE_LIMIT_MAX=100 DATABASE_URL="${TEST_DATABASE_URL}" npx tsx src/server.ts > ${SERVER_LOG_PATH} 2>&1`,
+    command: `OTP_RATE_LIMIT_MAX=100 BOOKING_CREATE_RATE_LIMIT_MAX=200 DATABASE_URL="${TEST_DATABASE_URL}" npx tsx src/server.ts > ${SERVER_LOG_PATH} 2>&1`,
     url: "http://localhost:4000/api/health",
     reuseExistingServer: true,
     timeout: 30_000,

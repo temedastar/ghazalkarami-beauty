@@ -32,14 +32,17 @@ export const env = {
   adminSeedPhone: process.env.ADMIN_SEED_PHONE ?? "",
   adminSeedPassword: process.env.ADMIN_SEED_PASSWORD ?? "",
 
-  // production defaults (5/min, 10/15min) match the values documented in the
-  // security audit; only the test suite overrides OTP_RATE_LIMIT_MAX so its
-  // one-time pool setup (registers several accounts back to back) doesn't
-  // trip the same limiter it's not trying to test — the limiter's real
-  // behavior is exercised directly in tests/zz-rate-limit.spec.ts
+  // production defaults (5/min, 10/15min, 20/15min) match the values
+  // documented in the security audit; only the test suite overrides
+  // OTP_RATE_LIMIT_MAX and BOOKING_CREATE_RATE_LIMIT_MAX, since a full
+  // suite run's own booking-creation calls (spread across many spec files)
+  // legitimately exceed the production booking-create limit in one 15-min
+  // window — the limiter's real behavior is exercised directly in
+  // tests/zz-rate-limit.spec.ts
   rateLimits: {
     otpPerMinute: Number(process.env.OTP_RATE_LIMIT_MAX ?? 5),
     loginPer15Min: Number(process.env.LOGIN_RATE_LIMIT_MAX ?? 10),
+    bookingCreatePer15Min: Number(process.env.BOOKING_CREATE_RATE_LIMIT_MAX ?? 20),
   },
 
   kavenegar: {
