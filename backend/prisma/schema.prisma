@@ -251,20 +251,33 @@ model TimeSlot {
   @@unique([categoryId, dayOfWeek, time])
 }
 
+enum SpecialSlotAction {
+  // materializes a bookable time not otherwise in the weekly TimeSlot
+  // pattern — e.g. "stay open until 20:00 on 1405-05-30 only"
+  ADD
+  // hides a time the weekly TimeSlot pattern would otherwise offer, for
+  // this exact date only — e.g. "close at 17:00 on 1405-05-30 only", or
+  // remove just one specific hour without touching any other date. Only
+  // affects online/customer availability; an admin can still book that
+  // date+time manually (POST /admin/bookings/manual doesn't consult
+  // TimeSlot/SpecialSlot at all, only SlotHold uniqueness).
+  REMOVE
+}
+
 model SpecialSlot {
-  // a one-off bookable time added for exactly one calendar date, on top of
-  // the weekly recurring TimeSlot pattern — e.g. "stay open until 20:00 on
-  // 1405-05-30 only" without changing every other Wednesday. Unlike
-  // TimeSlot, its time is NOT filtered through the weekly day's
+  // a one-off override of the weekly recurring TimeSlot pattern for exactly
+  // one calendar date, without changing every other occurrence of that
+  // weekday. ADD rows are NOT filtered through the weekly day's
   // openTime/closeTime (see lib/schedule.ts) — that's the whole point of an
   // override — but the day still has to be open at all (a DayException
   // marking the date fully closed still wins). Same serviceId scoping
   // semantics as TimeSlot: null = offered to the whole category.
-  id        String   @id @default(cuid())
-  date      DateTime @db.Date
+  id        String            @id @default(cuid())
+  date      DateTime          @db.Date
   time      String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  action    SpecialSlotAction @default(ADD)
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
 
   category   ServiceCategory @relation(fields: [categoryId], references: [id])
   categoryId String

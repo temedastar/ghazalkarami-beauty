@@ -703,6 +703,10 @@ const specialSlotSchema = z.object({
   date: z.string(),
   time: z.string().min(1),
   serviceId: z.string().nullable().optional(),
+  // ADD materializes a one-off extra time; REMOVE hides a time the weekly
+  // TimeSlot pattern would otherwise offer, for this exact date only — see
+  // the SpecialSlotAction comment in schema.prisma.
+  action: z.enum(["ADD", "REMOVE"]).default("ADD"),
 });
 
 router.post("/special-slots", async (req, res) => {
@@ -710,18 +714,40 @@ router.post("/special-slots", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "ورودی نامعتبر است." });
   const date = parseDateOnly(parsed.data.date);
   if (!date) return res.status(400).json({ error: "تاریخ نامعتبر است." });
-  if (isPastDate(date)) return res.status(400).json({ error: "نمی‌توان برای تاریخ گذشته اسلات اضافه کرد." });
+  if (isPastDate(date)) return res.status(400).json({ error: "نمی‌توان برای تاریخ گذشته اسلات اضافه/حذف کرد." });
   const mismatchError = await assertServiceInCategory(parsed.data.serviceId, parsed.data.categoryId);
   if (mismatchError) return res.status(400).json({ error: mismatchError });
 
   try {
     const slot = await prisma.specialSlot.create({
-      data: { categoryId: parsed.data.categoryId, date, time: parsed.data.time, serviceId: parsed.data.serviceId ?? null },
+      data: {
+        categoryId: parsed.data.categoryId,
+        date,
+        time: parsed.data.time,
+        serviceId: parsed.data.serviceId ?? null,
+        action: parsed.data.action,
+      },
     });
-    res.status(201).json({ slot });
+
+    // REMOVE only hides the time from online/customer availability going
+    // forward — it never touches an existing booking — so this is a warning
+    // for Ghazal to see, not a reason to block the action (an admin can
+    // still book that date+time manually regardless of this override)
+    let affectedBookings = 0;
+    if (parsed.data.action === "REMOVE") {
+      affectedBookings = await prisma.booking.count({
+        where: { categoryId: parsed.data.categoryId, date, time: parsed.data.time, status: { in: ["CONFIRMED", "PENDING_PAYMENT"] } },
+      });
+    }
+
+    res.status(201).json({ slot, affectedBookings });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return res.status(409).json({ error: "این ساعت از قبل برای این دسته‌بندی و تاریخ ثبت شده است." });
+      const msg =
+        parsed.data.action === "REMOVE"
+          ? "این ساعت از قبل برای این تاریخ حذف شده یا به‌عنوان اسلات اضافه ثبت شده است."
+          : "این ساعت از قبل برای این دسته‌بندی و تاریخ ثبت شده است.";
+      return res.status(409).json({ error: msg });
     }
     throw err;
   }
@@ -731,16 +757,23 @@ router.delete("/special-slots/:id", async (req, res) => {
   const existing = await prisma.specialSlot.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: "اسلات یافت نشد." });
 
-  const booking = await prisma.booking.findFirst({
-    where: {
-      categoryId: existing.categoryId,
-      date: existing.date,
-      time: existing.time,
-      status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
-    },
-  });
-  if (booking) {
-    return res.status(409).json({ error: "برای این تاریخ و ساعت نوبتی ثبت شده؛ ابتدا آن را لغو یا جابه‌جا کنید." });
+  // only an ADD row's removal needs the booking guard — that's the case
+  // where a customer-visible slot is about to disappear. Deleting a REMOVE
+  // row just restores the normal weekly time; it can never conflict with an
+  // existing booking, since SlotHold already independently protects that
+  // exact date+time regardless of this override.
+  if (existing.action === "ADD") {
+    const booking = await prisma.booking.findFirst({
+      where: {
+        categoryId: existing.categoryId,
+        date: existing.date,
+        time: existing.time,
+        status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
+      },
+    });
+    if (booking) {
+      return res.status(409).json({ error: "برای این تاریخ و ساعت نوبتی ثبت شده؛ ابتدا آن را لغو یا جابه‌جا کنید." });
+    }
   }
 
   await prisma.specialSlot.delete({ where: { id: req.params.id } });

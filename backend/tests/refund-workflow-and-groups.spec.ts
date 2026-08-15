@@ -94,6 +94,92 @@ test.describe("special slots (date-specific additions to the weekly pattern)", (
     });
     expect(res.status()).toBe(400);
   });
+
+  test("action:REMOVE hides a normal weekly time for one date only, restores cleanly, and never blocks on an existing booking (only warns)", async ({
+    request,
+  }) => {
+    const adminAuth = { Authorization: `Bearer ${testPool().adminToken}` };
+    const categories = (await (await request.get("/api/admin/categories", { headers: adminAuth })).json()).categories;
+    const haircut = categories.find((c: { key: string }) => c.key === "h");
+
+    const date = nextWeekday(15);
+    const otherWeek = nextWeekday(22); // same weekday, one week later
+    const time = "17:00"; // a real seeded weekly haircut time
+
+    // sanity check: this time is normally offered before any override
+    const before = await request.get(`/api/availability?categoryKey=h&date=${date}`);
+    expect((await before.json()).slots.some((s: { time: string }) => s.time === time)).toBe(true);
+
+    const removed = await request.post("/api/admin/special-slots", {
+      headers: adminAuth,
+      data: { categoryId: haircut.id, date, time, action: "REMOVE" },
+    });
+    expect(removed.status(), await removed.text()).toBe(201);
+    const removedBody = await removed.json();
+    expect(removedBody.affectedBookings).toBe(0);
+    const removeId = removedBody.slot.id;
+
+    try {
+      const afterRemove = await request.get(`/api/availability?categoryKey=h&date=${date}`);
+      expect((await afterRemove.json()).slots.some((s: { time: string }) => s.time === time)).toBe(false);
+
+      // /next skips straight over the removed time on this date
+      const inNext = await request.get("/api/availability/next?categoryKey=h&limit=20");
+      expect(
+        (await inNext.json()).slots.some((s: { date: string; time: string }) => s.date === date && s.time === time)
+      ).toBe(false);
+
+      // the same weekday the following week is completely unaffected
+      const otherWeekRes = await request.get(`/api/availability?categoryKey=h&date=${otherWeek}`);
+      expect((await otherWeekRes.json()).slots.some((s: { time: string }) => s.time === time)).toBe(true);
+
+      // deleting the REMOVE override restores normal weekly availability —
+      // never blocked, unlike deleting an ADD-type slot
+      const restore = await request.delete(`/api/admin/special-slots/${removeId}`, { headers: adminAuth });
+      expect(restore.status(), await restore.text()).toBe(200);
+      const afterRestore = await request.get(`/api/availability?categoryKey=h&date=${date}`);
+      expect((await afterRestore.json()).slots.some((s: { time: string }) => s.time === time)).toBe(true);
+    } finally {
+      await request.delete(`/api/admin/special-slots/${removeId}`, { headers: adminAuth }).catch(() => {});
+    }
+  });
+
+  test("action:REMOVE on a time with an existing booking still succeeds, reporting affectedBookings instead of blocking", async ({
+    request,
+  }) => {
+    const adminAuth = { Authorization: `Bearer ${testPool().adminToken}` };
+    const categories = (await (await request.get("/api/admin/categories", { headers: adminAuth })).json()).categories;
+    const haircut = categories.find((c: { key: string }) => c.key === "h");
+
+    const date = nextWeekday(16);
+    const time = "18:30";
+
+    const booked = await request.post("/api/admin/bookings/manual", {
+      headers: adminAuth,
+      data: { categoryId: haircut.id, date, time, customerName: "تست حذف اسلات", customerPhone: randomPhone() },
+    });
+    expect(booked.status(), await booked.text()).toBe(201);
+    const bookingId = (await booked.json()).booking.id;
+
+    try {
+      const removed = await request.post("/api/admin/special-slots", {
+        headers: adminAuth,
+        data: { categoryId: haircut.id, date, time, action: "REMOVE" },
+      });
+      expect(removed.status(), await removed.text()).toBe(201);
+      const removedBody = await removed.json();
+      expect(removedBody.affectedBookings).toBe(1);
+
+      // the existing booking itself is completely untouched
+      const bookingsRes = await request.get(`/api/admin/bookings?date=${date}`, { headers: adminAuth });
+      const stillThere = (await bookingsRes.json()).bookings.find((b: { id: string }) => b.id === bookingId);
+      expect(stillThere.status).toBe("CONFIRMED");
+
+      await request.delete(`/api/admin/special-slots/${removedBody.slot.id}`, { headers: adminAuth });
+    } finally {
+      await request.patch(`/api/admin/bookings/${bookingId}/status`, { headers: adminAuth, data: { status: "CANCELLED" } });
+    }
+  });
 });
 
 test.describe("service group (category) creation and reassignment", () => {

@@ -93,8 +93,11 @@ router.get("/", async (req, res) => {
   // of what this endpoint returns, since the frontend list is only ever a
   // suggestion. isSlotTooSoon() is always false for a future date.
   const weeklyTimes = timeSlots.filter((s) => isTimeAllowed(s.time, dayInfo)).map((s) => s.time);
-  const specialTimes = specialSlots.map((s) => s.time);
-  const times = Array.from(new Set([...weeklyTimes, ...specialTimes])).sort();
+  const addedTimes = specialSlots.filter((s) => s.action === "ADD").map((s) => s.time);
+  const removedTimes = new Set(specialSlots.filter((s) => s.action === "REMOVE").map((s) => s.time));
+  const times = Array.from(new Set([...weeklyTimes, ...addedTimes]))
+    .filter((t) => !removedTimes.has(t))
+    .sort();
 
   const slots = times.map((time) => {
     const past = isSlotTooSoon(date, time);
@@ -144,11 +147,17 @@ router.get("/next", async (req, res) => {
   ]);
   if (!timeSlots.length && !specialSlots.length) return res.json({ slots: [] });
 
-  const specialTimesByDate = new Map<string, string[]>();
+  const addedTimesByDate = new Map<string, string[]>();
+  const removedTimesByDate = new Map<string, Set<string>>();
   for (const s of specialSlots) {
     const key = toDateOnlyString(s.date);
-    if (!specialTimesByDate.has(key)) specialTimesByDate.set(key, []);
-    specialTimesByDate.get(key)!.push(s.time);
+    if (s.action === "REMOVE") {
+      if (!removedTimesByDate.has(key)) removedTimesByDate.set(key, new Set());
+      removedTimesByDate.get(key)!.add(s.time);
+    } else {
+      if (!addedTimesByDate.has(key)) addedTimesByDate.set(key, []);
+      addedTimesByDate.get(key)!.push(s.time);
+    }
   }
 
   // same expired-hold cleanup the single-day endpoint does, batched across
@@ -196,8 +205,11 @@ router.get("/next", async (req, res) => {
 
     const taken = takenByDate.get(dateStr);
     const weeklyTimes = (slotsByDow.get(dayOfWeekUTC(d)) || []).filter((s) => isTimeAllowed(s.time, dayInfo)).map((s) => s.time);
-    const specialTimes = specialTimesByDate.get(dateStr) || [];
-    const dayTimes = Array.from(new Set([...weeklyTimes, ...specialTimes])).sort();
+    const addedTimes = addedTimesByDate.get(dateStr) || [];
+    const removedTimes = removedTimesByDate.get(dateStr);
+    const dayTimes = Array.from(new Set([...weeklyTimes, ...addedTimes]))
+      .filter((t) => !removedTimes?.has(t))
+      .sort();
     for (const time of dayTimes) {
       if (taken?.has(time)) continue;
       if (isSlotTooSoon(d, time)) continue;

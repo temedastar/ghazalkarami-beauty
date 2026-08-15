@@ -1556,8 +1556,8 @@ tabs.schedule = async () => {
     </details>
   </div>`;
 
-  html += `<div class="section-title">اسلات اختصاصی یک تاریخ خاص (بدون تغییر الگوی هفتگی)</div><div class="card">
-    <p class="muted" style="margin-bottom:14px;">برای روزهایی که فقط همون یک روز می‌خوای دیرتر/زودتر از حالت عادی باز باشی — مثلاً «امروز تا ساعت ۲۰ کار می‌کنم»، بدون این‌که الگوی هفتگی این روز از هفته هم عوض بشه. این اسلات‌ها فقط برای همون تاریخ دقیق فعالن و از ساعت‌های عادی روز (بالا) عبور می‌کنن.</p>
+  html += `<div class="section-title">اسلات‌های یک تاریخ خاص (بدون تغییر الگوی هفتگی)</div><div class="card">
+    <p class="muted" style="margin-bottom:14px;">برای روزهایی که فقط همون یک روز می‌خوای دیرتر/زودتر از حالت عادی کار کنی — مثلاً «امروز تا ساعت ۲۰ کار می‌کنم» یا «امروز فلان ساعت رو نمی‌گیرم» — بدون این‌که الگوی هفتگی این روز از هفته عوض بشه. این تغییرات فقط برای همون تاریخ دقیق اعمال می‌شن.</p>
     <div class="form-grid" style="margin-bottom:14px;">
       <label class="field">سرویس<select id="dsSvc" onchange="renderSpecialSlotsForDate()">
         ${categories.map(c=>{
@@ -1571,11 +1571,16 @@ tabs.schedule = async () => {
       </select></label>
       <label class="field">تاریخ<input type="date" id="dsDate" onchange="renderSpecialSlotsForDate()"></label>
     </div>
+
+    <div class="section-title" style="font-size:13px;">ساعت‌های عادی این روز از هفته — خاموش کن تا فقط برای این تاریخ حذف بشه</div>
+    <div id="dsWeeklyList" class="slot-grid" style="margin-bottom:18px;"><p class="muted">سرویس و تاریخ را انتخاب کنید.</p></div>
+
+    <div class="section-title" style="font-size:13px;">ساعت‌های اضافه‌شده فقط برای این تاریخ</div>
     <div class="form-grid" style="margin-bottom:14px;">
       <label class="field">افزودن ساعت<input type="time" id="dsTime" style="width:130px;"></label>
-      <button class="btn btn-gold btn-sm" onclick="addSpecialSlot()">+ افزودن اسلات اختصاصی</button>
+      <button class="btn btn-gold btn-sm" onclick="addSpecialSlot()">+ افزودن اسلات اضافه</button>
     </div>
-    <div id="dsList"><p class="muted">تاریخ را انتخاب کنید.</p></div>
+    <div id="dsList"></div>
   </div>`;
 
   setMainContent(html);
@@ -1853,39 +1858,97 @@ function getDsSelection(){
   const opt=document.getElementById("dsSvc")?.selectedOptions?.[0];
   return { categoryId: opt?.dataset.categoryId||"", serviceId: opt?.dataset.serviceId||"" };
 }
+// همون منطق دیدنِ اسلات‌های renderSlotDay — سرویس انتخاب‌شده: اسلات
+// اختصاصیِ خودش + اسلات‌های مشترک گروه؛ کل گروه انتخاب‌شده: فقط مشترک‌ها
+function weeklyTimesForDow(category, serviceId, dow){
+  const daySlots=(category.timeSlots||[]).filter(s=>s.dayOfWeek===dow);
+  return (serviceId
+    ? daySlots.filter(s=>s.serviceId===serviceId || !s.serviceId)
+    : daySlots.filter(s=>{
+        if(!s.serviceId) return true;
+        const owner=(category.services||[]).find(sv=>sv.id===s.serviceId);
+        return owner && !owner.active;
+      })
+  ).slice().sort((a,b)=>a.time.localeCompare(b.time));
+}
 async function renderSpecialSlotsForDate(){
-  const {categoryId}=getDsSelection();
+  const {categoryId, serviceId}=getDsSelection();
   const date=document.getElementById("dsDate").value;
-  const list=document.getElementById("dsList");
-  if(!categoryId||!date){ list.innerHTML='<p class="muted">تاریخ را انتخاب کنید.</p>'; return; }
-  list.innerHTML='<p class="muted">در حال بارگذاری…</p>';
+  const weeklyList=document.getElementById("dsWeeklyList");
+  const addedList=document.getElementById("dsList");
+  if(!categoryId||!date){
+    weeklyList.innerHTML='<p class="muted">سرویس و تاریخ را انتخاب کنید.</p>';
+    addedList.innerHTML='';
+    return;
+  }
+  weeklyList.innerHTML='<p class="muted">در حال بارگذاری…</p>';
+  addedList.innerHTML='';
   try{
+    const category=(window._scheduleCategories||[]).find(c=>c.id===categoryId);
+    const dow=new Date(date+"T00:00:00Z").getUTCDay();
+    const weeklyTimes=category?weeklyTimesForDow(category, serviceId, dow):[];
+
     const {slots}=await api(`/admin/special-slots?categoryId=${categoryId}&date=${date}`);
-    if(!slots.length){ list.innerHTML='<p class="muted">هنوز اسلات اختصاصی‌ای برای این تاریخ ثبت نشده.</p>'; return; }
-    list.innerHTML = `<div class="slot-grid">` + slots.slice().sort((a,b)=>a.time.localeCompare(b.time)).map(s=>`
-      <div class="slot-cell ${s.isActive?'':'off'}">
-        <span class="t">${s.time}</span>
-        <div class="actions">
-          <button class="del" title="حذف" aria-label="حذف این اسلات" onclick="deleteSpecialSlot('${s.id}')">✕</button>
-        </div>
-      </div>`).join("") + `</div>`;
+    const removedByTime={};
+    slots.filter(s=>s.action==="REMOVE").forEach(s=>{ removedByTime[s.time]=s.id; });
+    const addedSlots=slots.filter(s=>s.action==="ADD").slice().sort((a,b)=>a.time.localeCompare(b.time));
+
+    weeklyList.innerHTML = !weeklyTimes.length
+      ? '<p class="muted">این روز از هفته، اسلات هفتگی‌ای برای این انتخاب ندارد.</p>'
+      : weeklyTimes.map(s=>{
+          const removedId=removedByTime[s.time];
+          return `<div class="slot-cell ${removedId?'off':''}">
+            <span class="t">${s.time}</span>
+            <label class="switch" title="${removedId?'خاموش — فقط برای این تاریخ حذف شده':'روشن — طبق الگوی هفتگی عادی'}">
+              <input type="checkbox" ${removedId?'':'checked'} onchange="toggleDsWeeklyTime(this,'${categoryId}','${serviceId}','${date}','${s.time}','${removedId||''}')">
+              <span class="slider"></span>
+            </label>
+          </div>`;
+        }).join("");
+
+    addedList.innerHTML = !addedSlots.length
+      ? '<p class="muted">ساعت اضافه‌ای برای این تاریخ ثبت نشده.</p>'
+      : `<div class="slot-grid">` + addedSlots.map(s=>`
+          <div class="slot-cell">
+            <span class="t">${s.time}</span>
+            <div class="actions">
+              <button class="del" title="حذف" aria-label="حذف این ساعت اضافه" onclick="deleteSpecialSlot('${s.id}')">✕</button>
+            </div>
+          </div>`).join("") + `</div>`;
   }catch(e){ toast(e.message,true); }
 }
 window.renderSpecialSlotsForDate = renderSpecialSlotsForDate;
+window.toggleDsWeeklyTime = async (checkboxEl, categoryId, serviceId, date, time, removedId) => {
+  const turningOn=checkboxEl.checked;
+  checkboxEl.disabled=true;
+  try{
+    if(turningOn){
+      // بازگردانی — یعنی حذفِ ردیفِ REMOVE که قبلاً ثبت شده بود
+      await api(`/admin/special-slots/${removedId}`,{method:"DELETE"});
+      toast("این ساعت به حالت عادی برگشت.");
+    }else{
+      const r=await api("/admin/special-slots",{method:"POST",body:JSON.stringify({categoryId,date,time,serviceId:serviceId||null,action:"REMOVE"})});
+      toast(r.affectedBookings
+        ? `این ساعت فقط برای ${fmtJalaliDate(date)} حذف شد. توجه: ${r.affectedBookings} نوبت از قبل در همین ساعت ثبت شده — آن نوبت دست‌نخورده می‌ماند، فقط رزرو آنلاین جدید بسته شد.`
+        : `این ساعت فقط برای ${fmtJalaliDate(date)} حذف شد.`);
+    }
+    await renderSpecialSlotsForDate();
+  }catch(e){ toast(e.message,true); checkboxEl.checked=!turningOn; checkboxEl.disabled=false; }
+};
 window.addSpecialSlot = withSubmitGuard(async () => {
   const {categoryId, serviceId}=getDsSelection();
   const date=document.getElementById("dsDate").value;
   const time=document.getElementById("dsTime").value;
   if(!categoryId||!date||!time) return toast("سرویس، تاریخ و ساعت را کامل کنید.",true);
   try{
-    await api("/admin/special-slots",{method:"POST",body:JSON.stringify({categoryId,date,time,serviceId:serviceId||null})});
-    toast("اسلات اختصاصی اضافه شد.");
+    await api("/admin/special-slots",{method:"POST",body:JSON.stringify({categoryId,date,time,serviceId:serviceId||null,action:"ADD"})});
+    toast("ساعت اضافه شد.");
     document.getElementById("dsTime").value="";
     await renderSpecialSlotsForDate();
   }catch(e){ toast(e.message,true); }
 });
 window.deleteSpecialSlot = async (id) => {
-  if(!confirm("این اسلات اختصاصی حذف شود؟")) return;
+  if(!confirm("این ساعت اضافه حذف شود؟")) return;
   try{ await api(`/admin/special-slots/${id}`,{method:"DELETE"}); toast("حذف شد."); await renderSpecialSlotsForDate(); }
   catch(e){ toast(e.message,true); }
 };
