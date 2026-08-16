@@ -503,3 +503,21 @@ model SmsLog {
 
   @@index([createdAt])
 }
+
+// "تاریخچه‌ی اقدامات" — a plain, human-readable activity feed for Ghazal to
+// answer "چرا این نوبت لغو شد؟" or "کِی این روز رو بستم؟" without needing to
+// dig through raw data. Deliberately NOT a generic before/after diff log —
+// description is a complete Persian sentence written at the call site (see
+// lib/auditLog.ts), so the admin panel can just render it directly, no
+// reconstruction logic needed. actorLabel is a snapshot of who did it at the
+// time (a name, "غزل کرمی", or "سیستم") rather than a User relation, since a
+// deleted/changed account should never make a past log entry unreadable.
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String // short machine-readable code, e.g. "BOOKING_CANCELLED" — lets the panel filter/badge by category later without parsing description
+  description String   @db.Text
+  actorLabel  String
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}

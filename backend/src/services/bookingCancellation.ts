@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { isRefundEligible } from "../lib/cancellationPolicy";
 import { toJalaliDateLabel } from "../lib/dates";
 import { sendCancellationNotifySms } from "./kavenegar";
+import { logAction } from "../lib/auditLog";
 
 export type RefundOutcome = "not_applicable" | "needs_manual_followup";
 
@@ -69,7 +70,14 @@ export function validateRefundCard(input: unknown): { ok: true; card: RefundCard
  */
 export async function cancelBookingAndMaybeRefund(
   booking: CancellableBooking,
-  refundCard?: RefundCard
+  refundCard?: RefundCard,
+  actorLabel: string = "سیستم",
+  // block-range's bulk reopen calls this once per slot in a range that can
+  // run to hundreds of ADMIN_BLOCK placeholder entries — an individual
+  // "نوبت لغو شد" line per slot would drown out real customer cancellations
+  // in the audit log. That caller logs one summary line for the whole range
+  // itself instead (see routes/admin.ts).
+  skipLog: boolean = false
 ): Promise<CancelResult> {
   const hadPaidDeposit = booking.status === "CONFIRMED" && booking.payment?.status === "PAID";
   const eligible = hadPaidDeposit && isRefundEligible(booking.date, booking.time);
@@ -79,12 +87,25 @@ export async function cancelBookingAndMaybeRefund(
     prisma.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED", cancelledAt: new Date() } }),
   ]);
 
+  const svcName = booking.service?.name ?? "بدون سرویس";
+  const whenLabel = `${toJalaliDateLabel(booking.date)} ساعت ${booking.time}`;
+
   if (!hadPaidDeposit) {
+    if (!skipLog) {
+      logAction("BOOKING_CANCELLED", `نوبت «${svcName}» — ${whenLabel} — توسط ${actorLabel} لغو شد (بدون بیعانه‌ی پرداخت‌شده).`, actorLabel);
+    }
     return { refund: "not_applicable", message: "نوبت با موفقیت لغو شد." };
   }
 
   if (!eligible) {
     await prisma.payment.update({ where: { id: booking.payment!.id }, data: { refundStatus: "NOT_APPLICABLE" } });
+    if (!skipLog) {
+      logAction(
+        "BOOKING_CANCELLED",
+        `نوبت «${svcName}» — ${whenLabel} — توسط ${actorLabel} لغو شد. کمتر از ۴۸ ساعت مانده بود؛ طبق قوانین، بیعانه سوخت.`,
+        actorLabel
+      );
+    }
     return {
       refund: "not_applicable",
       message:
@@ -106,6 +127,13 @@ export async function cancelBookingAndMaybeRefund(
   notifyOwnerOfCancellation(customerName, booking.date).catch((err) =>
     console.error("Failed to send cancellation-notify SMS:", err)
   );
+  if (!skipLog) {
+    logAction(
+      "BOOKING_CANCELLED",
+      `نوبت «${svcName}» — ${whenLabel} — توسط ${actorLabel} لغو شد. بیعانه مشمول بازگشت است و در «بازگشت وجه در انتظار» ثبت شد.`,
+      actorLabel
+    );
+  }
 
   return {
     refund: "needs_manual_followup",

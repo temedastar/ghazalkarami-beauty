@@ -8,6 +8,7 @@ import { parseDateOnly, dayOfWeekUTC, isPastDate } from "../lib/dates";
 import { getDayOpenInfo, isTimeAllowed, isSlotTooSoon, computeDepositAmount } from "../lib/schedule";
 import { cancelBookingAndMaybeRefund, validateRefundCard } from "../services/bookingCancellation";
 import { isRefundEligible } from "../lib/cancellationPolicy";
+import { customerActorLabel } from "../lib/auditLog";
 import { env } from "../lib/env";
 
 const router = Router();
@@ -185,7 +186,12 @@ router.delete("/:id", requireAuth, async (req, res) => {
     refundCard = validated.card;
   }
 
-  const result = await cancelBookingAndMaybeRefund(booking, refundCard);
+  // this route is customer self-service — the admin.role branch above only
+  // exists so an admin acting on a customer's behalf (over the phone) isn't
+  // blocked by the ownership check, not because this is the panel's own
+  // cancel flow (that's PATCH /admin/bookings/:id/status instead)
+  const actorLabel = booking.userId === req.auth!.userId ? customerActorLabel(booking.user) : "ادمین (از طرف مشتری)";
+  const result = await cancelBookingAndMaybeRefund(booking, refundCard, actorLabel);
   res.json({ ok: true, refund: result.refund, message: result.message });
 });
 

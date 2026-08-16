@@ -431,6 +431,7 @@ table.cal-grid th,table.cal-grid td{border:1px solid var(--gline);}
     <div class="group-label">تنظیمات</div>
     <button data-tab="contact">اطلاعات تماس</button>
     <button data-tab="smsLogs">پیامک‌ها</button>
+    <button data-tab="auditLog">تاریخچه‌ی اقدامات</button>
     <button data-tab="settings">تنظیمات کلی</button>
     <button class="logout" onclick="logout()">خروج</button>
   </nav>
@@ -2950,6 +2951,26 @@ tabs.smsLogs = async () => {
     html += `<tr><td>${l.phone}</td><td>${SMS_TYPE_FA[l.type]||l.type}</td><td><span class="tag ${tag}">${statusFa}</span></td><td>${errCell}</td><td>${fmtJalaliDate(l.createdAt)}، ${new Date(l.createdAt).toLocaleTimeString("fa-IR")}</td></tr>`;
   });
   html += `</tbody></table></div></div>`;
+  setMainContent(html);
+};
+
+/* =====================================================================
+   تاریخچه‌ی اقدامات
+   ===================================================================== */
+tabs.auditLog = async () => {
+  const {logs} = await api("/admin/audit-log?limit=300");
+  let html = `<h1>تاریخچه‌ی اقدامات</h1>
+    <p class="muted" style="margin-bottom:18px;">فهرست رویدادهای مهم سیستم به‌ترتیب از جدیدترین — برای فهمیدن اینکه «چرا این نوبت لغو شد؟» یا «کِی این روز رو بستم؟».</p>`;
+  if(!logs.length){
+    html += `<div class="card muted">هنوز رویدادی ثبت نشده.</div>`;
+    setMainContent(html);
+    return;
+  }
+  html += `<div class="card">` + logs.map(l=>`
+    <div class="row" style="align-items:flex-start;">
+      <div style="flex:1;min-width:200px;">${esc(l.description)}</div>
+      <div class="muted" style="white-space:nowrap;font-size:12px;">${fmtJalaliDate(l.createdAt)} — ${new Date(l.createdAt).toLocaleTimeString("fa-IR")}</div>
+    </div>`).join("") + `</div>`;
   setMainContent(html);
 };
 

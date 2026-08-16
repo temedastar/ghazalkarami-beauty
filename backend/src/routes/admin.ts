@@ -9,12 +9,13 @@ import { Prisma, BookingStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { normalizePhone } from "../lib/phone";
-import { parseDateOnly, toDateOnlyString, dayOfWeekUTC, isPastDate } from "../lib/dates";
+import { parseDateOnly, toDateOnlyString, dayOfWeekUTC, isPastDate, toJalaliDateLabel } from "../lib/dates";
 import { sendThankYouReviewSms } from "../services/kavenegar";
 import { isObjectStorageConfigured, uploadBuffer, deleteObject, headBucket, describeStorageError } from "../lib/objectStorage";
 import { env } from "../lib/env";
 import { cancelBookingAndMaybeRefund, validateRefundCard } from "../services/bookingCancellation";
 import { isRefundEligible } from "../lib/cancellationPolicy";
+import { logAction, getAdminActorLabel } from "../lib/auditLog";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -354,6 +355,23 @@ router.patch("/working-days/:dayOfWeek", async (req, res) => {
     create: { dayOfWeek, isOpen: parsed.data.isOpen ?? true, ...parsed.data },
     update: parsed.data,
   });
+
+  const actorLabel = await getAdminActorLabel(req.auth!.userId);
+  const dowNames = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه"];
+  if (parsed.data.isOpen !== undefined) {
+    logAction(
+      "WORKING_DAY_CHANGED",
+      `الگوی هفتگی روزهای ${dowNames[dayOfWeek]} توسط ${actorLabel} ${day.isOpen ? "باز" : "تعطیل"} شد.`,
+      actorLabel
+    );
+  } else if (parsed.data.openTime !== undefined || parsed.data.closeTime !== undefined) {
+    logAction(
+      "WORKING_DAY_CHANGED",
+      `ساعات کاری روزهای ${dowNames[dayOfWeek]} توسط ${actorLabel} به ${day.openTime || "—"} تا ${day.closeTime || "—"} تغییر کرد.`,
+      actorLabel
+    );
+  }
+
   res.json({ day });
 });
 
@@ -404,6 +422,15 @@ router.post("/day-exceptions", async (req, res) => {
     ? 0
     : await prisma.booking.count({ where: { date, status: "CONFIRMED" } });
 
+  const actorLabel = await getAdminActorLabel(req.auth!.userId);
+  logAction(
+    "DAY_EXCEPTION_SET",
+    `تاریخ ${toJalaliDateLabel(date)} توسط ${actorLabel} ${parsed.data.isOpen ? "باز" : "تعطیل"} شد` +
+      (parsed.data.reason ? ` — دلیل: ${parsed.data.reason}` : "") +
+      ".",
+    actorLabel
+  );
+
   res.status(201).json({ exception, affectedBookings });
 });
 
@@ -447,6 +474,15 @@ router.post("/day-exceptions/closure-range", async (req, res) => {
     where: { date: { gte: start, lte: end }, status: "CONFIRMED" },
   });
 
+  const actorLabel = await getAdminActorLabel(req.auth!.userId);
+  logAction(
+    "DAY_EXCEPTION_SET",
+    `بازه‌ی ${toJalaliDateLabel(start)} تا ${toJalaliDateLabel(end)} (${dates.length} روز) توسط ${actorLabel} بسته شد` +
+      (parsed.data.reason ? ` — دلیل: ${parsed.data.reason}` : "") +
+      ".",
+    actorLabel
+  );
+
   res.status(201).json({ exceptions: created, affectedBookings });
 });
 
@@ -469,6 +505,16 @@ router.delete("/day-exceptions/closure-range", async (req, res) => {
   const { count } = await prisma.dayException.deleteMany({
     where: { date: { gte: start, lte: end }, isOpen: false },
   });
+
+  if (count > 0) {
+    const actorLabel = await getAdminActorLabel(req.auth!.userId);
+    logAction(
+      "DAY_EXCEPTION_REMOVED",
+      `بازه‌ی ${toJalaliDateLabel(start)} تا ${toJalaliDateLabel(end)} (${count} روز) توسط ${actorLabel} دوباره باز شد.`,
+      actorLabel
+    );
+  }
+
   res.json({ count });
 });
 
@@ -477,7 +523,12 @@ router.delete("/day-exceptions/closure-range", async (req, res) => {
 // otherwise swallow "closure-range" as if it were an id, throwing a
 // confusing "record not found" instead of ever reaching that route
 router.delete("/day-exceptions/:id", async (req, res) => {
+  const existing = await prisma.dayException.findUnique({ where: { id: req.params.id } });
   await prisma.dayException.delete({ where: { id: req.params.id } });
+  if (existing) {
+    const actorLabel = await getAdminActorLabel(req.auth!.userId);
+    logAction("DAY_EXCEPTION_REMOVED", `استثنای تاریخ ${toJalaliDateLabel(existing.date)} توسط ${actorLabel} حذف شد.`, actorLabel);
+  }
   res.json({ ok: true });
 });
 
@@ -841,6 +892,21 @@ router.patch("/services/:id", async (req, res) => {
   });
   if (error) return res.status(400).json({ error });
 
+  const actorLabel = await getAdminActorLabel(req.auth!.userId);
+  const priceChanged = ["priceMin", "priceMax", "priceLabel", "depositType", "depositValue"].some(
+    (f) => (parsed.data as Record<string, unknown>)[f] !== undefined
+  );
+  if (priceChanged) {
+    logAction("PRICE_CHANGED", `قیمت/بیعانه‌ی سرویس «${existing.name}» توسط ${actorLabel} تغییر کرد.`, actorLabel);
+  }
+  if (parsed.data.active !== undefined && parsed.data.active !== existing.active) {
+    logAction(
+      "SERVICE_ACTIVE_CHANGED",
+      `سرویس «${existing.name}» توسط ${actorLabel} ${parsed.data.active ? "فعال" : "غیرفعال"} شد.`,
+      actorLabel
+    );
+  }
+
   // moving a service to a different group can orphan any TimeSlot/SpecialSlot
   // rows that were exclusively scoped to it under the OLD category — a slot's
   // categoryId doesn't follow the service, so a stale serviceId there would
@@ -895,6 +961,8 @@ router.post("/services", async (req, res) => {
 
   try {
     const service = await prisma.service.create({ data: parsed.data });
+    const actorLabel = await getAdminActorLabel(req.auth!.userId);
+    logAction("SERVICE_CREATED", `سرویس جدید «${service.name}» توسط ${actorLabel} اضافه شد.`, actorLabel);
     res.status(201).json({ service });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
@@ -970,6 +1038,13 @@ router.patch("/price-list/:id", async (req, res) => {
   }
 
   const item = await prisma.priceListItem.update({ where: { id: req.params.id }, data: parsed.data });
+
+  const priceChanged = ["priceMin", "priceMax", "priceLabel"].some((f) => (parsed.data as Record<string, unknown>)[f] !== undefined);
+  if (priceChanged) {
+    const actorLabel = await getAdminActorLabel(req.auth!.userId);
+    logAction("PRICE_CHANGED", `قیمت ردیف «${existing.name}» توسط ${actorLabel} تغییر کرد.`, actorLabel);
+  }
+
   res.json({ item });
 });
 
@@ -1272,6 +1347,16 @@ router.post("/bookings/block-range", async (req, res) => {
     }
   }
 
+  if (blocked > 0) {
+    const actorLabel = await getAdminActorLabel(req.auth!.userId);
+    const scopeLabel = parsed.data.categoryId ? "یک سرویس/گروه" : "همه‌ی سرویس‌ها";
+    logAction(
+      "SLOTS_BLOCKED",
+      `${blocked} تایم بین ${toJalaliDateLabel(start)} تا ${toJalaliDateLabel(end)} (${scopeLabel}) توسط ${actorLabel} بسته شد.`,
+      actorLabel
+    );
+  }
+
   res.status(201).json({ blocked, skipped });
 });
 
@@ -1315,7 +1400,17 @@ router.delete("/bookings/block-range", async (req, res) => {
   });
 
   for (const booking of bookings) {
-    await cancelBookingAndMaybeRefund(booking);
+    await cancelBookingAndMaybeRefund(booking, undefined, "سیستم", true);
+  }
+
+  if (bookings.length > 0) {
+    const actorLabel = await getAdminActorLabel(req.auth!.userId);
+    const scopeLabel = categoryId ? "یک سرویس/گروه" : "همه‌ی سرویس‌ها";
+    logAction(
+      "SLOTS_UNBLOCKED",
+      `${bookings.length} تایمِ بسته‌شده بین ${toJalaliDateLabel(start)} تا ${toJalaliDateLabel(end)} (${scopeLabel}) توسط ${actorLabel} دوباره باز شد.`,
+      actorLabel
+    );
   }
 
   res.json({ count: bookings.length });
@@ -1366,6 +1461,8 @@ router.patch("/bookings/:id/status", async (req, res) => {
     });
   }
 
+  const actorLabel = await getAdminActorLabel(req.auth!.userId);
+
   if (parsed.data.status === "CANCELLED") {
     // same 48h refund-eligibility policy as the customer's own cancel
     // button — see services/bookingCancellation.ts. Card details are only
@@ -1380,9 +1477,14 @@ router.patch("/bookings/:id/status", async (req, res) => {
       if (!validated.ok) return res.status(400).json({ error: validated.error });
       refundCard = validated.card;
     }
-    await cancelBookingAndMaybeRefund(booking, refundCard);
+    await cancelBookingAndMaybeRefund(booking, refundCard, actorLabel);
   } else {
     await prisma.booking.update({ where: { id: booking.id }, data: { status: parsed.data.status } });
+    logAction(
+      "BOOKING_STATUS_CHANGED",
+      `نوبت «${booking.service?.name ?? "بدون سرویس"}» — ${toJalaliDateLabel(booking.date)} ساعت ${booking.time} — توسط ${actorLabel} به «${BOOKING_STATUS_FA[parsed.data.status]}» تغییر کرد.`,
+      actorLabel
+    );
   }
 
   if (parsed.data.status === "COMPLETED" && booking.user && booking.service) {
@@ -1419,6 +1521,14 @@ router.patch("/payments/:id/refund-status", async (req, res) => {
     where: { id: payment.id },
     data: { refundStatus: "SUCCEEDED", refundedAt: new Date() },
   });
+
+  const actorLabel = await getAdminActorLabel(req.auth!.userId);
+  logAction(
+    "REFUND_RESOLVED",
+    `بازگشت وجه به مبلغ ${payment.amount.toLocaleString("fa-IR")} تومان توسط ${actorLabel} «پرداخت شد» علامت خورد.`,
+    actorLabel
+  );
+
   res.json({ payment: updated });
 });
 
@@ -1472,6 +1582,14 @@ router.get("/customers/:id", async (req, res) => {
 router.get("/sms-logs", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const logs = await prisma.smsLog.findMany({ orderBy: { createdAt: "desc" }, take: limit });
+  res.json({ logs });
+});
+
+/* ---------- تاریخچه‌ی اقدامات (audit log) ---------- */
+
+router.get("/audit-log", async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 100, 500);
+  const logs = await prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: limit });
   res.json({ logs });
 });
 

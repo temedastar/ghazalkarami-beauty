@@ -123,6 +123,12 @@ export async function renderIndexHtml(): Promise<string> {
         ld.image = ogImage;
         if (contact?.phone) ld.telephone = contact.phone.startsWith("+") ? contact.phone : "+98" + contact.phone.replace(/^0/, "");
         if (contact?.address && ld.address) ld.address.streetAddress = contact.address;
+        // admin-editable via ContactInfo.lat/lng (see the "مسیریابی" feature) —
+        // both null until she sets them, so this stays omitted rather than
+        // ever emitting a fabricated location
+        if (contact?.lat != null && contact?.lng != null) {
+          ld.geo = { "@type": "GeoCoordinates", latitude: contact.lat, longitude: contact.lng };
+        }
 
         // real weekly hours (WorkingDay, admin-editable — same source the
         // "کی می‌تونید بیایید؟" section is meant to reflect) instead of no

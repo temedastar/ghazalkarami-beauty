@@ -1813,6 +1813,7 @@ async function loadContactInfo(){
       const ld=JSON.parse(ldEl.textContent);
       if(contact.phone)ld.telephone=contact.phone.startsWith('+')?contact.phone:'+98'+contact.phone.replace(/^0/,'');
       if(contact.address && ld.address)ld.address.streetAddress=contact.address;
+      if(contact.lat!=null && contact.lng!=null)ld.geo={"@type":"GeoCoordinates",latitude:contact.lat,longitude:contact.lng};
       ldEl.textContent=JSON.stringify(ld);
     }catch(e){ /* malformed JSON-LD would already be a bug in the static markup, not fetched data */ }
   }
