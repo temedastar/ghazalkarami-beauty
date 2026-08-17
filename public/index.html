@@ -973,9 +973,6 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
     <div class="door rv">
       <div class="arch-rim">
         <div class="arch">
-          <video id="heroVid" autoplay muted loop playsinline preload="metadata" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
-            <source src="images/hero.mp4" type="video/mp4">
-          </video>
           <img id="heroImg" src="images/ghazal-illustration.jpg" alt="غزل کرمی" fetchpriority="high" onerror="this.style.display='none';">
         </div>
       </div>
@@ -1920,15 +1917,6 @@ loadContactInfo();
 /* mobile nav drawer */
 function openMnav(){document.getElementById('mnav').classList.add('on');document.getElementById('mnavBg').classList.add('on');document.body.style.overflow='hidden';}
 function closeMnav(){document.getElementById('mnav').classList.remove('on');document.getElementById('mnavBg').classList.remove('on');document.body.style.overflow='';}
-
-const hv=document.getElementById('heroVid'),hi=document.getElementById('heroImg');
-if(hv){
-  const src=hv.querySelector('source');
-  hv.addEventListener('loadeddata',()=>{hv.style.display='block';hi.style.display='none';hv.play().catch(()=>{});});
-  hv.addEventListener('canplay',()=>{hv.style.display='block';hi.style.display='none';hv.play().catch(()=>{});});
-  src.addEventListener('error',()=>{hv.style.display='none';hi.style.display='block';});
-  hv.load();
-}
 
 const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:.12});
 document.querySelectorAll('.rv').forEach(el=>io.observe(el));
