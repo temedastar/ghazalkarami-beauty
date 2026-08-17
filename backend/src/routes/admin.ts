@@ -1657,7 +1657,15 @@ const DEFAULT_SITE_CONTENT_MAX_LENGTH = 500;
 // like any text field (value = the image URL) — but replacing or clearing
 // one of these specifically needs the OLD file cleaned up from storage too,
 // unlike every other key here which is plain text with nothing to delete
-const SITE_IMAGE_KEYS = new Set(["logo_url", "ghazal_photo_url", "donia_photo_url"]);
+const SITE_IMAGE_KEYS = new Set([
+  "logo_url",
+  "hero_image_url",
+  "ghazal_photo_url",
+  "ghazal_cutout_url",
+  "donia_photo_url",
+  "donia_cutout_url",
+  "instructor_photo_url",
+]);
 
 router.patch("/site-content/:key", async (req, res) => {
   const maxLength = SITE_CONTENT_MAX_LENGTHS[req.params.key] ?? DEFAULT_SITE_CONTENT_MAX_LENGTH;

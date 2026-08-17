@@ -1006,7 +1006,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <img class="blur-up" id="ghazalPhotoImg" src="images/ghazal.jpg" alt="غزل کرمی" loading="lazy" onerror="this.style.display='none';" onload="this.classList.add('loaded');this.nextElementSibling.style.display='none';">
         <div class="ph">قاب عکس غزل کرمی<br>(به‌زودی)</div>
       </div></div>
-      <img class="ghazal-cutout" src="images/ghazal-cutout.png" alt="" loading="lazy" onerror="this.remove();">
+      <img class="ghazal-cutout" id="ghazalCutoutImg" src="images/ghazal-cutout.png" alt="" loading="lazy" onerror="this.style.display='none';">
     </div>
     <div class="ag-t rv">
       <span class="kicker">درباره غزل کرمی</span>
@@ -1040,7 +1040,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
         <img class="blur-up" id="doniaPhotoImg" src="images/donia.jpg" alt="دنیا سلیمانی" loading="lazy" onerror="this.style.display='none';" onload="this.classList.add('loaded');this.nextElementSibling.style.display='none';">
         <div class="ph">قاب عکس دنیا سلیمانی<br>(به‌زودی)</div>
       </div></div>
-      <img class="donia-cutout" src="images/donia-cutout.png" alt="" loading="lazy" onerror="this.remove();">
+      <img class="donia-cutout" id="doniaCutoutImg" src="images/donia-cutout.png" alt="" loading="lazy" onerror="this.style.display='none';">
     </div>
     <div class="rv">
       <span class="kicker">درباره دنیا سلیمانی</span>
@@ -1278,7 +1278,7 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
   </div>
   <div class="wrap ig2">
     <div class="rv"><div class="arch-rim"><div class="arch">
-      <img src="images/instructor.jpg" alt="غزل کرمی در حال تدریس کلاس آموزش هیرکات" loading="lazy" onerror="this.style.display='none';">
+      <img id="instructorImg" src="images/instructor.jpg" alt="غزل کرمی در حال تدریس کلاس آموزش هیرکات" loading="lazy" onerror="this.style.display='none';">
       <div class="ph">قاب ویدئوی تدریس<br>(به‌زودی)</div>
     </div></div></div>
     <div class="it2 rv">
@@ -1680,7 +1680,11 @@ async function loadSiteContent(){
     if(val && el) el.textContent=val;
   });
 
-  const imageMap={ logoImg:'logo_url', ghazalPhotoImg:'ghazal_photo_url', doniaPhotoImg:'donia_photo_url' };
+  const imageMap={
+    logoImg:'logo_url', ghazalPhotoImg:'ghazal_photo_url', doniaPhotoImg:'donia_photo_url',
+    heroImg:'hero_image_url', ghazalCutoutImg:'ghazal_cutout_url', doniaCutoutImg:'donia_cutout_url',
+    instructorImg:'instructor_photo_url',
+  };
   Object.entries(imageMap).forEach(([elId,key])=>{
     const url=window.SITE_CONTENT[key];
     const img=document.getElementById(elId);

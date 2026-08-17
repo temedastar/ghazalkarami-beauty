@@ -11,12 +11,17 @@ test.describe("special slots (date-specific additions to the weekly pattern)", (
     const categories = (await (await request.get("/api/admin/categories", { headers: adminAuth })).json()).categories;
     const haircut = categories.find((c: { key: string }) => c.key === "h");
 
-    // close enough that it lands within /next's own 20-result cap (haircut
-    // alone has 7 seeded slots/weekday, so anything much further out would
-    // already be past the cap before this one-off time is ever reached —
-    // see the identical caveat in timeslot-per-service.spec.ts)
-    const date = nextWeekday(2);
-    const otherWeek = nextWeekday(9); // same weekday, one week later
+    // close enough that it lands within /next's own 20-result cap: haircut
+    // has 7 seeded slots/weekday, and this one-off is the LAST slot of its
+    // day (sorts after all 7 normal ones) — today(7) + this date(7 normal +
+    // 1 special) already reaches position 15, so date must stay at
+    // nextWeekday(1); nextWeekday(2) would push the special slot to
+    // position ~22 whenever none of today's slots have passed yet (e.g. a
+    // suite run early in the morning) — see the identical caveat in
+    // timeslot-per-service.spec.ts, which already uses nextWeekday(1) for
+    // the same reason
+    const date = nextWeekday(1);
+    const otherWeek = nextWeekday(8); // same weekday, one week later
     const time = "20:15"; // well past the normal seeded closing hours
 
     const created = await request.post("/api/admin/special-slots", {
