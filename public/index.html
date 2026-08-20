@@ -309,8 +309,42 @@ nav.mn{display:flex;gap:22px;font-size:14px;color:rgba(255,255,255,.72);}
 nav.mn a{padding:5px 0;border-bottom:1px solid transparent;transition:.2s;}
 nav.mn a:hover{color:var(--must-l);border-color:var(--must);}
 .hb{display:flex;gap:8px;align-items:center;}
+.auth-guest{display:flex;gap:8px;align-items:center;}
 .tog{display:none;background:none;border:none;color:#fff;font-size:26px;cursor:pointer;padding:6px;}
 @media(max-width:990px){nav.mn{display:none;}.tog{display:block;}}
+
+/* — logged-in header user menu (replaces ورود/ثبت‌نام once authenticated) — */
+.user-menu{position:relative;display:flex;}
+.user-menu-trigger{display:flex;align-items:center;gap:8px;background:rgba(223,160,45,.09);
+  border:1.5px solid rgba(223,160,45,.35);border-radius:999px;padding:5px 14px 5px 6px;
+  cursor:pointer;font-family:'Vazirmatn',sans-serif;transition:background .2s;max-width:190px;}
+.user-menu-trigger:hover{background:rgba(223,160,45,.16);}
+.user-menu-trigger:focus-visible{outline:3px solid var(--must);outline-offset:2px;}
+.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--must);color:var(--night);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;
+  flex-shrink:0;}
+.user-name{font-size:13.5px;font-weight:700;color:var(--bone);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.user-caret{flex-shrink:0;opacity:.75;color:var(--must-l);transition:transform .2s;}
+.user-menu-trigger[aria-expanded="true"] .user-caret{transform:rotate(180deg);}
+.user-menu-panel{position:absolute;top:calc(100% + 10px);left:0;min-width:180px;
+  background:var(--night-2);border:1px solid rgba(223,160,45,.25);border-radius:14px;
+  box-shadow:0 20px 40px -16px rgba(0,0,0,.55);padding:6px;z-index:100;
+  opacity:0;visibility:hidden;transform:translateY(-6px);
+  transition:opacity .18s ease,transform .18s ease,visibility .18s;}
+.user-menu-panel.on{opacity:1;visibility:visible;transform:translateY(0);}
+.user-menu-panel button{display:flex;align-items:center;gap:10px;width:100%;text-align:right;
+  background:none;border:none;color:rgba(251,247,238,.88);font-family:'Vazirmatn',sans-serif;
+  font-size:14px;padding:11px 14px;border-radius:9px;cursor:pointer;transition:background .15s,color .15s;}
+.user-menu-panel button svg{flex-shrink:0;opacity:.85;}
+.user-menu-panel button:hover{background:rgba(223,160,45,.12);color:var(--must-l);}
+.user-menu-panel .user-menu-logout{color:#e8a39a;}
+.user-menu-panel .user-menu-logout:hover{background:rgba(192,57,43,.14);color:#f0b6ae;}
+@media(max-width:460px){
+  .user-name{max-width:70px;}
+  .user-menu-trigger{padding:4px 10px 4px 5px;gap:6px;}
+}
+@media(max-width:360px){.user-name{max-width:48px;}}
 
 /* mobile nav drawer */
 .mnav-bg{position:fixed;inset:0;background:rgba(6,10,20,0);backdrop-filter:blur(0);
@@ -915,8 +949,21 @@ footer{background:var(--night);color:rgba(251,247,238,.82);padding:56px 0 24px;f
       <a href="#reviews">نظرات</a>
     </nav>
     <div class="hb">
-      <button class="btn b-line b-sm" onclick="openAuth('login')">ورود</button>
-      <button class="btn b-gold b-sm" onclick="openAuth('register')">ثبت‌نام</button>
+      <div class="auth-guest" id="authGuest">
+        <button class="btn b-line b-sm" onclick="openAuth('login')">ورود</button>
+        <button class="btn b-gold b-sm" onclick="openAuth('register')">ثبت‌نام</button>
+      </div>
+      <div class="user-menu" id="userMenu" style="display:none;">
+        <button class="user-menu-trigger" id="userMenuTrigger" onclick="toggleUserMenu()" aria-haspopup="true" aria-expanded="false">
+          <span class="user-avatar" id="userAvatar"></span>
+          <span class="user-name" id="userNameLabel"></span>
+          <svg class="user-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="user-menu-panel" id="userMenuPanel" role="menu">
+          <button role="menuitem" onclick="openMyBookings();closeUserMenu();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>نوبت‌های من</button>
+          <button role="menuitem" class="user-menu-logout" onclick="logout();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>خروج</button>
+        </div>
+      </div>
     </div>
   </div>
 </header>
@@ -2665,7 +2712,73 @@ function toggleLoginOtpMode(){
 function setAuth(token,user){
   AUTH_TOKEN=token;AUTH_USER=user;
   localStorage.setItem('gk_token',token);
+  renderAuthUI();
 }
+
+/* header user menu: shows the logged-in customer's name instead of
+   ورود/ثبت‌نام. AUTH_USER only lives in memory, so a page refresh needs
+   restoreSession() to re-fetch it from the token before this can render. */
+function userInitials(u){
+  const f=(u.firstName||'').trim().charAt(0);
+  const l=(u.lastName||'').trim().charAt(0);
+  return (f+l).toUpperCase()||'؟';
+}
+function renderAuthUI(){
+  const guest=document.getElementById('authGuest');
+  const menu=document.getElementById('userMenu');
+  if(AUTH_USER){
+    guest.style.display='none';
+    menu.style.display='flex';
+    const fullName=`${AUTH_USER.firstName||''} ${AUTH_USER.lastName||''}`.trim()||'حساب من';
+    document.getElementById('userAvatar').textContent=userInitials(AUTH_USER);
+    const nameEl=document.getElementById('userNameLabel');
+    nameEl.textContent=fullName;
+    nameEl.title=fullName;
+  } else {
+    guest.style.display='flex';
+    menu.style.display='none';
+    closeUserMenu();
+  }
+}
+function toggleUserMenu(){
+  const isOpen=document.getElementById('userMenuPanel').classList.toggle('on');
+  document.getElementById('userMenuTrigger').setAttribute('aria-expanded',isOpen?'true':'false');
+}
+function closeUserMenu(){
+  document.getElementById('userMenuPanel').classList.remove('on');
+  document.getElementById('userMenuTrigger').setAttribute('aria-expanded','false');
+}
+document.addEventListener('click',(e)=>{
+  const menu=document.getElementById('userMenu');
+  if(menu && menu.style.display!=='none' && !menu.contains(e.target))closeUserMenu();
+});
+document.addEventListener('keydown',(e)=>{ if(e.key==='Escape')closeUserMenu(); });
+
+function logout(){
+  AUTH_TOKEN=null;AUTH_USER=null;
+  localStorage.removeItem('gk_token');
+  closeUserMenu();
+  closeMyBookings();
+  renderAuthUI();
+}
+
+/* runs once on page load: AUTH_TOKEN survives a refresh via localStorage,
+   but AUTH_USER (name) does not — and the token itself may have expired or
+   belong to a deleted account, so this doubles as the validity check */
+async function restoreSession(){
+  if(!AUTH_TOKEN){ renderAuthUI(); return; }
+  try{
+    const res=await fetch('/api/auth/me',{headers:{Authorization:`Bearer ${AUTH_TOKEN}`}});
+    if(!res.ok)throw new Error('session invalid');
+    const data=await res.json();
+    AUTH_USER=data.user;
+  }catch(e){
+    AUTH_TOKEN=null;AUTH_USER=null;
+    localStorage.removeItem('gk_token');
+  }
+  renderAuthUI();
+}
+restoreSession();
 function playSuccessChime(){
   try{
     const Ctx=window.AudioContext||window.webkitAudioContext;
